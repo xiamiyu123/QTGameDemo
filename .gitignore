@@ -1,5 +1,10 @@
 # Prerequisites
 *.d
+#忽略构建目录
+build/
+cmake-build-debug
+cmake-build-release
+.idea
 
 # Compiled Object files
 *.slo

@@ -27,5 +27,6 @@ set(HEADERS
 add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
 target_link_libraries(${PROJECT_NAME} PRIVATE Qt6::Core Qt6::Gui Qt6::Widgets)
 
+
 # 设置安装规则
 install(TARGETS ${PROJECT_NAME} DESTINATION bin)

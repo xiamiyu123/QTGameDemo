@@ -28,9 +28,8 @@ private:
     Player *m_player;
     TerrainGenerator *m_terrainGenerator;
     QTimer m_timer;
-    
-    void updatePlayerPosition();
-    void updatePlayerOnTerrain();
+
+    void updatePlayerHeight();
     void centerViewOnPlayer();
 };
 

@@ -44,13 +44,20 @@ void Player::keyPressEvent(QKeyEvent *event)
 {
     switch(event->key()) {
     case Qt::Key_Left:
+        if (event->isAutoRepeat())
+            return; // 忽略自动重复事件
         m_movingLeft = true;
+        qDebug() << "Left key pressed";
         break;
     case Qt::Key_Right:
+        if (event->isAutoRepeat())
+            return; // 忽略自动重复事件
         m_movingRight = true;
+        qDebug() << "Right key pressed";
         break;
     default:
-        QGraphicsRectItem::keyPressEvent(event);
+        return;
+        //QGraphicsRectItem::keyPressEvent(event);
     }
 }
 
@@ -58,12 +65,19 @@ void Player::keyReleaseEvent(QKeyEvent *event)
 {
     switch(event->key()) {
     case Qt::Key_Left:
+        if (event->isAutoRepeat())
+            return; // 忽略自动重复事件
         m_movingLeft = false;
+        qDebug() << "Left key released";
         break;
     case Qt::Key_Right:
+        if (event->isAutoRepeat())
+            return; // 忽略自动重复事件
         m_movingRight = false;
+        qDebug() << "Right key released";
         break;
     default:
-        QGraphicsRectItem::keyReleaseEvent(event);
+        return;
+        //QGraphicsRectItem::keyReleaseEvent(event);
     }
 }

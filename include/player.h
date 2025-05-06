@@ -1,6 +1,4 @@
-#ifndef PLAYER_H
-#define PLAYER_H
-
+#pragma once
 #include <QGraphicsRectItem>
 #include <QObject>
 #include <QKeyEvent>
@@ -23,5 +21,3 @@ private:
     bool m_movingLeft;
     bool m_movingRight;
 };
-
-#endif // PLAYER_H

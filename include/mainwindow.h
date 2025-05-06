@@ -1,6 +1,4 @@
-#ifndef MAINWINDOW_H
-#define MAINWINDOW_H
-
+#pragma once
 #include <QMainWindow>
 #include <QGraphicsView>
 #include "gamescene.h"
@@ -17,5 +15,3 @@ private:
     QGraphicsView *m_view;
     GameScene *m_scene;
 };
-
-#endif // MAINWINDOW_H

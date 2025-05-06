@@ -1,5 +1,4 @@
-#ifndef TERRAINGENERATOR_H
-#define TERRAINGENERATOR_H
+#pragma once
 
 #include <QObject>
 #include <QGraphicsScene>
@@ -50,4 +49,3 @@ private:
     qreal noise(qreal x) const;
 };
 
-#endif // TERRAINGENERATOR_H

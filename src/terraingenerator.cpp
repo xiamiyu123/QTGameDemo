@@ -88,7 +88,7 @@ void TerrainGenerator::generateChunk(int chunkIndex)
     // 定义地形参数
     const int POINTS = 3000; // 每个地形块上的点数量
     const int BASE_HEIGHT = 300; // 地基高度
-    const int HEIGHT_VARIATION = 50; // 高度变化范围
+    const int HEIGHT_VARIATION = 20; // 高度变化范围
     const int BASE_SLOPE_FACTOR = 1200; // 基本下降趋势因子
     const int TRANSITION_ZONE = 200; // 两侧过渡区域的点数
 
@@ -230,4 +230,34 @@ qreal TerrainGenerator::noise(qreal x) const
     // 根据需要调整频率（0.005）和振幅（HEIGHT_VARIATION）
     double value = m_perlin.noise(x * 0.005);
     return value * 2.0 - 1.0;  // 映射到 [-1,1]
+}
+
+qreal TerrainGenerator::getTerrainSlope(qreal x) const {
+    // 计算点所在的地形块
+    int chunkIndex = floor(x / CHUNK_WIDTH);
+    qreal localX = x - chunkIndex * CHUNK_WIDTH;
+
+    if (!m_chunkPoints.contains(chunkIndex)) {
+        return 0;
+    }
+
+    const QVector<QPointF> &points = m_chunkPoints[chunkIndex];
+
+    // 找到x坐标最接近的两个点
+    int i = 0;
+    while (i < points.size() && points[i].x() < localX) {
+        i++;
+    }
+
+    if (i <= 0 || i >= points.size()) {
+        return 0;
+    }
+
+    // 计算斜率
+    qreal x1 = points[i-1].x();
+    qreal y1 = points[i-1].y();
+    qreal x2 = points[i].x();
+    qreal y2 = points[i].y();
+
+    return (y2 - y1) / (x2 - x1);
 }

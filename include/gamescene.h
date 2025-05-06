@@ -24,8 +24,13 @@ protected:
     
 private slots:
     void updateUI();
+
+    void handlePhysicsObjectCollision(IPhysicsObject *obj);
+
     void update();
-    
+
+    void initialPlayerHeight();
+
 private:
     GameState GState;
     Player *Gplayer;
@@ -38,6 +43,8 @@ private:
     void togglePause();
 
     QElapsedTimer GElapsedTimer;
+
+    QTime GLastUpdateTime; // 上次更新时间
 
 
     //ui区域

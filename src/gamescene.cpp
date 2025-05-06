@@ -1,6 +1,7 @@
 #include "gamescene.h"
 #include <QGraphicsView>
 #include <QtSvg>
+#include "physical.h"
 GameScene::GameScene(QObject *parent)
     : QGraphicsScene(parent)
 {
@@ -20,10 +21,13 @@ GameScene::GameScene(QObject *parent)
     // 创建玩家
     Gplayer = new Player();
     addItem(Gplayer);
+    // 注册玩家到物理系统
+    PhysicsSystem::instance().registerObject(Gplayer);
     
     // 设置游戏循环定时器
     connect(&GTimer, &QTimer::timeout, this, &GameScene::update);
     GTimer.setInterval(16); // 约60fps
+
 
     // 设置ui控件
     // 设置暂停按钮
@@ -48,8 +52,7 @@ void GameScene::initialize()
     GTerrainGenerator->initialize();
     
     // 将玩家放置在适当位置
-    Gplayer->setPos(500, 0);
-    updatePlayerHeight();
+    initialPlayerHeight();
     
     // 启动游戏循环
     GElapsedTimer.start();
@@ -81,29 +84,31 @@ void GameScene::keyReleaseEvent(QKeyEvent *event)
     //QGraphicsScene::keyReleaseEvent(event);
 }
 
-void GameScene::update() // 每16ms调用一次 更新游戏状态
-{
-    // 更新玩家位置
-    Gplayer->update();
-    
-    // 更新玩家与地形的关系
-    updatePlayerHeight();
-    
+void GameScene::update() {
+    // 时间增量16ms
+    qreal deltaTime = 16.0f / 1000.0f;
+
+    // 更新物理系统（替代直接调用player->update()）
+    PhysicsSystem::instance().update(deltaTime);
+
+    // 处理与地形的碰撞
+    handlePhysicsObjectCollision(Gplayer);
+
     // 更新地形生成
     GTerrainGenerator->updateTerrain(Gplayer->x());
-    
+
     // 让视图跟随玩家
     centerViewOnPlayer();
 
-    // 更新ui控件
+    // 更新UI控件
     updateUI();
 }
 
-void GameScene::updatePlayerHeight() {
-    // 让玩家站在地形上
-    // TODO: 未实现重力
+// 仅用于初始化时放置玩家
+void GameScene::initialPlayerHeight() {
     qreal terrainHeight = GTerrainGenerator->getTerrainHeight(Gplayer->x() + Gplayer->rect().width() / 2);
     Gplayer->setY(terrainHeight - Gplayer->rect().height());
+    Gplayer->setOnGround(true);
 }
 
 void GameScene::centerViewOnPlayer()
@@ -163,4 +168,46 @@ void GameScene::updateUI()
     pauseButton->setGeometry(vp.width() - 50 - 10, 10, 50, 50);
     pauseButton->show();
 
+}
+
+void GameScene::handlePhysicsObjectCollision(IPhysicsObject* obj) {
+    qreal objBottom = obj->position().y() + obj->boundingRect().height();
+    qreal objX = obj->position().x() + obj->boundingRect().width() / 2;
+    qreal terrainHeight = GTerrainGenerator->getTerrainHeight(objX);
+    qreal terrainSlope = GTerrainGenerator->getTerrainSlope(objX);
+
+    // 添加检测容差，允许角色在地面上方一小段距离也被视为"接地"
+    qreal groundTolerance = 5.0; // 可调整的容差值
+
+    if (objBottom + groundTolerance >= terrainHeight) {
+        // 如果接近或到达地面
+        if (objBottom < terrainHeight) {
+            // 如果在容差范围内但未实际接触地面，且正在下落
+            if (obj->velocity().y() > 0) {
+                // 只有在下落时才吸附到地面
+                obj->setPosition(QPointF(obj->position().x(), terrainHeight - obj->boundingRect().height()));
+            }
+        } else {
+            // 正常的地面接触处理
+            obj->setPosition(QPointF(obj->position().x(), terrainHeight - obj->boundingRect().height()));
+        }
+
+        // 计算飞跃条件 - 保持原有逻辑
+        qreal horizontalSpeed = qAbs(obj->velocity().x());
+        qreal slopeThreshold = 5;
+        qreal speedThreshold = 8;
+
+        if (qAbs(terrainSlope) > slopeThreshold && horizontalSpeed > speedThreshold) {
+            qreal jumpVelocity = -horizontalSpeed * qAbs(terrainSlope) * 0.8;
+            jumpVelocity = qBound(-15.0, jumpVelocity, -3.0);
+
+            obj->setVelocity(QPointF(obj->velocity().x(), jumpVelocity));
+            obj->setOnGround(false);
+        } else {
+            obj->setVelocity(QPointF(obj->velocity().x(), 0));
+            obj->setOnGround(true);
+        }
+    } else {
+        obj->setOnGround(false);
+    }
 }

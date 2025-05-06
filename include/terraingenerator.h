@@ -21,8 +21,11 @@ public:
     // 更新地形（基于玩家位置）
     void updateTerrain(qreal playerX);
     
-    // 获取地形高度
+    // 获取指定位置地形高度
     qreal getTerrainHeight(qreal x) const;
+
+    // 获取指定位置的地形坡度（返回斜率值）
+    qreal getTerrainSlope(qreal x) const;
     
 private:
     static const int CHUNK_WIDTH = 3600;    // 地形块宽度
@@ -47,5 +50,7 @@ private:
     
     // 获取噪声值
     qreal noise(qreal x) const;
+
+
 };
 

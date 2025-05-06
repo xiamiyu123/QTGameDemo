@@ -1,6 +1,7 @@
 #include "gamescene.h"
 #include <QGraphicsView>
 #include <QtSvg>
+#include "physical.h"
 GameScene::GameScene(QObject *parent)
     : QGraphicsScene(parent)
 {
@@ -20,6 +21,9 @@ GameScene::GameScene(QObject *parent)
     // 创建玩家
     Gplayer = new Player();
     addItem(Gplayer);
+
+    // 注册玩家到物理系统
+    PhysicsSystem::instance().registerObject(Gplayer);
     
     // 设置游戏循环定时器
     connect(&GTimer, &QTimer::timeout, this, &GameScene::update);
@@ -48,8 +52,7 @@ void GameScene::initialize()
     GTerrainGenerator->initialize();
     
     // 将玩家放置在适当位置
-    Gplayer->setPos(500, 0);
-    updatePlayerHeight();
+    initialPlayerPosition();
     
     // 启动游戏循环
     GElapsedTimer.start();
@@ -81,29 +84,33 @@ void GameScene::keyReleaseEvent(QKeyEvent *event)
     //QGraphicsScene::keyReleaseEvent(event);
 }
 
-void GameScene::update() // 每16ms调用一次 更新游戏状态
-{
-    // 更新玩家位置
-    Gplayer->update();
-    
-    // 更新玩家与地形的关系
-    updatePlayerHeight();
-    
+void GameScene::update() {
+    // 时间增量16ms
+    qreal deltaTime = 16.0f / 1000.0f;
+
+    // 更新物理系统（替代直接调用player->update()）
+    PhysicsSystem::instance().update(deltaTime);
+
+    // 处理与地形的碰撞
+    handlePhysicsObjectCollision(Gplayer);
+
     // 更新地形生成
     GTerrainGenerator->updateTerrain(Gplayer->x());
-    
+
     // 让视图跟随玩家
     centerViewOnPlayer();
 
-    // 更新ui控件
+    // 更新UI控件
     updateUI();
 }
 
-void GameScene::updatePlayerHeight() {
-    // 让玩家站在地形上
-    // TODO: 未实现重力
-    qreal terrainHeight = GTerrainGenerator->getTerrainHeight(Gplayer->x() + Gplayer->rect().width() / 2);
+// 仅用于初始化时放置玩家
+void GameScene::initialPlayerPosition() {
+
+    qreal terrainHeight = GTerrainGenerator->getTerrainHeight(1200);
     Gplayer->setY(terrainHeight - Gplayer->rect().height());
+    Gplayer->setX(1200); // 玩家方块偏左一点以更符合滑雪大冒险
+    Gplayer->setOnGround(true);
 }
 
 void GameScene::centerViewOnPlayer()
@@ -163,4 +170,63 @@ void GameScene::updateUI()
     pauseButton->setGeometry(vp.width() - 50 - 10, 10, 50, 50);
     pauseButton->show();
 
+}
+
+void GameScene::handlePhysicsObjectCollision(IPhysicsObject* obj) {
+    qreal objBottom = obj->position().y() + obj->boundingRect().height();
+    qreal objX = obj->position().x() + obj->boundingRect().width() / 2;
+    qreal terrainHeight = GTerrainGenerator->getTerrainHeight(objX);
+    qreal terrainSlope = GTerrainGenerator->getTerrainSlope(objX);
+
+    // 检测容差
+    qreal groundTolerance = 8.0;
+
+    if (objBottom + groundTolerance >= terrainHeight) {
+        // 地面接触处理
+        if (objBottom < terrainHeight) {
+            if (obj->velocity().y() > 0) {
+                obj->setPosition(QPointF(obj->position().x(), terrainHeight - obj->boundingRect().height()));
+            }
+        } else {
+            obj->setPosition(QPointF(obj->position().x(), terrainHeight - obj->boundingRect().height()));
+        }
+
+        // 计算斜坡效果
+        qreal slopeSlideForce = 0;
+        qreal slopeSlideThreshold = 0.2;
+        qreal maxSlideSpeed = 200.0;
+
+        // 计算斜坡滑行力
+        if (terrainSlope > slopeSlideThreshold) {
+            // 下坡滑行力
+            slopeSlideForce = terrainSlope * 500.0;
+            slopeSlideForce = qMin(slopeSlideForce, maxSlideSpeed);
+        }
+        else if (terrainSlope < -slopeSlideThreshold) {
+            // 上坡阻力
+            slopeSlideForce = terrainSlope * 200.0;
+        }
+
+        // 应用斜坡滑行力到任何物理对象
+        obj->setSlopeSlideSpeed(slopeSlideForce);
+
+        // 计算飞跃条件
+        qreal horizontalSpeed = qAbs(obj->velocity().x());
+        qreal slopeThreshold = 20;
+        qreal speedThreshold = 150;
+
+        if (qAbs(terrainSlope) > slopeThreshold && horizontalSpeed > speedThreshold) {
+            qreal jumpVelocity = -horizontalSpeed * qAbs(terrainSlope) * 0.3;
+            jumpVelocity = qBound(-600.0, jumpVelocity, -150.0);
+
+            obj->setVelocity(QPointF(obj->velocity().x(), jumpVelocity));
+            obj->setOnGround(false);
+        } else {
+            obj->setVelocity(QPointF(obj->velocity().x(), 0));
+            obj->setOnGround(true);
+        }
+    } else {
+        obj->setOnGround(false);
+        obj->setSlopeSlideSpeed(0); // 不在地面上清除滑行速度
+    }
 }

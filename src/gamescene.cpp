@@ -21,13 +21,13 @@ GameScene::GameScene(QObject *parent)
     // 创建玩家
     Gplayer = new Player();
     addItem(Gplayer);
+
     // 注册玩家到物理系统
     PhysicsSystem::instance().registerObject(Gplayer);
     
     // 设置游戏循环定时器
     connect(&GTimer, &QTimer::timeout, this, &GameScene::update);
     GTimer.setInterval(16); // 约60fps
-
 
     // 设置ui控件
     // 设置暂停按钮
@@ -52,7 +52,7 @@ void GameScene::initialize()
     GTerrainGenerator->initialize();
     
     // 将玩家放置在适当位置
-    initialPlayerHeight();
+    initialPlayerPosition();
     
     // 启动游戏循环
     GElapsedTimer.start();
@@ -105,9 +105,11 @@ void GameScene::update() {
 }
 
 // 仅用于初始化时放置玩家
-void GameScene::initialPlayerHeight() {
-    qreal terrainHeight = GTerrainGenerator->getTerrainHeight(Gplayer->x() + Gplayer->rect().width() / 2);
+void GameScene::initialPlayerPosition() {
+
+    qreal terrainHeight = GTerrainGenerator->getTerrainHeight(1200);
     Gplayer->setY(terrainHeight - Gplayer->rect().height());
+    Gplayer->setX(1200); // 玩家方块偏左一点以更符合滑雪大冒险
     Gplayer->setOnGround(true);
 }
 
@@ -176,30 +178,46 @@ void GameScene::handlePhysicsObjectCollision(IPhysicsObject* obj) {
     qreal terrainHeight = GTerrainGenerator->getTerrainHeight(objX);
     qreal terrainSlope = GTerrainGenerator->getTerrainSlope(objX);
 
-    // 添加检测容差，允许角色在地面上方一小段距离也被视为"接地"
-    qreal groundTolerance = 5.0; // 可调整的容差值
+    // 检测容差
+    qreal groundTolerance = 8.0;
 
     if (objBottom + groundTolerance >= terrainHeight) {
-        // 如果接近或到达地面
+        // 地面接触处理
         if (objBottom < terrainHeight) {
-            // 如果在容差范围内但未实际接触地面，且正在下落
             if (obj->velocity().y() > 0) {
-                // 只有在下落时才吸附到地面
                 obj->setPosition(QPointF(obj->position().x(), terrainHeight - obj->boundingRect().height()));
             }
         } else {
-            // 正常的地面接触处理
             obj->setPosition(QPointF(obj->position().x(), terrainHeight - obj->boundingRect().height()));
         }
 
-        // 计算飞跃条件 - 保持原有逻辑
+        // 计算斜坡效果
+        qreal slopeSlideForce = 0;
+        qreal slopeSlideThreshold = 0.2;
+        qreal maxSlideSpeed = 200.0;
+
+        // 计算斜坡滑行力
+        if (terrainSlope > slopeSlideThreshold) {
+            // 下坡滑行力
+            slopeSlideForce = terrainSlope * 500.0;
+            slopeSlideForce = qMin(slopeSlideForce, maxSlideSpeed);
+        }
+        else if (terrainSlope < -slopeSlideThreshold) {
+            // 上坡阻力
+            slopeSlideForce = terrainSlope * 200.0;
+        }
+
+        // 应用斜坡滑行力到任何物理对象
+        obj->setSlopeSlideSpeed(slopeSlideForce);
+
+        // 计算飞跃条件
         qreal horizontalSpeed = qAbs(obj->velocity().x());
-        qreal slopeThreshold = 5;
-        qreal speedThreshold = 8;
+        qreal slopeThreshold = 20;
+        qreal speedThreshold = 150;
 
         if (qAbs(terrainSlope) > slopeThreshold && horizontalSpeed > speedThreshold) {
-            qreal jumpVelocity = -horizontalSpeed * qAbs(terrainSlope) * 0.8;
-            jumpVelocity = qBound(-15.0, jumpVelocity, -3.0);
+            qreal jumpVelocity = -horizontalSpeed * qAbs(terrainSlope) * 0.3;
+            jumpVelocity = qBound(-600.0, jumpVelocity, -150.0);
 
             obj->setVelocity(QPointF(obj->velocity().x(), jumpVelocity));
             obj->setOnGround(false);
@@ -209,5 +227,6 @@ void GameScene::handlePhysicsObjectCollision(IPhysicsObject* obj) {
         }
     } else {
         obj->setOnGround(false);
+        obj->setSlopeSlideSpeed(0); // 不在地面上清除滑行速度
     }
 }

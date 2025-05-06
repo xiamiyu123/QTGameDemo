@@ -10,8 +10,15 @@ Player::Player(QGraphicsItem *parent)
       m_velocityY(0),
       m_movingLeft(false),
       m_movingRight(false),
-      m_onGround(false)
+      m_onGround(false),
+      m_moveSpeed(300),
+      m_slopeSlideSpeed(0)
 {
+    // 设置物理组件
+    m_physicsComponent = new PhysicsComponent(this);
+    m_physicsComponent->setGravity(1000);
+    m_physicsComponent->setJumpForce(-500);
+    m_physicsComponent->setFrictionFactor(0.85); // 设置摩擦力
     // 设置玩家外观
     setBrush(QBrush(Qt::red));
     setPen(QPen(Qt::black, 2));
@@ -20,13 +27,10 @@ Player::Player(QGraphicsItem *parent)
     setFlag(QGraphicsItem::ItemIsFocusable);
     setFocus();
 
-    // 创建物理组件
-    m_physicsComponent = new PhysicsComponent(this);
-    m_physicsComponent->setGravity(1000);
-    m_physicsComponent->setJumpForce(-500);
 
     // 注册到物理系统
     PhysicsSystem::instance().registerObject(this);
+
 }
 
 Player::~Player()
@@ -34,26 +38,6 @@ Player::~Player()
     // 从物理系统中移除
     PhysicsSystem::instance().unregisterObject(this);
     delete m_physicsComponent;
-}
-
-void Player::move(qreal dx, qreal dy)
-{
-    setPos(x() + dx, y() + dy);
-}
-
-void Player::update()
-{
-    // 处理键盘输入导致的水平移动
-    if (m_movingLeft) {
-        m_velocityX = -5;
-    } else if (m_movingRight) {
-        m_velocityX = 5;
-    } else {
-        m_velocityX = 0;
-    }
-
-    // 只更新水平移动，垂直移动由物理系统管理
-    move(m_velocityX, 0);
 }
 
 void Player::keyPressEvent(QKeyEvent *event)
@@ -142,17 +126,14 @@ void Player::setOnGround(bool onGround)
 }
 
 void Player::updatePhysics(float deltaTime) {
-    // 应用水平移动，使用更大的速度值
-    if (m_movingLeft) {
-        m_velocityX = -300;  // 从-5增加到-300
-    } else if (m_movingRight) {
-        m_velocityX = 300;   // 从5增加到300
-    } else {
-        m_velocityX = 0;
-    }
-    // 更新水平位置
-    setX(x() + m_velocityX * deltaTime);
-
-    // 应用重力（垂直方向物理）
+    // 使用物理组件处理移动和重力
+    m_physicsComponent->applyHorizontalMovement(deltaTime);
     m_physicsComponent->applyGravity(deltaTime);
 }
+
+qreal Player::getSlopeSlideSpeed() const { return m_slopeSlideSpeed; }
+void Player::setSlopeSlideSpeed(qreal speed) { m_slopeSlideSpeed = speed; }
+qreal Player::getMoveSpeed() const { return m_moveSpeed; }
+void Player::setMoveSpeed(qreal speed) { m_moveSpeed = speed; }
+bool Player::isMovingLeft() const { return m_movingLeft; }
+bool Player::isMovingRight() const { return m_movingRight; }

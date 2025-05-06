@@ -5,8 +5,9 @@ MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
 {
     // 窗口基本设置：设置初始尺寸与标题
-    resize(800, 600); // 宽800，高600
-    setWindowTitle("无限滚动地形演示");
+    //设置全屏
+    setWindowState(Qt::WindowMaximized);
+    setWindowTitle("滑雪大冒险");
     // 初始化视图 (QGraphicsView)，并配置渲染与背景
     m_view = new QGraphicsView(this);
     m_view->setRenderHint(QPainter::Antialiasing); // 开启抗锯齿

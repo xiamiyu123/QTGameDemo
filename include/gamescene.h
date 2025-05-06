@@ -29,7 +29,7 @@ private slots:
 
     void update();
 
-    void initialPlayerHeight();
+    void initialPlayerPosition();
 
 private:
     GameState GState;

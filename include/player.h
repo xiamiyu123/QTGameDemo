@@ -12,8 +12,6 @@ public:
     Player(QGraphicsItem *parent = nullptr);
     ~Player() override;
 
-    void move(qreal dx, qreal dy);
-    void update();
     void keyPressEvent(QKeyEvent *event) override;
     void keyReleaseEvent(QKeyEvent *event) override;
 
@@ -27,12 +25,26 @@ public:
     void setOnGround(bool onGround) override;
     void updatePhysics(float deltaTime) override;
 
+    qreal getSlopeSlideSpeed() const override;
+
+    void setSlopeSlideSpeed(qreal speed) override;
+
+    qreal getMoveSpeed() const override;
+
+    void setMoveSpeed(qreal speed) override;
+
+    bool isMovingLeft() const;
+
+    bool isMovingRight() const;
+
 private:
     qreal m_velocityX;
     qreal m_velocityY;
     bool m_movingLeft;
     bool m_movingRight;
     bool m_onGround;
+    qreal m_moveSpeed;
+    qreal m_slopeSlideSpeed;
 
     PhysicsComponent* m_physicsComponent;
 };

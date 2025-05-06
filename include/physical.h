@@ -9,30 +9,29 @@
  * IPhysicsObject: 对外提供物理对象必须实现的纯虚接口。
  * 负责获取/设置位置、速度、边界框，并处理是否在地面上等状态，以及物理更新接口。
  */
+// 在 physical.h 中修改 IPhysicsObject 接口
 class IPhysicsObject {
 public:
     virtual ~IPhysicsObject() = default;
 
-    // 获取当前对象的位置（x,y）
+    // 现有方法保持不变
     virtual QPointF position() const = 0;
-    // 设置对象的位置
     virtual void setPosition(const QPointF& pos) = 0;
-
-    // 获取当前对象的速度（x,y）
     virtual QPointF velocity() const = 0;
-    // 设置对象的速度
     virtual void setVelocity(const QPointF& velocity) = 0;
-
-    // 获取对象的边界矩形（用于碰撞检测）
     virtual QRectF boundingRect() const = 0;
-
-    // 判断对象是否与地面接触
     virtual bool isOnGround() const = 0;
-    // 设置对象的在地面状态
     virtual void setOnGround(bool onGround) = 0;
-
-    // 按照给定时间增量更新对象的物理状态
     virtual void updatePhysics(float deltaTime) = 0;
+
+    // 新增斜坡滑行相关方法
+    virtual qreal getSlopeSlideSpeed() const = 0;
+    virtual void setSlopeSlideSpeed(qreal speed) = 0;
+    virtual qreal getMoveSpeed() const = 0;
+    virtual void setMoveSpeed(qreal speed) = 0;
+    virtual bool isMovingLeft() const = 0;
+    virtual bool isMovingRight() const = 0;
+
 };
 
 /*
@@ -40,65 +39,123 @@ public:
  */
 class PhysicsComponent {
 public:
-    // 构造时关联所属对象
-    PhysicsComponent(IPhysicsObject* owner) : m_owner(owner) {}
 
-    // 设置重力加速度，正值向下
     void setGravity(qreal gravity) { m_gravity = gravity; }
-    // 设置跳跃初始冲力，负值向上
     void setJumpForce(qreal force) { m_jumpForce = force; }
     qreal getGravity() const { return m_gravity; }
     qreal getJumpForce() const { return m_jumpForce; }
 
-    /*
-     * applyGravity: 根据 deltaTime 应用重力加速度
-     * 1. 更新速度：v_y += g * dt
-     * 2. 限制最大下落速度（若需要）
-     * 3. 更新位置：y += v_y * dt
-     */
+    void setFrictionFactor(qreal factor) { m_frictionFactor = qBound(0.0, factor, 1.0); }
+    qreal getFrictionFactor() const { return m_frictionFactor; }
+
     void applyGravity(float deltaTime) {
-        // 获取当前速度
         QPointF vel = m_owner->velocity();
-
-
-        // 在 y 方向增加重力加速度
         vel.setY(vel.y() + m_gravity * deltaTime);
-        // TODO: 可在此添加对 m_maxFallSpeed 的限制
-
-        // 设置新的速度
         m_owner->setVelocity(vel);
 
-        // 按新速度更新位置
         QPointF pos = m_owner->position();
         pos.setY(pos.y() + vel.y() * deltaTime);
         m_owner->setPosition(pos);
     }
 
-    /*
-     * jump: 如果当前在地面状态，则赋予向上跳跃的初速度，并设置为非地面状态
-     */
     void jump() {
-        // 仅在物体接触地面时才允许跳跃，以防止空中二次跳跃
         if (m_owner->isOnGround()) {
-            // 获取当前速度向量
             QPointF vel = m_owner->velocity();
-            // 将垂直速度分量设置为跳跃初速度（m_jumpForce 为负值表示向上）
             vel.setY(m_jumpForce);
-            // 应用新的速度，让物体产生向上的初始冲力
             m_owner->setVelocity(vel);
-
-            // 将接触地面状态设为 false，
-            // 标记物体已离地，以避免未落地前再次触发跳跃
             m_owner->setOnGround(false);
         }
     }
 
+    // 新增处理水平移动和斜坡滑行的方法
+void applyHorizontalMovement(float deltaTime) {
+    qreal currentVelocityX = m_owner->velocity().x();
+    qreal targetVelocityX = 0;
+    qreal acceleration = 0;
+
+    // 确定目标速度
+    if (m_owner->isMovingLeft()) {
+        targetVelocityX = -m_owner->getMoveSpeed();
+    } else if (m_owner->isMovingRight()) {
+        targetVelocityX = m_owner->getMoveSpeed();
+    }
+
+    // 添加斜坡滑行速度
+    targetVelocityX += m_owner->getSlopeSlideSpeed();
+
+    // 根据是否在地面上调整加速率
+    qreal airControlFactor = m_owner->isOnGround() ? 1.0 : 0.3;
+
+    // 计算需要应用的加速度
+    if (targetVelocityX != 0) {
+        // 加速或保持速度
+        if ((targetVelocityX > 0 && currentVelocityX < targetVelocityX) ||
+            (targetVelocityX < 0 && currentVelocityX > targetVelocityX)) {
+
+            // 检测是否在转向（当前速度与目标速度方向相反）
+            if ((currentVelocityX > 0 && targetVelocityX < 0) ||
+                (currentVelocityX < 0 && targetVelocityX > 0)) {
+                acceleration = m_accelerationRate * m_directionChangeMultiplier * airControlFactor;
+            } else {
+                acceleration = m_accelerationRate * airControlFactor;
+            }
+        }
+    } else if (currentVelocityX != 0) {
+        // 减速到停止
+        acceleration = m_decelerationRate * airControlFactor;
+    }
+
+    // 应用加速度
+    if (acceleration > 0) {
+        if (targetVelocityX > currentVelocityX) {
+            currentVelocityX = qMin(currentVelocityX + acceleration * deltaTime, targetVelocityX);
+        } else if (targetVelocityX < currentVelocityX) {
+            currentVelocityX = qMax(currentVelocityX - acceleration * deltaTime, targetVelocityX);
+        } else if (targetVelocityX == 0) {
+            // 减速到停止
+            if (currentVelocityX > 0) {
+                currentVelocityX = qMax(currentVelocityX - acceleration * deltaTime, 0.0);
+            } else {
+                currentVelocityX = qMin(currentVelocityX + acceleration * deltaTime, 0.0);
+            }
+        }
+    }
+
+    // 更新速度和位置
+    QPointF vel = m_owner->velocity();
+    vel.setX(currentVelocityX);
+    m_owner->setVelocity(vel);
+
+    QPointF pos = m_owner->position();
+    pos.setX(pos.x() + vel.x() * deltaTime);
+    m_owner->setPosition(pos);
+    }
+
+
 private:
-    IPhysicsObject* m_owner;      // 所属物理对象
-    qreal m_gravity = 50;        // 默认重力加速度
-    qreal m_jumpForce = -15;      // 默认跳跃初速度
-    qreal m_maxFallSpeed = 200;    // 最大下落速度（目前未使用）
+    qreal m_accelerationRate;    // 加速率
+    qreal m_decelerationRate;    // 减速率
+    qreal m_directionChangeMultiplier; // 转向时的加速系数
+
+public:
+    explicit PhysicsComponent(IPhysicsObject* owner)
+        : m_owner(owner), m_gravity(50), m_jumpForce(-15),
+          m_maxFallSpeed(200), m_frictionFactor(0.92),
+          m_accelerationRate(800), m_decelerationRate(1200),
+          m_directionChangeMultiplier(1.5) {}
+
+    // 设置加速率
+    void setAccelerationRate(qreal rate) { m_accelerationRate = rate; }
+    void setDecelerationRate(qreal rate) { m_decelerationRate = rate; }
+
+private:
+    IPhysicsObject* m_owner;
+    qreal m_gravity;
+    qreal m_jumpForce;
+    qreal m_maxFallSpeed;
+    qreal m_frictionFactor;  // 控制速度平滑变化的因子
 };
+
 
 /*
  * PhysicsSystem: 单例模式管理所有注册的 IPhysicsObject，并在每帧调用其 updatePhysics

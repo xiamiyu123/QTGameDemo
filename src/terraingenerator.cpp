@@ -86,7 +86,7 @@ void TerrainGenerator::generateChunk(int chunkIndex)
     }
 
     // 定义地形参数
-    const int POINTS = 6000; // 每个地形块上的点数量
+    const int POINTS = 3000; // 每个地形块上的点数量
     const int BASE_HEIGHT = 300; // 地基高度
     const int HEIGHT_VARIATION = 50; // 高度变化范围
     const int BASE_SLOPE_FACTOR = 1200; // 基本下降趋势因子

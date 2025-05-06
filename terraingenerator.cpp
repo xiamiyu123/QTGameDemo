@@ -14,6 +14,8 @@ TerrainGenerator::TerrainGenerator(QGraphicsScene *scene, QObject *parent)
     m_seed = QDateTime::currentMSecsSinceEpoch();
     m_randomGenerator = QRandomGenerator(m_seed);  // 创建自己的随机生成器实例
     m_perlin = PerlinNoise(m_seed); // 使用随机种子初始化Perlin噪声类
+    // 初始化累计下降因子
+    TOTAL_SLOPE_FACTOR = 0;
 }
 void TerrainGenerator::initialize()
 {
@@ -84,10 +86,10 @@ void TerrainGenerator::generateChunk(int chunkIndex)
     }
 
     // 定义地形参数
-    const int POINTS = 2000; // 每个地形块上的点数量
+    const int POINTS = 6000; // 每个地形块上的点数量
     const int BASE_HEIGHT = 300; // 地基高度
     const int HEIGHT_VARIATION = 50; // 高度变化范围
-    const int SLOPE_FACTOR = 400; // 下降趋势的因子
+    const int BASE_SLOPE_FACTOR = 1200; // 基本下降趋势因子
     const int TRANSITION_ZONE = 200; // 两侧过渡区域的点数
 
     // 创建地形点
@@ -96,6 +98,16 @@ void TerrainGenerator::generateChunk(int chunkIndex)
     // 确保与前一个块平滑连接
     qreal startHeight = BASE_HEIGHT;
     qreal startSlope = 0.0; // 记录起始斜率
+    qreal SLOPE_FACTOR = BASE_SLOPE_FACTOR;
+
+    // //随机变化下降趋势因子
+    // //因为会引起我不会修的bug暂时停用
+    // int randomFactor = m_randomGenerator.bounded(0, 2);
+    // if (randomFactor == 0) {
+    //     SLOPE_FACTOR -= m_randomGenerator.bounded(0, 200);
+    // } else if (randomFactor == 1) {
+    //     SLOPE_FACTOR += m_randomGenerator.bounded(0, 100);
+    // }
 
     if (chunkIndex > 0 && m_chunkPoints.contains(chunkIndex - 1)) {
         const QVector<QPointF>& prevPoints = m_chunkPoints[chunkIndex - 1];
@@ -121,6 +133,7 @@ void TerrainGenerator::generateChunk(int chunkIndex)
 
     // 第一个点
     points.append(QPointF(0, startHeight));
+    TOTAL_SLOPE_FACTOR += SLOPE_FACTOR;
 
     // 生成随机地形点
     for (int i = 1; i < POINTS; ++i) {
@@ -131,7 +144,7 @@ void TerrainGenerator::generateChunk(int chunkIndex)
         qreal noiseValue = noise(globalX * 1); // 因为一层就够好所以暂时只用一层
 
         // 平滑的下降趋势
-        qreal downwardTrend = chunkIndex * SLOPE_FACTOR + qSqrt((qreal)i / POINTS) * SLOPE_FACTOR;
+        qreal downwardTrend = TOTAL_SLOPE_FACTOR + qSqrt((qreal)i / POINTS) * SLOPE_FACTOR;
 
         // 计算基础高度
         qreal baseHeight = BASE_HEIGHT + downwardTrend;
@@ -177,8 +190,8 @@ void TerrainGenerator::generateChunk(int chunkIndex)
     }
 
     // 完成地形封闭
-    path.lineTo(CHUNK_WIDTH, 10000);
-    path.lineTo(0, 10000);
+    path.lineTo(CHUNK_WIDTH, 5000000);
+    path.lineTo(0, 5000000);
     path.closeSubpath();
 
     // 创建地形项

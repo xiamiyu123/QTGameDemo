@@ -26,7 +26,7 @@ public:
     qreal getTerrainHeight(qreal x) const;
     
 private:
-    static const int CHUNK_WIDTH = 1200;    // 地形块宽度
+    static const int CHUNK_WIDTH = 3600;    // 地形块宽度
     static const int VIEW_CHUNKS = 3;      // 视图范围内保持的地形块数量
     
     QGraphicsScene *m_scene;
@@ -40,6 +40,8 @@ private:
     void generateChunk(int chunkIndex);
 
     PerlinNoise m_perlin;
+
+    qreal TOTAL_SLOPE_FACTOR;
     
     // 删除远离的地形块
     void removeDistantChunks(int currentChunk);

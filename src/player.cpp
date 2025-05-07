@@ -44,7 +44,7 @@ void Player::keyPressEvent(QKeyEvent *event)
         case Qt::Key_Space:
         case Qt::Key_Up:
             jump();
-        qDebug() << "Jump";
+
         break;
     }
 }
@@ -73,6 +73,10 @@ void Player::jump()
         vel.setY(m_jumpForce);
         setVelocity(vel);
         setOnGround(false);
+        qDebug() << "Jump";
+    }
+    else {
+        qDebug() << "Jump is not available";
     }
 }
 

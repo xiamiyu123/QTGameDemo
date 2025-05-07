@@ -8,25 +8,23 @@
 
 TerrainGenerator::TerrainGenerator(QGraphicsScene *scene, QObject *parent)
     : QObject(parent),
-      m_scene(scene)
-{
+      m_scene(scene) {
     // 初始化随机种子
     m_seed = QDateTime::currentMSecsSinceEpoch();
-    m_randomGenerator = QRandomGenerator(m_seed);  // 创建自己的随机生成器实例
+    m_randomGenerator = QRandomGenerator(m_seed); // 创建自己的随机生成器实例
     m_perlin = PerlinNoise(m_seed); // 使用随机种子初始化Perlin噪声类
     // 初始化累计下降因子
     TOTAL_SLOPE_FACTOR = 0;
 }
-void TerrainGenerator::initialize()
-{
+
+void TerrainGenerator::initialize() {
     // 生成初始地形块
     for (int i = -1; i <= 1; ++i) {
         generateChunk(i);
     }
 }
 
-void TerrainGenerator::updateTerrain(qreal playerX)
-{
+void TerrainGenerator::updateTerrain(qreal playerX) {
     // 计算玩家当前所在的地形块
     int currentChunk = floor(playerX / CHUNK_WIDTH);
 
@@ -41,8 +39,7 @@ void TerrainGenerator::updateTerrain(qreal playerX)
     removeDistantChunks(currentChunk);
 }
 
-qreal TerrainGenerator::getTerrainHeight(qreal x) const
-{
+qreal TerrainGenerator::getTerrainHeight(qreal x) const {
     // 计算点所在的地形块
     int chunkIndex = floor(x / CHUNK_WIDTH);
     qreal localX = x - chunkIndex * CHUNK_WIDTH;
@@ -69,8 +66,8 @@ qreal TerrainGenerator::getTerrainHeight(qreal x) const
     }
 
     // 线性插值
-    qreal x1 = points[i-1].x();
-    qreal y1 = points[i-1].y();
+    qreal x1 = points[i - 1].x();
+    qreal y1 = points[i - 1].y();
     qreal x2 = points[i].x();
     qreal y2 = points[i].y();
 
@@ -79,8 +76,7 @@ qreal TerrainGenerator::getTerrainHeight(qreal x) const
     return y1 + slope * (localX - x1);
 }
 
-void TerrainGenerator::generateChunk(int chunkIndex)
-{
+void TerrainGenerator::generateChunk(int chunkIndex) {
     if (m_chunks.contains(chunkIndex)) {
         return;
     }
@@ -88,7 +84,7 @@ void TerrainGenerator::generateChunk(int chunkIndex)
     // 定义地形参数
     const int POINTS = 3000; // 每个地形块上的点数量
     const int BASE_HEIGHT = 300; // 地基高度
-    const int HEIGHT_VARIATION = 20; // 高度变化范围
+    const int HEIGHT_VARIATION = 10; // 高度变化范围
     const int BASE_SLOPE_FACTOR = 1600; // 基本下降趋势因子
     const int TRANSITION_ZONE = 800; // 两侧过渡区域的点数
 
@@ -110,7 +106,7 @@ void TerrainGenerator::generateChunk(int chunkIndex)
     // }
 
     if (chunkIndex > 0 && m_chunkPoints.contains(chunkIndex - 1)) {
-        const QVector<QPointF>& prevPoints = m_chunkPoints[chunkIndex - 1];
+        const QVector<QPointF> &prevPoints = m_chunkPoints[chunkIndex - 1];
         startHeight = prevPoints.last().y();
 
         // 计算前一块末尾的斜率
@@ -120,7 +116,7 @@ void TerrainGenerator::generateChunk(int chunkIndex)
             startSlope = lastDelta / lastDx;
         }
     } else if (chunkIndex < 0 && m_chunkPoints.contains(chunkIndex + 1)) {
-        const QVector<QPointF>& nextPoints = m_chunkPoints[chunkIndex + 1];
+        const QVector<QPointF> &nextPoints = m_chunkPoints[chunkIndex + 1];
         startHeight = nextPoints.first().y();
 
         // 计算后一块开始的斜率
@@ -137,14 +133,14 @@ void TerrainGenerator::generateChunk(int chunkIndex)
 
     // 生成随机地形点
     for (int i = 1; i < POINTS; ++i) {
-        qreal x = (qreal)i / POINTS * CHUNK_WIDTH;
+        qreal x = (qreal) i / POINTS * CHUNK_WIDTH;
         qreal globalX = x + chunkIndex * CHUNK_WIDTH;
 
         // 使用多层柏林噪声函数生成地形
         qreal noiseValue = noise(globalX * 1); // 因为一层就够好所以暂时只用一层
 
         // 平滑的下降趋势
-        qreal downwardTrend = TOTAL_SLOPE_FACTOR + qSqrt((qreal)i / POINTS) * SLOPE_FACTOR;
+        qreal downwardTrend = TOTAL_SLOPE_FACTOR + qSqrt((qreal) i / POINTS) * SLOPE_FACTOR;
 
         // 计算基础高度
         qreal baseHeight = BASE_HEIGHT + downwardTrend;
@@ -154,7 +150,7 @@ void TerrainGenerator::generateChunk(int chunkIndex)
         // 在过渡区域内，使用平滑函数（而非线性）混合来过渡
         if (i < TRANSITION_ZONE) {
             // 使用余弦插值函数替代线性插值，提供更自然的过渡
-            qreal t = (qreal)i / TRANSITION_ZONE;
+            qreal t = (qreal) i / TRANSITION_ZONE;
             qreal smoothT = (1 - qCos(t * M_PI)) * 0.5; // 余弦平滑函数
 
             // 计算预期高度（根据起始点和斜率）
@@ -205,8 +201,7 @@ void TerrainGenerator::generateChunk(int chunkIndex)
     m_chunks[chunkIndex] = terrainItem;
 }
 
-void TerrainGenerator::removeDistantChunks(int currentChunk)
-{
+void TerrainGenerator::removeDistantChunks(int currentChunk) {
     QList<int> chunksToRemove;
 
     // 查找并删除远离的块
@@ -217,7 +212,7 @@ void TerrainGenerator::removeDistantChunks(int currentChunk)
     }
 
     // 从场景和映射中删除
-    for (int index : chunksToRemove) {
+    for (int index: chunksToRemove) {
         m_scene->removeItem(m_chunks[index]);
         delete m_chunks[index];
         m_chunks.remove(index);
@@ -225,11 +220,10 @@ void TerrainGenerator::removeDistantChunks(int currentChunk)
     }
 }
 
-qreal TerrainGenerator::noise(qreal x) const
-{
+qreal TerrainGenerator::noise(qreal x) const {
     // 根据需要调整频率（0.005）和振幅（HEIGHT_VARIATION）
     double value = m_perlin.noise(x * 0.005);
-    return value * 2.0 - 1.0;  // 映射到 [-1,1]
+    return value * 2.0 - 1.0; // 映射到 [-1,1]
 }
 
 qreal TerrainGenerator::getTerrainSlope(qreal x) const {
@@ -254,8 +248,8 @@ qreal TerrainGenerator::getTerrainSlope(qreal x) const {
     }
 
     // 计算斜率
-    qreal x1 = points[i-1].x();
-    qreal y1 = points[i-1].y();
+    qreal x1 = points[i - 1].x();
+    qreal y1 = points[i - 1].y();
     qreal x2 = points[i].x();
     qreal y2 = points[i].y();
 

@@ -176,9 +176,9 @@ void GameScene::updateUI()
 }
 
 void GameScene::handlePhysicsObjectCollision(IPhysicsObject* obj) {
-    // 计算物体底部的y坐标（物体顶部坐标加上高度）
+    // 计算物体底部的y坐标
     qreal objBottom = obj->position().y() + obj->boundingRect().height();
-    // 计算物体中心的x坐标（物体左侧坐标加上宽度的一半）
+    // 计算物体中心的x坐标
     qreal objX = obj->position().x() + obj->boundingRect().width() / 2;
     // 获取物体中心x坐标处的地形高度
     qreal terrainHeight = GTerrainGenerator->getTerrainHeight(objX);
@@ -188,59 +188,54 @@ void GameScene::handlePhysicsObjectCollision(IPhysicsObject* obj) {
     // 定义地面检测的容差值，允许有小误差
     qreal groundTolerance = 6.0;
 
+    // 检查物体是否正在向上运动(跳跃中)，如果是则降低容差值
+    if (obj->velocity().y() < -10) {  // 负数表示向上运动
+        groundTolerance = 1.0;  // 跳跃时使用更小的容差
+    }
+
     // 检测物体是否接触或接近地面（考虑容差）
     if (objBottom + groundTolerance >= terrainHeight) {
-        // 地面接触处理部分
+        // 如果物体正在向上运动(刚跳跃)且只是轻微"接近"地面，则忽略碰撞
+        if (obj->velocity().y() < -10 && objBottom < terrainHeight) {
+            return;  // 忽略碰撞，让玩家正常跳跃
+        }
+
+        // 其余地面接触处理保持不变...
         if (objBottom < terrainHeight) {
-            // 如果物体底部在地面以上但很接近，且物体正在下落
             if (obj->velocity().y() > 0) {
-                // 调整物体位置，使其恰好站在地形上
                 obj->setPosition(QPointF(obj->position().x(), terrainHeight - obj->boundingRect().height()));
             }
         } else {
-            // 如果物体底部已经穿过地面，直接调整位置到地面上
             obj->setPosition(QPointF(obj->position().x(), terrainHeight - obj->boundingRect().height()));
         }
 
-        // 计算斜坡效果相关变量
-        qreal slopeSlideForce = 0;       // 斜坡滑行力初始为0
-        qreal slopeSlideThreshold = 0.3;  // 斜坡效果生效的阈值
-        qreal maxSlideSpeed = 200.0;      // 最大滑行速度限制
+        // 计算斜坡效果部分保持不变...
+        qreal slopeSlideForce = 0;
+        qreal slopeSlideThreshold = 0.3;
+        qreal maxSlideSpeed = 200.0;
 
-        // 根据斜坡情况计算滑行力
         if (terrainSlope > slopeSlideThreshold) {
-            // 下坡情况：施加向下滑动的力
             slopeSlideForce = terrainSlope * 500.0;
-            // 限制最大滑行速度
             slopeSlideForce = qMin(slopeSlideForce, maxSlideSpeed);
         }
         else if (terrainSlope < -slopeSlideThreshold) {
-            // 上坡情况：施加阻力（负的滑行力）
             slopeSlideForce = terrainSlope * 200.0;
         }
 
-        // 将计算好的斜坡滑行力应用到物理对象
         obj->setSlopeSlideSpeed(slopeSlideForce);
 
-        // 计算物体是否满足飞跃条件的相关变量
-        qreal horizontalSpeed = qAbs(obj->velocity().x());  // 物体水平速度绝对值
-        qreal slopeThreshold = 1;     // 陡峭斜坡的阈值
-        qreal speedThreshold = 150;    // 触发跳跃的速度阈值
+        qreal horizontalSpeed = qAbs(obj->velocity().x());
+        qreal slopeThreshold = 1;
+        qreal speedThreshold = 150;
 
-        // 判断是否满足飞跃条件：斜率足够大且速度足够快
         if (qAbs(terrainSlope) > slopeThreshold && horizontalSpeed > speedThreshold) {
-            // 标记物体不在地面上
             obj->setOnGround(false);
         } else {
-            // 如果不满足飞跃条件，则物体保持在地面上
             obj->setVelocity(QPointF(obj->velocity().x(), 0));
-            // 标记物体在地面上
             obj->setOnGround(true);
         }
     } else {
-        // 如果物体不在地面上（处于空中）
         obj->setOnGround(false);
-        // 清除斜坡滑行速度，因为不在地面上
         obj->setSlopeSlideSpeed(0);
     }
 }

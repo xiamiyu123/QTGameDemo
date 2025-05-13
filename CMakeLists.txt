@@ -19,7 +19,7 @@ file(GLOB HEADERS
 )
 
 # 设置资源路径
-set(IMAGE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/images")
+set(IMAGE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/resource")
 
 # 获取该目录下的所有文件（可根据需要添加过滤器）
 file(GLOB_RECURSE IMAGE_FILES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} ${IMAGE_DIR}/*)

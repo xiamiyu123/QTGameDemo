@@ -31,15 +31,16 @@ public:
     void updatePhysics(float deltaTime) override;
     qreal getSlopeSlideSpeed() const override;
     void setSlopeSlideSpeed(qreal speed) override;
-
     // 默认实体类型为Obstacle
     EntityType getEntityType() const override { return m_entityType; }
     void setEntityType(EntityType type) { m_entityType = type; }
-
+    // 设置旋转角度
+    void setRotation(qreal angle);
     // 获取物理组件
     PhysicsComponent* getPhysicsComponent() { return m_physicsComponent; }
 
 protected:
+    qreal rotation; // 旋转角度(角度制)
     qreal m_velocityX;
     qreal m_velocityY;
     bool m_onGround;

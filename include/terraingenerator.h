@@ -11,7 +11,8 @@
 class TerrainGenerator : public QObject
 {
     Q_OBJECT
-    
+    QMap<int, QGraphicsPathItem*> m_verticalLineItems;
+
 public:
     TerrainGenerator(QGraphicsScene *scene, QObject *parent = nullptr);
     
@@ -50,7 +51,5 @@ private:
     
     // 获取噪声值
     qreal noise(qreal x) const;
-
-
 };
 

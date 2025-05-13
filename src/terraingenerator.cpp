@@ -190,15 +190,27 @@ void TerrainGenerator::generateChunk(int chunkIndex) {
     path.lineTo(0, 5000000);
     path.closeSubpath();
 
-    // 创建地形项
+    // 创建地形项（白色边框）
     QGraphicsPathItem *terrainItem = new QGraphicsPathItem(path);
     terrainItem->setBrush(QBrush(QColor(240, 240, 240))); // 雪地颜色
-    terrainItem->setPen(QPen(Qt::black, 2));
+    terrainItem->setPen(QPen(QColor(240, 240, 240), 2)); // 竖直和底部边框设为白色
     terrainItem->setPos(chunkIndex * CHUNK_WIDTH, 0);
+
+    // 创建顶部曲线路径（黑色边框）
+    QPainterPath topPath;
+    topPath.moveTo(points.first());
+    for (int i = 1; i < points.size(); ++i) {
+        topPath.lineTo(points[i]);
+    }
+
+    QGraphicsPathItem *topItem = new QGraphicsPathItem(topPath);
+    topItem->setPen(QPen(Qt::black, 2)); // 顶部曲线保持黑色
+    topItem->setPos(chunkIndex * CHUNK_WIDTH, 0);
 
     // 添加到场景中
     m_scene->addItem(terrainItem);
-    m_chunks[chunkIndex] = terrainItem;
+    m_scene->addItem(topItem);
+    m_chunks[chunkIndex] = terrainItem; // 根据需求可能需要管理topItem
 }
 
 void TerrainGenerator::removeDistantChunks(int currentChunk) {

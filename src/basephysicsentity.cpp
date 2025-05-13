@@ -8,15 +8,15 @@
 
 BasePhysicsEntity::BasePhysicsEntity(qreal width, qreal height, QGraphicsItem *parent)
     : QGraphicsRectItem(0, 0, width, height, parent),
-      m_velocityX(0),
-      m_velocityY(0),
-      m_onGround(false),
-      m_slopeSlideSpeed(0),
-      m_entityType(EntityType::Obstacle)
+    m_velocityX(0),
+    m_velocityY(0),
+    m_onGround(false),
+    m_slopeSlideSpeed(0),
+    m_entityType(EntityType::Obstacle),
+    rotation(0)
 {
     // 设置物理组件
     m_physicsComponent = new PhysicsComponent(this);
-
     // 默认物理参数
     m_physicsComponent->setGravity(600);
     m_physicsComponent->setFrictionFactor(0.85);
@@ -87,4 +87,10 @@ qreal BasePhysicsEntity::getSlopeSlideSpeed() const
 void BasePhysicsEntity::setSlopeSlideSpeed(qreal speed)
 {
     m_slopeSlideSpeed = speed;
+}
+
+void BasePhysicsEntity::setRotation(qreal angle)
+{
+    rotation = angle;
+    QGraphicsRectItem::setRotation(angle);
 }

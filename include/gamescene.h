@@ -27,6 +27,8 @@ private slots:
 
     void handlePhysicsObjectCollision(IPhysicsObject *obj);
 
+    void handleGroundedState(IPhysicsObject *obj, qreal terrainSlope);
+
     void update();
 
     void initialPlayerPosition();

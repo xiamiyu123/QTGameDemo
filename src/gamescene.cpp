@@ -176,26 +176,36 @@ void GameScene::updateUI()
 }
 
 void GameScene::handlePhysicsObjectCollision(IPhysicsObject* obj) {
-    // 计算物体底部的y坐标（用于碰撞检测）
-    qreal objBottom = obj->position().y() + obj->boundingRect().height();
     // 计算物体中心的x坐标（用于获取地形信息）
     qreal objX = obj->position().x() + obj->boundingRect().width() / 2;
     // 获取物体中心x坐标处的地形高度（地面位置）
-    qreal terrainHeight = GTerrainGenerator->getTerrainHeight(objX);
+    qreal terrainHeight = GTerrainGenerator->getTerrainHeight(objX) + 2;//模拟陷入雪中
     // 获取物体中心x坐标处的地形斜率（用于坡面滑动计算）
     qreal terrainSlope = GTerrainGenerator->getTerrainSlope(objX);
 
-    // 定义地面检测的容差值，允许有小误差以改善碰撞检测体验
+    // 定义地面检测的容差值
     qreal groundTolerance = 6.0;
 
+    BasePhysicsEntity* entity = dynamic_cast<BasePhysicsEntity*>(obj);
+
     // 设置物体旋转角度以匹配地形斜率
-    if (obj->isOnGround()) {
+    // 这一步很重要，确保在获取 sceneBoundingRect 之前应用旋转
+    if (entity && obj->isOnGround()) {
         qreal angle = qAtan(terrainSlope) * 180.0 / M_PI;
-        const qreal maxRotationAngle = 45.0;
-        angle = qBound(-maxRotationAngle, angle, maxRotationAngle);
-        if (BasePhysicsEntity* entity = dynamic_cast<BasePhysicsEntity*>(obj)) {
-            entity->setRotation(angle);
-        }
+        entity->setRotation(angle);
+    }
+
+    // 获取物体旋转后的实际底部 Y 坐标
+    qreal actualObjVisualBottomY;
+    QRectF sceneBounds; // 用于存储场景包围矩形
+
+    if (entity) {
+        // sceneBoundingRect() 返回的是物体在场景坐标系下的包围盒，已考虑旋转
+        sceneBounds = entity->sceneBoundingRect();
+        actualObjVisualBottomY = sceneBounds.bottom();
+    } else {
+        // 如果不是 BasePhysicsEntity 或者无法获取 sceneBoundingRect，则回退到原始计算方式
+        actualObjVisualBottomY = obj->position().y() + obj->boundingRect().height();
     }
 
     // 检查物体是否正在向上运动(跳跃中)，如果是则降低容差值
@@ -203,16 +213,25 @@ void GameScene::handlePhysicsObjectCollision(IPhysicsObject* obj) {
         groundTolerance = 1.0;  // 跳跃时使用更小的容差
     }
 
-    // 检测是否已经穿透地面
-    if (objBottom >= terrainHeight) {
+    // 检测是否已经穿透地面 (使用旋转后的实际底部)
+    if (actualObjVisualBottomY >= terrainHeight) {
         // 物体已经穿透地面，立即校正位置
-        obj->setPosition(QPointF(obj->position().x(), terrainHeight - obj->boundingRect().height()));
+        qreal currentObjPosX = obj->position().x();
+        qreal currentObjPosY = obj->position().y(); // 这是物体自身的锚点Y (通常是左上角)
 
-        // 处理坡面滑动和着地状态
+        if (entity) {
+            // 计算需要向上调整的偏移量，使得实际底部与地形高度对齐
+            qreal dy_adjust = terrainHeight - actualObjVisualBottomY;
+            // 新的锚点Y = 当前锚点Y + 调整量
+            obj->setPosition(QPointF(currentObjPosX, currentObjPosY + dy_adjust));
+        } else {
+            // 回退到原始校正方式 (对于非entity或无sceneBoundingRect的情况)
+            obj->setPosition(QPointF(currentObjPosX, terrainHeight - obj->boundingRect().height()));
+        }
         handleGroundedState(obj, terrainSlope);
     }
-    // 检测是否接近地面但未穿透（使用容差）
-    else if (objBottom + groundTolerance >= terrainHeight) {
+    // 检测是否接近地面但未穿透（使用旋转后的实际底部和容差）
+    else if (actualObjVisualBottomY + groundTolerance >= terrainHeight) {
         // 物体接近地面但未穿透
 
         // 跳跃优化：如果正在向上运动，忽略容差碰撞
@@ -222,7 +241,15 @@ void GameScene::handlePhysicsObjectCollision(IPhysicsObject* obj) {
 
         // 仅当物体向下运动且接近地面时才校正位置
         if (obj->velocity().y() > 0) {
-            obj->setPosition(QPointF(obj->position().x(), terrainHeight - obj->boundingRect().height()));
+            qreal currentObjPosX = obj->position().x();
+            qreal currentObjPosY = obj->position().y();
+
+            if (entity) {
+                qreal dy_adjust = terrainHeight - actualObjVisualBottomY;
+                obj->setPosition(QPointF(currentObjPosX, currentObjPosY + dy_adjust));
+            } else {
+                obj->setPosition(QPointF(currentObjPosX, terrainHeight - obj->boundingRect().height()));
+            }
             handleGroundedState(obj, terrainSlope);
         }
     }
@@ -232,7 +259,6 @@ void GameScene::handlePhysicsObjectCollision(IPhysicsObject* obj) {
         obj->setSlopeSlideSpeed(0); // 在空中时没有坡面滑动力
     }
 }
-
 // 处理着地状态
 void GameScene::handleGroundedState(IPhysicsObject* obj, qreal terrainSlope) {
     // 坡面滑动力计算
@@ -252,11 +278,12 @@ void GameScene::handleGroundedState(IPhysicsObject* obj, qreal terrainSlope) {
 
     // 陡坡飞跃机制
     qreal horizontalSpeed = qAbs(obj->velocity().x());
+    qreal verticalSpeed = obj->velocity().y();
     qreal slopeThreshold = 1;
     qreal speedThreshold = 150;
 
-    // 当坡度大且速度快时，认为物体腾空
-    if (qAbs(terrainSlope) > slopeThreshold && horizontalSpeed > speedThreshold) {
+    // 当坡度大且速度快，并且有向上的速度分量时，才认为物体腾空
+    if (qAbs(terrainSlope) > slopeThreshold && horizontalSpeed > speedThreshold && verticalSpeed < 0) {
         obj->setOnGround(false);
     } else {
         obj->setVelocity(QPointF(obj->velocity().x(), 0));

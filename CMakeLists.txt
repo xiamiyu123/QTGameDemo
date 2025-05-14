@@ -3,6 +3,7 @@
 cmake_minimum_required(VERSION 3.10)
 project(ScrollingTerrain LANGUAGES CXX)
 
+
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
@@ -47,10 +48,16 @@ add_executable(${PROJECT_NAME}
         ${QRC_SOURCES}
 )
 
+
+# 为 Release 模式添加特定的编译定义以禁用 QDebug
+target_compile_definitions(${PROJECT_NAME} PRIVATE
+        $<$<CONFIG:Release>:QT_NO_DEBUG_OUTPUT>
+)
+
+
 target_include_directories(${PROJECT_NAME} PRIVATE
-        ${CMAKE_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/include  # 建议使用 ${CMAKE_CURRENT_SOURCE_DIR}/include 如果include目录在项目根目录下
 )
 target_link_libraries(${PROJECT_NAME} PRIVATE
         Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Svg
 )
-

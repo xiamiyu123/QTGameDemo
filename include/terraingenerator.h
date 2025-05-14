@@ -44,8 +44,6 @@ private:
 
     PerlinNoise m_perlin;
 
-    qreal TOTAL_SLOPE_FACTOR;
-    
     // 删除远离的地形块
     void removeDistantChunks(int currentChunk);
     

@@ -13,8 +13,6 @@ TerrainGenerator::TerrainGenerator(QGraphicsScene *scene, QObject *parent)
     m_seed = QDateTime::currentMSecsSinceEpoch();
     m_randomGenerator = QRandomGenerator(m_seed); // 创建自己的随机生成器实例
     m_perlin = PerlinNoise(m_seed); // 使用随机种子初始化Perlin噪声类
-    // 初始化累计下降因子
-    TOTAL_SLOPE_FACTOR = 0;
 }
 
 void TerrainGenerator::initialize() {
@@ -32,6 +30,7 @@ void TerrainGenerator::updateTerrain(qreal playerX) {
     for (int i = currentChunk - 1; i <= currentChunk + VIEW_CHUNKS; ++i) {
         if (!m_chunks.contains(i)) {
             generateChunk(i);
+            qDebug() << "Generating chunk:" << i;
         }
     }
 
@@ -129,7 +128,7 @@ void TerrainGenerator::generateChunk(int chunkIndex) {
 
     // 第一个点
     points.append(QPointF(0, startHeight));
-    TOTAL_SLOPE_FACTOR += SLOPE_FACTOR;
+
 
     // 生成随机地形点
     for (int i = 1; i < POINTS; ++i) {
@@ -140,7 +139,9 @@ void TerrainGenerator::generateChunk(int chunkIndex) {
         qreal noiseValue = noise(globalX * 1); // 因为一层就够好所以暂时只用一层
 
         // 平滑的下降趋势
-        qreal downwardTrend = TOTAL_SLOPE_FACTOR + qSqrt((qreal) i / POINTS) * SLOPE_FACTOR;
+        qreal globalFactor = chunkIndex * BASE_SLOPE_FACTOR; // 基于位置的全局下降因子
+        qreal localFactor = qSqrt((qreal) i / POINTS) * SLOPE_FACTOR; // 块内局部下降
+        qreal downwardTrend = globalFactor + localFactor;
 
         // 计算基础高度
         qreal baseHeight = BASE_HEIGHT + downwardTrend;
@@ -221,6 +222,12 @@ void TerrainGenerator::removeDistantChunks(int currentChunk) {
         if (qAbs(it.key() - currentChunk) > VIEW_CHUNKS) {
             chunksToRemove.append(it.key());
         }
+    }
+
+    // 添加调试信息
+    if (!chunksToRemove.isEmpty()) {
+        qDebug() << "移除" << chunksToRemove.size() << "个远距离地形块，当前块索引:" << currentChunk;
+        qDebug() << "被移除的块索引:" << chunksToRemove;
     }
 
     // 从场景和映射中删除

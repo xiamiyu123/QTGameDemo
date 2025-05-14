@@ -30,7 +30,7 @@ public:
     
 private:
     static const int CHUNK_WIDTH = 3600;    // 地形块宽度
-    static const int VIEW_CHUNKS = 3;      // 视图范围内保持的地形块数量
+    static const int VIEW_CHUNKS = 1;      // 视图范围内保持的地形块数量
     
     QGraphicsScene *m_scene;
     QMap<int, QGraphicsPathItem*> m_chunks; // 当前显示的地形块

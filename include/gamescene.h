@@ -27,7 +27,17 @@ private slots:
 
     void handlePhysicsObjectCollision(IPhysicsObject *obj);
 
-    void handleGroundedState(IPhysicsObject *obj, qreal terrainSlope);
+    qreal calculateGroundTolerance(qreal speed, qreal slope, qreal forwardSlope, qreal verticalSpeed);
+
+    bool shouldMaintainGrounded(bool currentlyGrounded, qreal slope, qreal verticalSpeed, qreal horizontalSpeed);
+
+    bool shouldTakeoff(qreal backSlope, qreal currentSlope, qreal forwardSlope, qreal speed);
+
+    void handleTakeoff(IPhysicsObject *obj, qreal slope, qreal speed);
+
+    void updateSlopeForce(IPhysicsObject *obj, qreal slope, qreal speed);
+
+    void updateEntityRotation(BasePhysicsEntity *entity, bool onGround, qreal slope);
 
     void update();
 

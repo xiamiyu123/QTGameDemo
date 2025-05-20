@@ -33,6 +33,9 @@ Player::Player(QGraphicsItem *parent)
       m_flipRotation(0.0),
       m_cumulativeRotation(0.0),
       m_lastFrameRotation(0.0) {
+
+    setZValue(-2);
+
     // 设置玩家外观
     setBrush(QBrush(Qt::red));
     setPen(QPen(Qt::black, 2));

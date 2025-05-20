@@ -117,7 +117,11 @@ void GameScene::update() {
     updateUI();
 
     // 更新雪崩
-    avalanche->updateAvalanche(deltaTime, Gplayer->x());
+    m_avalancheElapsed += deltaTime;
+    if (m_avalancheElapsed >= m_avalancheInterval) {
+        avalanche->updateAvalanche(m_avalancheElapsed, Gplayer->x());
+        m_avalancheElapsed = 0;
+    }
 }
 
 // 仅用于初始化时放置玩家

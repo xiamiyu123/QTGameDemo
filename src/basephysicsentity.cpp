@@ -69,7 +69,9 @@ bool BasePhysicsEntity::isOnGround() const
 
 void BasePhysicsEntity::setOnGround(bool onGround)
 {
+    if (m_onGround == onGround) return; // 状态未改变
     m_onGround = onGround;
+
 }
 
 void BasePhysicsEntity::updatePhysics(float deltaTime)

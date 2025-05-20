@@ -216,6 +216,9 @@ void GameScene::handlePhysicsObjectCollision(IPhysicsObject* obj) {
     // 动态地面检测容差 - 核心改进
     qreal groundTolerance = calculateGroundTolerance(horizontalSpeed, terrainSlope, forwardSlope, verticalSpeed);
 
+    // 添加玩家对象的检测
+    Player* player = dynamic_cast<Player*>(obj);
+    
     bool wasOnGround = obj->isOnGround();
 
     // 主要碰撞逻辑
@@ -227,10 +230,18 @@ void GameScene::handlePhysicsObjectCollision(IPhysicsObject* obj) {
         // 设置为着地状态
         if (!wasOnGround) {
             obj->setOnGround(true);
+            
+            // 检查是否为Player对象并调用落地检查
+            if (player) {
+                // 计算角度
+                qreal terrainAngle = qRadiansToDegrees(qAtan(terrainSlope));
+                player->checkLanding(terrainAngle);
+            }
+            
             // 重置垂直速度
             obj->setVelocity(QPointF(velocity.x(), 0));
-                // 输出落地信息
-                qDebug() << "落地: 地形高度 =" << terrainHeight << "角色底部 =" << actualObjBottom;
+            // 输出落地信息
+            qDebug() << "落地: 地形高度 =" << terrainHeight << "角色底部 =" << actualObjBottom;
         }
 
         // 计算斜坡力
@@ -248,6 +259,13 @@ void GameScene::handlePhysicsObjectCollision(IPhysicsObject* obj) {
 
             if (!wasOnGround) {
                 obj->setOnGround(true);
+                
+                // 检查是否为Player对象并调用落地检查
+                if (player) {
+                    qreal terrainAngle = qRadiansToDegrees(qAtan(terrainSlope));
+                    player->checkLanding(terrainAngle);
+                }
+                
                 obj->setVelocity(QPointF(velocity.x(), 0));
                 // 输出落地信息
                 qDebug() << "靠近地面落地: 地形高度 =" << terrainHeight << "角色底部 =" << actualObjBottom;
@@ -263,17 +281,32 @@ void GameScene::handlePhysicsObjectCollision(IPhysicsObject* obj) {
         else if (wasOnGround) {
             obj->setOnGround(false);
             obj->setSlopeSlideSpeed(0);
+            
+            // 如果是玩家对象且刚刚离地，调用notifyTakeoff
+            if (player) {
+                player->notifyTakeoff();
+            }
         }
     }
     else {  // 明显离开地面
         if (wasOnGround) {
             obj->setOnGround(false);
             obj->setSlopeSlideSpeed(0);
+            
+            // 如果是玩家对象且刚刚离地，调用notifyTakeoff
+            if (player) {
+                player->notifyTakeoff();
+            }
         }
     }
 
-    // 更新物体姿态
-    updateEntityRotation(entity, obj->isOnGround(), terrainSlope);
+    // 更新物体姿态 - 考虑摔倒状态
+    if (entity) {
+        if (!player || !player->isFallen()) {
+            // 只有在非摔倒状态下才更新旋转以匹配地形
+            updateEntityRotation(entity, obj->isOnGround(), terrainSlope);
+        }
+    }
 }
 
 // 计算动态地面检测容差
@@ -360,6 +393,12 @@ void GameScene::handleTakeoff(IPhysicsObject* obj, qreal slope, qreal speed) {
     obj->setOnGround(false);
     obj->setSlopeSlideSpeed(0);
     obj->setVelocity(QPointF(obj->velocity().x(), takeoffForce));
+    
+    // 检查是否为Player对象并调用离地通知
+    Player* player = dynamic_cast<Player*>(obj);
+    if (player) {
+        player->notifyTakeoff();
+    }
 }
 
 // 更新斜坡力
@@ -389,6 +428,13 @@ void GameScene::updateSlopeForce(IPhysicsObject* obj, qreal slope, qreal speed) 
 // 更新实体旋转
 void GameScene::updateEntityRotation(BasePhysicsEntity* entity, bool onGround, qreal slope) {
     if (!entity) return;
+    
+    // 检查是否为玩家且是否摔倒
+    Player* player = dynamic_cast<Player*>(entity);
+    if (player && player->isFallen()) {
+        // 摔倒状态下不更新旋转，由玩家类自己控制
+        return;
+    }
 
     // 只有在地面上才跟随地形旋转
     if (onGround) {

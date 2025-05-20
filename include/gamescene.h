@@ -6,6 +6,7 @@
 #include "player.h"
 #include "terraingenerator.h"
 #include <QPushButton>
+#include "avalanche.h"
 
 class GameScene : public QGraphicsScene
 {
@@ -38,6 +39,7 @@ private:
     Player *Gplayer;
     TerrainGenerator *GTerrainGenerator;
     QTimer GTimer;
+    Avalanche* avalanche;
 
     void updatePlayerHeight();
     void centerViewOnPlayer();

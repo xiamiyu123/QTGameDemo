@@ -100,15 +100,22 @@ void Player::keyReleaseEvent(QKeyEvent *event) {
 }
 
 void Player::jump() {
-    if (isOnGround()) {
-        QPointF vel = velocity();
-        vel.setY(m_jumpForce);
-        setVelocity(vel);
-        setOnGround(false);
-        qDebug() << "Jump";
-    } else {
-        qDebug() << "Jump is not available";
+    if (is_fallen) {
+        int rem = m_fallRecoveryTimer.remainingTime();
+        int newRem = qMax(rem - 200, 0);
+        m_fallRecoveryTimer.start(newRem);
+        qDebug() << "Reducing fall recovery time by 200ms, new remaining:" << newRem;
+        return;
     }
+    if (!isOnGround()) {
+        qDebug() << "Jump is not available";
+        return;
+    }
+    QPointF vel = velocity();
+    vel.setY(m_jumpForce);
+    setVelocity(vel);
+    setOnGround(false);
+    qDebug() << "Jump";
 }
 
 void Player::setOnGround(bool onGround)

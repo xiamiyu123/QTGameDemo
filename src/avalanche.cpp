@@ -12,7 +12,7 @@ Avalanche::Avalanche(TerrainGenerator* terrain, QGraphicsItem* parent)
       m_maxSpeed(650),      // 最大速度（比玩家快）
       m_width(4000)          // 雪崩宽度
 {
-    setZValue(900); // 保证在地形之上
+    setZValue(-1);
     setBrush(QBrush(QColorConstants::Svg::white)); // 雪崩颜色
     setPen(QPen(QColorConstants::Svg::white));
 }
@@ -64,6 +64,7 @@ qreal Avalanche::distanceToPlayer(qreal playerX) const
 }
 
 
+
 void Avalanche::updateShape(qreal playerX)
 {
     const int points = 200;
@@ -83,15 +84,17 @@ void Avalanche::updateShape(qreal playerX)
         bottomPoints.append(QPointF(x, y));
     }
 
-    // 右端四分之一圆参数
-    qreal radius = 60; // 半径可调
-    QPointF arcCenter(rightX, topPoints.last().y() + radius);
+    // 右端半圆参数
+    qreal groundY = bottomPoints.last().y();
+    qreal topY = topPoints.last().y();
+    qreal radius = groundY - topY; // 顶部到地面的距离
+    QPointF arcCenter(rightX, groundY);
 
     QVector<QPointF> arcPoints;
-    const int arcSegments = 20;
+    const int arcSegments = 40;
     for (int i = 0; i <= arcSegments; ++i) {
-        // 角度从270°到360°（即从上到右）
-        qreal theta = M_PI * 1.5 + (M_PI / 2) * (i / (qreal)arcSegments);
+        // 角度从270°到90°（顺时针，从上到下）
+        qreal theta = M_PI * 1.5 + M_PI * (i / (qreal)arcSegments);
         qreal x = arcCenter.x() + radius * qCos(theta);
         qreal y = arcCenter.y() + radius * qSin(theta);
         arcPoints.append(QPointF(x, y));

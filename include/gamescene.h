@@ -51,6 +51,9 @@ private:
     QTimer GTimer;
     Avalanche* avalanche;
 
+    qreal m_avalancheElapsed = 0;
+    const qreal m_avalancheInterval = 0.02; // 雪崩每0.1秒刷新一次
+
     void updatePlayerHeight();
     void centerViewOnPlayer();
 

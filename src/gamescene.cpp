@@ -189,154 +189,267 @@ void GameScene::updateUI()
 
 }
 
+// 处理物理对象与地形的碰撞
 void GameScene::handlePhysicsObjectCollision(IPhysicsObject* obj) {
-    // 计算物体中心的x坐标
-    qreal objX = obj->position().x() + obj->boundingRect().width() / 2;
-    // 获取地形高度
-    qreal terrainHeight = GTerrainGenerator->getTerrainHeight(objX) + 2; //模拟陷入雪中
-    // 获取地形斜率
-    qreal terrainSlope = GTerrainGenerator->getTerrainSlope(objX);
+    // 获取物体信息
+    QRectF objRect = obj->boundingRect();
+    QPointF objPos = obj->position();
+    qreal objCenterX = objPos.x() + objRect.width() / 2;
 
-    // 获取前方地形斜率，用于预测
-    qreal forwardX = objX + 30; // 向前看30像素
-    qreal forwardSlope = GTerrainGenerator->getTerrainSlope(forwardX);
+    // 多点采样获取地形信息 - 更好地适应不规则地形
+    qreal centerTerrain = GTerrainGenerator->getTerrainHeight(objCenterX);
+    qreal leftTerrain = GTerrainGenerator->getTerrainHeight(objCenterX - objRect.width() * 0.4);
+    qreal rightTerrain = GTerrainGenerator->getTerrainHeight(objCenterX + objRect.width() * 0.4);
+    qreal terrainHeight = qMin(qMin(leftTerrain, centerTerrain), rightTerrain);
 
+    // 获取当前和预测的地形斜率
+    qreal terrainSlope = GTerrainGenerator->getTerrainSlope(objCenterX);
+    qreal backSlope = GTerrainGenerator->getTerrainSlope(objCenterX - objRect.width() * 0.6);
+    qreal forwardSlope = GTerrainGenerator->getTerrainSlope(objCenterX + objRect.width() * 0.6);
+
+    // 获取物体速度
+    QPointF velocity = obj->velocity();
+    qreal horizontalSpeed = qAbs(velocity.x());
+    qreal verticalSpeed = velocity.y();
+
+    // 获取实体对象和实际底部位置
     BasePhysicsEntity* entity = dynamic_cast<BasePhysicsEntity*>(obj);
 
-    // 设置物体旋转角度以匹配地形斜率
-    if (entity && obj->isOnGround()) {
-        qreal angle = qAtan(terrainSlope) * 180.0 / M_PI;
-        entity->setRotation(angle);
-    }
-
-    // 获取物体旋转后的实际底部Y坐标
-    qreal actualObjVisualBottomY;
-    QRectF sceneBounds;
-
+    qreal actualObjBottom;
     if (entity) {
-        sceneBounds = entity->sceneBoundingRect();
-        actualObjVisualBottomY = sceneBounds.bottom();
-    } else {
-        actualObjVisualBottomY = obj->position().y() + obj->boundingRect().height();
-    }
-
-    // 动态地面容差计算 - 根据速度和斜率调整
-    qreal horizontalSpeed = qAbs(obj->velocity().x());
-    qreal groundTolerance = 6.0; // 基础容差
-
-    // 高速下坡时增加容差
-    if (horizontalSpeed > 100 && terrainSlope < -0.2) {
-        // 速度越快，下坡越陡，容差越大
-        groundTolerance = qMin(20.0, 6.0 + horizontalSpeed * 0.05);
-    }
-
-    // 下坡预测校正 - 如果前方斜率更陡，增加容差
-    if (forwardSlope < terrainSlope && forwardSlope < -0.3 && horizontalSpeed > 150) {
-        groundTolerance += 5.0;
-    }
-
-    // 跳跃时减小容差
-    if (obj->velocity().y() < -10) {
-        groundTolerance = 1.0;
-    }
-
-    // 检测是否已经穿透地面
-    if (actualObjVisualBottomY >= terrainHeight) {
-        qreal currentObjPosX = obj->position().x();
-        qreal currentObjPosY = obj->position().y();
-
-        if (entity) {
-            qreal dy_adjust = terrainHeight - actualObjVisualBottomY;
-            obj->setPosition(QPointF(currentObjPosX, currentObjPosY + dy_adjust));
-        } else {
-            obj->setPosition(QPointF(currentObjPosX, terrainHeight - obj->boundingRect().height()));
-        }
-        handleGroundedState(obj, terrainSlope);
-    }
-    // 高速下坡额外逻辑 - 更主动地贴合地面
-    else if (horizontalSpeed > 150 && terrainSlope < -0.4 && obj->isOnGround() &&
-             actualObjVisualBottomY + groundTolerance*2 >= terrainHeight) {
-        // 高速下陡坡时，主动向下移动以保持贴合
-        qreal currentObjPosX = obj->position().x();
-        qreal currentObjPosY = obj->position().y();
-
-        if (entity) {
-            // 更主动的位置调整
-            qreal dy_adjust = (terrainHeight - actualObjVisualBottomY) * 0.5; // 部分调整
-            obj->setPosition(QPointF(currentObjPosX, currentObjPosY + dy_adjust));
-        }
-
-        // 保持接地状态
-        obj->setOnGround(true);
-    }
-    // 接近地面检测
-    else if (actualObjVisualBottomY + groundTolerance >= terrainHeight) {
-        // 跳跃优化：如果正在向上运动，忽略容差碰撞
-        if (obj->velocity().y() < -10) {
-            return;
-        }
-
-        // 仅当物体向下运动且接近地面时才校正位置
-        if (obj->velocity().y() > 0) {
-            qreal currentObjPosX = obj->position().x();
-            qreal currentObjPosY = obj->position().y();
-
-            if (entity) {
-                qreal dy_adjust = terrainHeight - actualObjVisualBottomY;
-                obj->setPosition(QPointF(currentObjPosX, currentObjPosY + dy_adjust));
-            } else {
-                obj->setPosition(QPointF(currentObjPosX, terrainHeight - obj->boundingRect().height()));
-            }
-            handleGroundedState(obj, terrainSlope);
-        }
+        actualObjBottom = entity->sceneBoundingRect().bottom() - 5;
     }
     else {
-        // 物体不在地面附近，设置为非着地状态
-        obj->setOnGround(false);
-        obj->setSlopeSlideSpeed(0);
+        actualObjBottom = objPos.y() + objRect.height();
+    }
+
+    // 动态地面检测容差 - 核心改进
+    qreal groundTolerance = calculateGroundTolerance(horizontalSpeed, terrainSlope, forwardSlope, verticalSpeed);
+
+    // 添加玩家对象的检测
+    Player* player = dynamic_cast<Player*>(obj);
+    
+    bool wasOnGround = obj->isOnGround();
+
+    // 主要碰撞逻辑
+    if (actualObjBottom >= terrainHeight) {  // 已穿透地面
+        // 校正位置
+        qreal dy_adjust = terrainHeight - actualObjBottom;
+        obj->setPosition(QPointF(objPos.x(), objPos.y() + dy_adjust));
+
+        // 设置为着地状态
+        if (!wasOnGround) {
+            obj->setOnGround(true);
+            
+            // 检查是否为Player对象并调用落地检查
+            if (player) {
+                // 计算角度
+                qreal terrainAngle = qRadiansToDegrees(qAtan(terrainSlope));
+                player->checkLanding(terrainAngle);
+            }
+            
+            // 重置垂直速度
+            obj->setVelocity(QPointF(velocity.x(), 0));
+            // 输出落地信息
+            qDebug() << "落地: 地形高度 =" << terrainHeight << "角色底部 =" << actualObjBottom;
+        }
+
+        // 计算斜坡力
+        updateSlopeForce(obj, terrainSlope, horizontalSpeed);
+    }
+    else if (actualObjBottom + groundTolerance >= terrainHeight) {  // 接近地面
+        // 判断是否应该保持着地
+        bool shouldStayGrounded = shouldMaintainGrounded(wasOnGround, terrainSlope, verticalSpeed, horizontalSpeed);
+
+        if (shouldStayGrounded) {
+            // 校正位置 - 平滑吸附到地面
+            qreal snapFactor = 1;  // 吸附强度
+            qreal dy_adjust = (terrainHeight - actualObjBottom) * snapFactor;
+            obj->setPosition(QPointF(objPos.x(), objPos.y() + dy_adjust));
+
+            if (!wasOnGround) {
+                obj->setOnGround(true);
+                
+                // 检查是否为Player对象并调用落地检查
+                if (player) {
+                    qreal terrainAngle = qRadiansToDegrees(qAtan(terrainSlope));
+                    player->checkLanding(terrainAngle);
+                }
+                
+                obj->setVelocity(QPointF(velocity.x(), 0));
+                // 输出落地信息
+                qDebug() << "靠近地面落地: 地形高度 =" << terrainHeight << "角色底部 =" << actualObjBottom;
+            }
+
+            // 计算斜坡力
+            updateSlopeForce(obj, terrainSlope, horizontalSpeed);
+        }
+        else if (wasOnGround && shouldTakeoff(backSlope, terrainSlope, forwardSlope, horizontalSpeed)) {
+            // 满足起飞条件
+            handleTakeoff(obj, terrainSlope, horizontalSpeed);
+        }
+        else if (wasOnGround) {
+            obj->setOnGround(false);
+            obj->setSlopeSlideSpeed(0);
+            
+            // 如果是玩家对象且刚刚离地，调用notifyTakeoff
+            if (player) {
+                player->notifyTakeoff();
+            }
+        }
+    }
+    else {  // 明显离开地面
+        if (wasOnGround) {
+            obj->setOnGround(false);
+            obj->setSlopeSlideSpeed(0);
+            
+            // 如果是玩家对象且刚刚离地，调用notifyTakeoff
+            if (player) {
+                player->notifyTakeoff();
+            }
+        }
+    }
+
+    // 更新物体姿态 - 考虑摔倒状态
+    if (entity) {
+        if (!player || !player->isFallen()) {
+            // 只有在非摔倒状态下才更新旋转以匹配地形
+            updateEntityRotation(entity, obj->isOnGround(), terrainSlope);
+        }
     }
 }
-// 处理着地状态
-void GameScene::handleGroundedState(IPhysicsObject* obj, qreal terrainSlope) {
-    // 坡面滑动力计算
-    qreal slopeSlideForce = 0;
-    qreal slopeSlideThreshold = 0.3;
-    qreal maxSlideSpeed = 200.0;
 
-    if (terrainSlope > slopeSlideThreshold) {
-        slopeSlideForce = terrainSlope * 500.0;
-        slopeSlideForce = qMin(slopeSlideForce, maxSlideSpeed);
-    } else if (terrainSlope < -slopeSlideThreshold) {
-        slopeSlideForce = terrainSlope * 200.0;
+// 计算动态地面检测容差
+qreal GameScene::calculateGroundTolerance(qreal speed, qreal slope, qreal forwardSlope, qreal verticalSpeed) {
+    // 基础容差
+    qreal baseTolerance = 4.0;
+
+    // 速度调整因子 - 高速时增加容差
+    qreal speedFactor = qMin(1.0 + speed / 300.0, 2.5);
+
+    // 坡度调整因子
+    qreal slopeFactor = 1.0;
+    if (slope < -0.3) {  // 陡下坡
+        slopeFactor = 1.3 - slope;  // 更陡的斜坡，更大的容差
     }
-    obj->setSlopeSlideSpeed(slopeSlideForce);
 
-
-    // --- 飞跃判定优化 ---
-    bool shouldTakeoff = false;
-    qreal horizontalSpeed = qAbs(obj->velocity().x());
-    qreal verticalSpeed = obj->velocity().y();
-
-    // 只在“刚刚落地”时允许飞跃判定，防止连续弹跳
-    const qreal landingVerticalSpeedThreshold = 20.0;
-    bool isLanding = qAbs(verticalSpeed) < landingVerticalSpeedThreshold;
-
-    // 坡顶检测
-    if (lastSlope > 0.5 && terrainSlope < -0.2 && isLanding) {
-        shouldTakeoff = true;
+    // 前方斜率预测 - 即将下陡坡时提前增加容差
+    if (forwardSlope < slope && forwardSlope < -0.3) {
+        slopeFactor *= 1.2;
     }
-    // 速度与坡度综合判定
-    if (!shouldTakeoff && qAbs(terrainSlope) > 0.4 && horizontalSpeed > 80 && isLanding) {
-        shouldTakeoff = true;
-    }
-    lastSlope = terrainSlope;
 
-    if (shouldTakeoff) {
-        obj->setOnGround(false);
-        // 不归零竖直速度
-    } else {
-        // 只要碰到地面就直接落地
-        obj->setVelocity(QPointF(obj->velocity().x(), 0));
-        obj->setOnGround(true);
+    // 垂直速度调整 - 跳跃时减小容差
+    if (verticalSpeed < -30) {
+        return 2.0;  // 跳跃时最小容差
     }
+
+    return baseTolerance * speedFactor * slopeFactor;
+}
+
+// 判断是否应该保持着地状态
+bool GameScene::shouldMaintainGrounded(bool currentlyGrounded, qreal slope, qreal verticalSpeed, qreal horizontalSpeed) {
+    // 已经在地面上，增加"粘性"避免轻微抖动
+    if (currentlyGrounded) {
+        return true;
+    }
+
+    // 明显向下运动时应着地
+    if (verticalSpeed > 5) {
+        return true;
+    }
+
+    // 高速下坡时更容易保持着地
+    if (slope < -0.2 && horizontalSpeed > 120) {
+        return true;
+    }
+
+    return false;
+}
+
+// 判断是否应该起飞
+bool GameScene::shouldTakeoff(qreal backSlope, qreal currentSlope, qreal forwardSlope, qreal speed) {
+    // 只在速度足够时考虑起飞
+    if (speed < 100) {
+        return false;
+    }
+
+    // 从上坡过渡到下坡(山顶/跳台效果)
+    if (backSlope > 0.2 && currentSlope < -0.2) {
+        return true;
+    }
+
+    // 急剧下坡
+    if (currentSlope < -0.5 && speed > 200) {
+        return true;
+    }
+
+    return false;
+}
+
+// 处理起飞/飞跃效果
+void GameScene::handleTakeoff(IPhysicsObject* obj, qreal slope, qreal speed) {
+    // 计算起飞的垂直速度
+    qreal takeoffForce = -slope * speed * 0.3;
+
+    // 限制最小和最大起飞力
+    takeoffForce = qBound(-200.0, takeoffForce, -50.0);
+
+    // 高速时给予额外的飞跃效果
+    if (speed > 250) {
+        takeoffForce *= 1.2;
+    }
+
+    // 设置为非着地状态并应用垂直速度
+    obj->setOnGround(false);
+    obj->setSlopeSlideSpeed(0);
+    obj->setVelocity(QPointF(obj->velocity().x(), takeoffForce));
+    
+    // 检查是否为Player对象并调用离地通知
+    Player* player = dynamic_cast<Player*>(obj);
+    if (player) {
+        player->notifyTakeoff();
+    }
+}
+
+// 更新斜坡力
+void GameScene::updateSlopeForce(IPhysicsObject* obj, qreal slope, qreal speed) {
+    // 斜坡力阈值和系数
+    const qreal slopeThreshold = 0.08;
+    const qreal downhillFactor = 300.0;
+    const qreal uphillFactor = 200.0;
+
+    qreal slopeForce = 0;
+
+    if (qAbs(slope) > slopeThreshold) {
+        // 基础斜坡力
+        slopeForce = slope * (slope < 0 ? downhillFactor : uphillFactor);
+
+        // 高速下坡时增加力
+        if (slope < -0.2 && speed > 150) {
+            slopeForce *= (1.0 + speed / 500.0);
+        }
+    }
+
+    // 限制最大斜坡力
+    slopeForce = qBound(-250.0, slopeForce, 150.0);
+    obj->setSlopeSlideSpeed(slopeForce);
+}
+
+// 更新实体旋转
+void GameScene::updateEntityRotation(BasePhysicsEntity* entity, bool onGround, qreal slope) {
+    if (!entity) return;
+    
+    // 检查是否为玩家且是否摔倒
+    Player* player = dynamic_cast<Player*>(entity);
+    if (player && player->isFallen()) {
+        // 摔倒状态下不更新旋转，由玩家类自己控制
+        return;
+    }
+
+    // 只有在地面上才跟随地形旋转
+    if (onGround) {
+        qreal targetAngle = qAtan(slope) * 180.0 / M_PI;
+        entity->setRotation(targetAngle);
+    }
+    // 空中的旋转逻辑由各实体类自行控制
 }

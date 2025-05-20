@@ -81,11 +81,11 @@ void TerrainGenerator::generateChunk(int chunkIndex) {
     }
 
     // 定义地形参数
-    const int POINTS = 3000; // 每个地形块上的点数量
+    const int POINTS = 2000; // 每个地形块上的点数量
     const int BASE_HEIGHT = 300; // 地基高度
     const int HEIGHT_VARIATION = 10; // 高度变化范围
-    const int BASE_SLOPE_FACTOR = 1600; // 基本下降趋势因子
-    const int TRANSITION_ZONE = 800; // 两侧过渡区域的点数
+    const int BASE_SLOPE_FACTOR = 1400; // 基本下降趋势因子
+    const int TRANSITION_ZONE = 400; // 两侧过渡区域的点数
 
     // 创建地形点
     QVector<QPointF> points;

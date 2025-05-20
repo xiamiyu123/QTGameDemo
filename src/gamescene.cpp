@@ -41,6 +41,13 @@ GameScene::GameScene(QObject *parent)
     pauseButton->setStyleSheet("QPushButton { background-color: transparent; border: none; }");
     //按钮图片适配大小
     pauseButton->setAttribute(Qt::WA_TranslucentBackground);
+
+    // 创建雪崩
+    avalanche = new Avalanche(GTerrainGenerator);
+    addItem(avalanche);
+    avalanche->setSpeed(150);        // 设置初速度
+    avalanche->setAcceleration(5);  // 设置加速度
+    avalanche->setMaxSpeed(600);    // 设置最大速度
 }
 
 GameScene::~GameScene()
@@ -108,6 +115,13 @@ void GameScene::update() {
 
     // 更新UI控件
     updateUI();
+
+    // 更新雪崩
+    m_avalancheElapsed += deltaTime;
+    if (m_avalancheElapsed >= m_avalancheInterval) {
+        avalanche->updateAvalanche(m_avalancheElapsed, Gplayer->x());
+        m_avalancheElapsed = 0;
+    }
 }
 
 // 仅用于初始化时放置玩家

@@ -322,6 +322,20 @@ void GameScene::handlePhysicsObjectCollision(IPhysicsObject* obj) {
             updateEntityRotation(entity, obj->isOnGround(), terrainSlope);
         }
     }
+    // 玩家与石头碰撞检测
+    if (player) {
+        // 遍历所有石头
+        for (int i = GTerrainGenerator->m_rocks.size() - 1; i >= 0; --i) {
+            RockEntity* rock = GTerrainGenerator->m_rocks[i];
+            if (player->collidesWithItem(rock)) {
+                player->checkHitRock(rock);
+                // 从m_rocks移除
+                GTerrainGenerator->m_rocks.remove(i);
+                // 只处理一次，防止多次摔倒
+                break;
+            }
+        }
+    }
 }
 
 // 计算动态地面检测容差

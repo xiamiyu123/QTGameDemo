@@ -167,6 +167,23 @@ void Player::checkLanding(qreal terrainAngle) {
     }
 }
 
+void Player::checkHitRock(RockEntity* rock) {
+    if (!rock) return;
+    // 判断碰撞
+    if (this->collidesWithItem(rock)) {
+        // 玩家摔倒
+        fall();
+        // 从场景移除石头
+        if (scene()) {
+            scene()->removeItem(rock);
+        }
+        // 从物理系统注销
+        PhysicsSystem::instance().unregisterObject(rock);
+        // 删除石头对象
+        delete rock;
+    }
+}
+
 // 覆盖getTargetVelocityX来禁止摔倒时移动
 qreal Player::getTargetVelocityX() const {
     if (is_fallen) {

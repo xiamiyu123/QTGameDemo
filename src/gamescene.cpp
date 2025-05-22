@@ -1,10 +1,17 @@
 #include "gamescene.h"
+
+#include <QApplication>
 #include <QGraphicsView>
 #include <QtSvg>
 #include "physical.h"
 #include "avalancheupdatethread.h"
-
+#include <QDialog>
+#include <QVBoxLayout>
+#include <QLabel>
+#include <QPushButton>
 #include "rockentity.h"
+#include <QSettings>
+#include <QScreen>
 static qreal lastSlope = 0;
 GameScene::GameScene(QObject *parent)
     : QGraphicsScene(parent)
@@ -171,6 +178,13 @@ void GameScene::update() {
         }
     }
     // m_objectsToDeleteThisFrame 会在下一帧 update 开始时被清空
+
+    // 检查玩家是否被雪崩追上
+    if (avalanche->isPlayerCaught(Gplayer->x())) {
+        GTimer.stop();
+        showGameOverDialog();
+        return;
+    }
 }
 
 // 仅用于初始化时放置玩家
@@ -543,4 +557,102 @@ void GameScene::updateEntityRotation(BasePhysicsEntity* entity, bool onGround, q
         entity->setRotation(targetAngle);
     }
     // 空中的旋转逻辑由各实体类自行控制
+}
+
+// 显示游戏结束对话框
+void GameScene::showGameOverDialog() {
+    QDialog dialog;
+    dialog.setWindowTitle("游戏结束");
+    dialog.setModal(true);
+    dialog.setFixedSize(350, 260);
+    dialog.setStyleSheet(
+        "QDialog { background: #f8fafd; border-radius: 18px; }"
+        "QLabel { font-size: 20px; color: #333; }"
+        "QPushButton {"
+        "  min-width: 120px; min-height: 36px; font-size: 18px;"
+        "  border-radius: 8px; background: #e0e7ef; color: #222;"
+        "  margin: 8px 0;"
+        "}"
+        "QPushButton:hover { background: #b6d0f7; }"
+    );
+
+    QVBoxLayout* layout = new QVBoxLayout(&dialog);
+    layout->setSpacing(18);
+    layout->setContentsMargins(30, 30, 30, 30);
+
+    qreal secs = GElapsedTimer.elapsed() / 1000.0;
+    QSettings settings("xiami", "ScrollingTerrain");
+    qreal bestSecs = settings.value("bestTime", 0.0).toDouble();
+    if (secs > bestSecs) {
+        bestSecs = secs;
+        settings.setValue("bestTime", bestSecs);
+    }
+
+    QLabel* title = new QLabel("游戏结束");
+    title->setAlignment(Qt::AlignCenter);
+    title->setStyleSheet("font-size: 26px; font-weight: bold; color: #1976d2;");
+    layout->addWidget(title);
+
+    QLabel* timeLabel = new QLabel(QString("本次游戏时长：%1 秒").arg(secs, 0, 'f', 2));
+    timeLabel->setAlignment(Qt::AlignCenter);
+    layout->addWidget(timeLabel);
+
+    QLabel* bestLabel = new QLabel(QString("历史最佳：%1 秒").arg(bestSecs, 0, 'f', 2));
+    bestLabel->setAlignment(Qt::AlignCenter);
+    layout->addWidget(bestLabel);
+
+    QPushButton* retryBtn = new QPushButton("再来一次");
+    QPushButton* exitBtn = new QPushButton("退出游戏");
+    retryBtn->setCursor(Qt::PointingHandCursor);
+    exitBtn->setCursor(Qt::PointingHandCursor);
+
+    QHBoxLayout* btnLayout = new QHBoxLayout();
+    btnLayout->addWidget(retryBtn);
+    btnLayout->addWidget(exitBtn);
+    layout->addLayout(btnLayout);
+
+    connect(retryBtn, &QPushButton::clicked, &dialog, &QDialog::accept);
+    connect(exitBtn, &QPushButton::clicked, &dialog, &QDialog::reject);
+
+    // 居中显示（Qt6 推荐写法）
+    QScreen* screen = QGuiApplication::primaryScreen();
+    if (screen) {
+        QRect screenGeometry = screen->geometry();
+        QPoint center = screenGeometry.center() - QPoint(dialog.width() / 2, dialog.height() / 2);
+        dialog.move(center);
+    }
+
+    int result = dialog.exec();
+    if (result == QDialog::Accepted) {
+        // 停止定时器和线程
+        GTimer.stop();
+        if (m_avalancheThread) {
+            m_avalancheThread->stop();
+            m_avalancheThread->wait();
+            delete m_avalancheThread;
+            m_avalancheThread = nullptr;
+        }
+
+        // 清理场景
+        clear();
+
+        // 重新创建关键对象
+        GTerrainGenerator = new TerrainGenerator(this, this);
+        Gplayer = new Player();
+        addItem(Gplayer);
+        PhysicsSystem::instance().registerObject(Gplayer);
+        avalanche = new Avalanche(GTerrainGenerator);
+        addItem(avalanche);
+
+        // 重新创建并启动雪崩线程
+        m_avalancheThread = new AvalancheUpdateThread(avalanche, this);
+        connect(m_avalancheThread, &AvalancheUpdateThread::updateCompleted,
+                this, [this]() { avalanche->applyThreadResults(); });
+        m_avalancheThread->start();
+
+        // 重新初始化
+        initialize();
+    } else {
+        qApp->quit();
+    }
 }

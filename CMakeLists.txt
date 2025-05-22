@@ -23,7 +23,7 @@ else()
 endif()
 
 # 查找所需的 Qt6 模块
-find_package(Qt6 COMPONENTS Core Gui Widgets Svg OpenGL OpenGLWidgets Network Multimedia MultimediaWidgets REQUIRED)
+find_package(Qt6 COMPONENTS Core Gui Widgets Svg OpenGL OpenGLWidgets Network Multimedia MultimediaWidgets Concurrent REQUIRED)
 
 # 源文件与头文件
 file(GLOB SOURCES src/*.cpp)
@@ -98,4 +98,5 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
         Qt6::Network
         Qt6::Multimedia
         Qt6::MultimediaWidgets
+        Qt6::Concurrent
 )

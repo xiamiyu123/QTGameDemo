@@ -3,6 +3,7 @@
 #include <QtSvg>
 #include "physical.h"
 #include "avalancheupdatethread.h"
+#include <QtConcurrent/QtConcurrent>
 
 #include "rockentity.h"
 static qreal lastSlope = 0;
@@ -121,14 +122,21 @@ void GameScene::update() {
     // 更新玩家状态
     Gplayer->playerUpdate(GTerrainGenerator);
 
-    // 更新物理系统中所有实体的物理状态
-    PhysicsSystem::instance().update(deltaTime);
+    // 使用并行处理物理系统中的实体更新
+    const QList<IPhysicsObject*>& physicsObjects = PhysicsSystem::instance().getPhysicsObjects();
+    
+    // 创建lambda函数以传递deltaTime参数到每个物体的updatePhysics方法
+    auto updateFunc = [deltaTime](IPhysicsObject* obj) {
+        if (obj) obj->updatePhysics(deltaTime);
+    };
+    
+    // 使用QtConcurrent::map并行处理所有物理对象
+    QtConcurrent::blockingMap(physicsObjects, updateFunc);
 
     // 在处理碰撞前清除本帧待删除对象列表
     m_objectsToDeleteThisFrame.clear();
 
     // 处理所有物理对象的碰撞
-    const QList<IPhysicsObject*>& physicsObjects = PhysicsSystem::instance().getPhysicsObjects();
     for (IPhysicsObject* obj : physicsObjects) {
         if (!obj) { // 防御性检查
             continue;
@@ -147,7 +155,7 @@ void GameScene::update() {
             continue;
         }
 
-        handlePhysicsObjectCollision(obj); // obj 在此调用中可能被标记为删除
+        handlePhysicsObjectCollision(obj);
     }
 
     // 更新地形生成（基于玩家位置）
@@ -407,6 +415,41 @@ void GameScene::handlePhysicsObjectCollision(IPhysicsObject* obj) {
                 break; // 处理完一次碰撞即可
             }
         }
+    }
+
+    if (player) {
+        // 用于并行处理的lambda
+        auto checkRockCollision = [this, player](RockEntity* rock) {
+            if (!rock) return;
+
+            // 检查石头是否已在本帧中被标记为删除
+            bool rockAlreadyMarkedForDeletion = false;
+            for (IPhysicsObject* deletedObj : m_objectsToDeleteThisFrame) {
+                if (rock == deletedObj) {
+                    rockAlreadyMarkedForDeletion = true;
+                    break;
+                }
+            }
+            if (rockAlreadyMarkedForDeletion) return;
+
+            if (player->collidesWithItem(rock)) {
+                // 线程安全地处理碰撞结果
+                QMetaObject::invokeMethod(this, [this, player, rock]() {
+                    player->checkHitRock(rock);
+                    if (rock->scene()) {
+                        rock->scene()->removeItem(rock);
+                    }
+                    PhysicsSystem::instance().unregisterObject(rock);
+                    GTerrainGenerator->m_rocks.removeOne(rock);
+                    if (!m_objectsToDeleteThisFrame.contains(rock)) {
+                        m_objectsToDeleteThisFrame.append(rock);
+                    }
+                }, Qt::QueuedConnection);
+            }
+        };
+
+        // QtConcurrent 并行处理所有石头
+        QtConcurrent::blockingMap(GTerrainGenerator->m_rocks, checkRockCollision);
     }
 }
 

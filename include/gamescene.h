@@ -22,7 +22,8 @@ public:
 protected:
     void keyPressEvent(QKeyEvent *event) override;
     void keyReleaseEvent(QKeyEvent *event) override;
-    
+    bool eventFilter(QObject *watched, QEvent *event) override;
+
 private slots:
     void updateUI();
 

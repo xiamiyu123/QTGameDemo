@@ -62,6 +62,14 @@ void GameScene::initialize()
     // 将玩家放置在适当位置
     initialPlayerPosition();
     
+    // 设置事件过滤器监听视口大小变化
+    if (!views().isEmpty()) {
+        views().first()->viewport()->installEventFilter(this);
+    }
+    
+    // 初始设置UI
+    updateUI();
+
     // 启动游戏循环
     GElapsedTimer.start();
     GTimer.start();
@@ -113,9 +121,6 @@ void GameScene::update() {
     // 让视图跟随玩家
     centerViewOnPlayer();
 
-    // 更新UI控件
-    updateUI();
-
     // 更新雪崩
     m_avalancheElapsed += deltaTime;
     if (m_avalancheElapsed >= m_avalancheInterval) {
@@ -155,23 +160,18 @@ void GameScene::togglePause()
     if (GState == Running) {
         GState = Paused;
         GTimer.stop();
+        // 更新暂停文字内容
         qreal secs = GElapsedTimer.elapsed() / 1000.0;
         GPauseText->setPlainText(QString("游戏已暂停，已进行" + QString::number(secs, 'f', 2) + "秒"));
-        //更改暂停按钮图标
+        
+        // 更改暂停按钮图标
         pauseButton->setIcon(QIcon(":/resource/images/icons/play.svg"));
-        // 设置文本位置，使其居中
-        // 获取视口在场景中的矩形
-        if (!views().isEmpty()) {
-            QGraphicsView *view = views().last();
-            QRectF viewSceneRect = view->mapToScene(view->viewport()->geometry()).boundingRect();
-            QRectF textRect = GPauseText->boundingRect();
-            // 文字居中到视口
-            GPauseText->setPos(
-                viewSceneRect.center().x() - textRect.width() / 2,
-                viewSceneRect.center().y() - textRect.height() / 2
-            );
-        }
+        
+        // 显示暂停文字（位置更新由updateUI负责）
         GPauseText->show();
+        
+        // 立即更新一次UI以定位暂停文字
+        updateUI();
     } else {
         GState = Running;
         GPauseText->hide();
@@ -191,6 +191,26 @@ void GameScene::updateUI()
     pauseButton->setGeometry(vp.width() - 50 - 10, 10, 50, 50);
     pauseButton->show();
 
+    // 如果当前状态是暂停，也需要更新暂停文字的位置
+    if (GState == Paused && GPauseText->isVisible()) {
+        QRectF viewSceneRect = view->mapToScene(view->viewport()->rect()).boundingRect();
+        QRectF textRect = GPauseText->boundingRect();
+        // 文字居中到视口
+        GPauseText->setPos(
+            viewSceneRect.center().x() - textRect.width() / 2,
+            viewSceneRect.center().y() - textRect.height() / 2
+        );
+    }
+}
+
+// 在GameScene类中添加事件过滤器方法
+bool GameScene::eventFilter(QObject *watched, QEvent *event)
+{
+    // 监听视口的调整大小事件
+    if (watched == views().first()->viewport() && event->type() == QEvent::Resize) {
+        updateUI();
+    }
+    return QGraphicsScene::eventFilter(watched, event);
 }
 
 // 处理物理对象与地形的碰撞

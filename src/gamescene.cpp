@@ -416,6 +416,41 @@ void GameScene::handlePhysicsObjectCollision(IPhysicsObject* obj) {
             }
         }
     }
+
+    if (player) {
+        // 用于并行处理的lambda
+        auto checkRockCollision = [this, player](RockEntity* rock) {
+            if (!rock) return;
+
+            // 检查石头是否已在本帧中被标记为删除
+            bool rockAlreadyMarkedForDeletion = false;
+            for (IPhysicsObject* deletedObj : m_objectsToDeleteThisFrame) {
+                if (rock == deletedObj) {
+                    rockAlreadyMarkedForDeletion = true;
+                    break;
+                }
+            }
+            if (rockAlreadyMarkedForDeletion) return;
+
+            if (player->collidesWithItem(rock)) {
+                // 线程安全地处理碰撞结果
+                QMetaObject::invokeMethod(this, [this, player, rock]() {
+                    player->checkHitRock(rock);
+                    if (rock->scene()) {
+                        rock->scene()->removeItem(rock);
+                    }
+                    PhysicsSystem::instance().unregisterObject(rock);
+                    GTerrainGenerator->m_rocks.removeOne(rock);
+                    if (!m_objectsToDeleteThisFrame.contains(rock)) {
+                        m_objectsToDeleteThisFrame.append(rock);
+                    }
+                }, Qt::QueuedConnection);
+            }
+        };
+
+        // QtConcurrent 并行处理所有石头
+        QtConcurrent::blockingMap(GTerrainGenerator->m_rocks, checkRockCollision);
+    }
 }
 
 // 计算动态地面检测容差

@@ -375,18 +375,53 @@ void TerrainGenerator::generateChunkThreadSafe(int chunkIndex)
     // 添加所有点
     for (int i = 1; i < points.size(); ++i) {
         path.lineTo(points[i]);
-    }
-
-    // 完成地形封闭
+    }    // 完成地形封闭
     path.lineTo(CHUNK_WIDTH, 5000000);
     path.lineTo(0, 5000000);
     path.closeSubpath();
     
-    // 存储生成的路径和点数据
+    // 生成石头的位置数据（不创建实体）
+    QVector<RockGenerationData> rockDataList;
+    int rockCount = QRandomGenerator::global()->bounded(2, 4);
+    QVector<qreal> rockXs; // 记录已生成石头的x坐标
+    
+    for (int r = 0; r < rockCount; ++r) {
+        // 随机x坐标（块内）
+        qreal x = QRandomGenerator::global()->bounded(0, CHUNK_WIDTH);
+        // 检查与已生成石头的距离
+        bool tooClose = false;
+        for (qreal prevX : rockXs) {
+            if (qAbs(x - prevX) < MIN_ROCK_DISTANCE) {
+                tooClose = true;
+                break;
+            }
+        }
+        if (tooClose) continue;
+
+        qreal globalX = chunkIndex * CHUNK_WIDTH + x;
+        // 检查斜率
+        qreal slope = getTerrainSlope(globalX);
+        if (qAbs(slope) > MAX_SLOPE_FOR_ROCK) continue;
+
+        qreal y = getTerrainHeight(globalX) - 30; // 石头底部贴地
+        qreal angle = qAtan(slope) * 180.0 / M_PI;
+        
+        // 保存石头数据
+        RockGenerationData rockData;
+        rockData.localX = x;
+        rockData.globalX = globalX;
+        rockData.y = y;
+        rockData.angle = angle;
+        rockDataList.append(rockData);
+        rockXs.append(x); // 记录本次石头x
+    }
+    
+    // 存储生成的路径、点数据和石头数据
     {
         QMutexLocker locker(&m_mutex);
         m_generatedPaths[chunkIndex] = path;
         m_chunkPoints[chunkIndex] = points;
+        m_generatedRocks[chunkIndex] = rockDataList;
     }
 }
 
@@ -430,9 +465,26 @@ void TerrainGenerator::addChunkToScene(int chunkIndex)
         m_scene->addItem(terrainItem);
         m_scene->addItem(topItem);
     }
-    
-    // 保存图形项
+      // 保存图形项
     m_chunks[chunkIndex] = terrainItem;
+    
+    // 根据预先计算的数据创建石头实体
+    if (m_generatedRocks.contains(chunkIndex)) {
+        const QVector<RockGenerationData>& rockDataList = m_generatedRocks[chunkIndex];
+        for (const RockGenerationData& rockData : rockDataList) {
+            RockEntity* rock = new RockEntity(30, 30);
+            rock->setPosition(QPointF(rockData.globalX, rockData.y));
+            rock->setRotation(rockData.angle);
+            rock->setOnGround(true);
+            m_scene->addItem(rock);
+            m_rocks.append(rock);
+            // 注册到物理系统
+            PhysicsSystem::instance().registerObject(rock);
+        }
+        
+        // 处理完后移除石头数据
+        m_generatedRocks.remove(chunkIndex);
+    }
     
     // 移除已处理的路径
     m_generatedPaths.remove(chunkIndex);

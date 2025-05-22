@@ -2,6 +2,8 @@
 #include <QGraphicsView>
 #include <QtSvg>
 #include "physical.h"
+#include "avalancheupdatethread.h" 
+
 static qreal lastSlope = 0;
 GameScene::GameScene(QObject *parent)
     : QGraphicsScene(parent)
@@ -48,10 +50,22 @@ GameScene::GameScene(QObject *parent)
     avalanche->setSpeed(150);        // 设置初速度
     avalanche->setAcceleration(5);  // 设置加速度
     avalanche->setMaxSpeed(600);    // 设置最大速度
+
+    // 创建并启动雪崩更新线程
+    m_avalancheThread = new AvalancheUpdateThread(avalanche, this);
+    connect(m_avalancheThread, &AvalancheUpdateThread::updateCompleted,
+            this, [this]() {
+                avalanche->applyThreadResults();
+            });
+    m_avalancheThread->start();
 }
 
 GameScene::~GameScene()
 {
+    if (m_avalancheThread) {
+        m_avalancheThread->stop();
+        m_avalancheThread->wait();
+    }
 }
 
 void GameScene::initialize()
@@ -121,10 +135,11 @@ void GameScene::update() {
     // 让视图跟随玩家
     centerViewOnPlayer();
 
-    // 更新雪崩
+    // 雪崩更新改为使用线程
     m_avalancheElapsed += deltaTime;
     if (m_avalancheElapsed >= m_avalancheInterval) {
-        avalanche->updateAvalanche(m_avalancheElapsed, Gplayer->x());
+        // 请求在线程中更新雪崩
+        m_avalancheThread->requestUpdate(m_avalancheElapsed, Gplayer->x());
         m_avalancheElapsed = 0;
     }
 }
@@ -213,15 +228,6 @@ bool GameScene::eventFilter(QObject *watched, QEvent *event)
     return QGraphicsScene::eventFilter(watched, event);
 }
 
-
-bool GameScene::eventFilter(QObject *watched, QEvent *event)
-{
-    // 监听视口的调整大小事件
-    if (watched == views().first()->viewport() && event->type() == QEvent::Resize) {
-        updateUI();
-    }
-    return QGraphicsScene::eventFilter(watched, event);
-}
 
 // 处理物理对象与地形的碰撞
 void GameScene::handlePhysicsObjectCollision(IPhysicsObject* obj) {

@@ -7,6 +7,7 @@
 #include "terraingenerator.h"
 #include <QPushButton>
 #include "avalanche.h"
+#include "avalancheupdatethread.h"
 
 class GameScene : public QGraphicsScene
 {
@@ -52,6 +53,7 @@ private:
     QTimer GTimer;
     Avalanche* avalanche;
 
+ 
     qreal m_avalancheElapsed = 0;
     const qreal m_avalancheInterval = 0.02; // 雪崩每0.1秒刷新一次
 
@@ -68,6 +70,6 @@ private:
     //ui区域
     QGraphicsTextItem *GPauseText;
     QPushButton *pauseButton;
-
+    AvalancheUpdateThread* m_avalancheThread;  // 雪崩更新线程
 };
 

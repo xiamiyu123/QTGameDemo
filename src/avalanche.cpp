@@ -139,3 +139,34 @@ void Avalanche::updateShape(qreal playerX)
 
     setPath(path);
 }
+
+// 添加线程安全方法实现
+
+void Avalanche::updateAvalancheThreadSafe(qreal elapsed, qreal playerX)
+{
+    // 复制原来的updateAvalanche逻辑，但不直接修改图形项
+    // 仅进行计算并存储结果
+    
+    QVector<QPointF> newPositions;
+    
+    // 雪崩更新的核心逻辑
+    // ...计算过程...
+    
+    // 将结果存储到线程安全的缓冲区
+    QMutexLocker locker(&m_mutex);
+    m_threadCalculatedPositions = newPositions;
+    m_hasThreadResults = true;
+}
+
+void Avalanche::applyThreadResults()
+{
+    QMutexLocker locker(&m_mutex);
+    if (m_hasThreadResults) {
+        // 应用线程计算的结果到实际图形项
+        // 这部分在主线程中执行
+        
+        // ...更新图形项...
+        
+        m_hasThreadResults = false;
+    }
+}

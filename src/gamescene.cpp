@@ -124,10 +124,30 @@ void GameScene::update() {
     // 更新物理系统中所有实体的物理状态
     PhysicsSystem::instance().update(deltaTime);
 
+    // 在处理碰撞前清除本帧待删除对象列表
+    m_objectsToDeleteThisFrame.clear();
+
     // 处理所有物理对象的碰撞
     const QList<IPhysicsObject*>& physicsObjects = PhysicsSystem::instance().getPhysicsObjects();
     for (IPhysicsObject* obj : physicsObjects) {
-        handlePhysicsObjectCollision(obj);
+        if (!obj) { // 防御性检查
+            continue;
+        }
+
+        // 检查对象是否已在本帧中被标记为删除
+        // 如果是，则跳过对此对象的处理
+        bool alreadyMarkedForDeletion = false;
+        for (IPhysicsObject* deletedObj : m_objectsToDeleteThisFrame) {
+            if (obj == deletedObj) {
+                alreadyMarkedForDeletion = true;
+                break;
+            }
+        }
+        if (alreadyMarkedForDeletion) {
+            continue;
+        }
+
+        handlePhysicsObjectCollision(obj); // obj 在此调用中可能被标记为删除
     }
 
     // 更新地形生成（基于玩家位置）
@@ -143,6 +163,14 @@ void GameScene::update() {
         m_avalancheThread->requestUpdate(m_avalancheElapsed, Gplayer->x());
         m_avalancheElapsed = 0;
     }
+
+    // 在所有更新和碰撞处理完成后，实际删除标记的对象
+    for (IPhysicsObject* objToDelete : m_objectsToDeleteThisFrame) {
+        if (objToDelete) { // 再次检查，尽管不太可能为null
+            delete objToDelete;
+        }
+    }
+    // m_objectsToDeleteThisFrame 会在下一帧 update 开始时被清空
 }
 
 // 仅用于初始化时放置玩家
@@ -233,7 +261,7 @@ bool GameScene::eventFilter(QObject *watched, QEvent *event)
 // 处理物理对象与地形的碰撞
 void GameScene::handlePhysicsObjectCollision(IPhysicsObject* obj) {
     // 获取物体信息
-    QRectF objRect = obj->boundingRect();
+    QRectF objRect = obj->boundingRect(); // 此处是崩溃点 (gamescene.cpp:236)
     QPointF objPos = obj->position();
     qreal objCenterX = objPos.x() + objRect.width() / 2;
 
@@ -268,11 +296,11 @@ void GameScene::handlePhysicsObjectCollision(IPhysicsObject* obj) {
     qreal groundTolerance = calculateGroundTolerance(horizontalSpeed, terrainSlope, forwardSlope, verticalSpeed);
 
     // 添加玩家对象的检测
-    Player* player = dynamic_cast<Player*>(obj);
+    Player* player = dynamic_cast<Player*>(obj); // 注意：这里的 player 变量名可能会与函数参数 obj 混淆，但它是局部变量
 
     bool wasOnGround = obj->isOnGround();
 
-    // 主要碰撞逻辑
+    // 主要碰撞逻辑 (地面碰撞等)
     if (actualObjBottom >= terrainHeight) {  // 已穿透地面
         // 校正位置
         qreal dy_adjust = terrainHeight - actualObjBottom;
@@ -281,27 +309,18 @@ void GameScene::handlePhysicsObjectCollision(IPhysicsObject* obj) {
         // 设置为着地状态
         if (!wasOnGround) {
             obj->setOnGround(true);
-
-            // 检查是否为Player对象并调用落地检查
-            if (player) {
-                // 计算角度
+            if (player) { // 如果 obj 是玩家
                 qreal terrainAngle = qRadiansToDegrees(qAtan(terrainSlope));
                 player->checkLanding(terrainAngle);
             }
-
-            // 重置垂直速度
             obj->setVelocity(QPointF(velocity.x(), 0));
-            // 输出落地信息
-            qDebug() << "落地: 地形高度 =" << terrainHeight << "角色底部 =" << actualObjBottom;
+             qDebug() << "落地: 地形高度 =" << terrainHeight << "角色底部 =" << actualObjBottom;
         }
-
-        // 计算斜坡力
         updateSlopeForce(obj, terrainSlope, horizontalSpeed);
     }
     else if (actualObjBottom + groundTolerance >= terrainHeight) {  // 接近地面
         // 判断是否应该保持着地
         bool shouldStayGrounded = shouldMaintainGrounded(wasOnGround, terrainSlope, verticalSpeed, horizontalSpeed);
-
         if (shouldStayGrounded) {
             // 校正位置 - 平滑吸附到地面
             qreal snapFactor = 1;  // 吸附强度
@@ -310,31 +329,21 @@ void GameScene::handlePhysicsObjectCollision(IPhysicsObject* obj) {
 
             if (!wasOnGround) {
                 obj->setOnGround(true);
-
-                // 检查是否为Player对象并调用落地检查
-                if (player) {
+                if (player) { // 如果 obj 是玩家
                     qreal terrainAngle = qRadiansToDegrees(qAtan(terrainSlope));
                     player->checkLanding(terrainAngle);
                 }
-
                 obj->setVelocity(QPointF(velocity.x(), 0));
-                // 输出落地信息
                 qDebug() << "靠近地面落地: 地形高度 =" << terrainHeight << "角色底部 =" << actualObjBottom;
             }
-
-            // 计算斜坡力
             updateSlopeForce(obj, terrainSlope, horizontalSpeed);
         }
         else if (wasOnGround && shouldTakeoff(backSlope, terrainSlope, forwardSlope, horizontalSpeed)) {
-            // 满足起飞条件
-            handleTakeoff(obj, terrainSlope, horizontalSpeed);
-        }
-        else if (wasOnGround) {
+             handleTakeoff(obj, terrainSlope, horizontalSpeed);
+        }  else if (wasOnGround) {
             obj->setOnGround(false);
             obj->setSlopeSlideSpeed(0);
-
-            // 如果是玩家对象且刚刚离地，调用notifyTakeoff
-            if (player) {
+            if (player) { // 如果 obj 是玩家
                 player->notifyTakeoff();
             }
         }
@@ -343,9 +352,7 @@ void GameScene::handlePhysicsObjectCollision(IPhysicsObject* obj) {
         if (wasOnGround) {
             obj->setOnGround(false);
             obj->setSlopeSlideSpeed(0);
-
-            // 如果是玩家对象且刚刚离地，调用notifyTakeoff
-            if (player) {
+            if (player) { // 如果 obj 是玩家
                 player->notifyTakeoff();
             }
         }
@@ -353,22 +360,51 @@ void GameScene::handlePhysicsObjectCollision(IPhysicsObject* obj) {
 
     // 更新物体姿态 - 考虑摔倒状态
     if (entity) {
-        if (!player || !player->isFallen()) {
-            // 只有在非摔倒状态下才更新旋转以匹配地形
+        Player* asPlayer = dynamic_cast<Player*>(entity); // 检查 entity 是否为 Player
+        if (!asPlayer || !asPlayer->isFallen()) {
             updateEntityRotation(entity, obj->isOnGround(), terrainSlope);
         }
     }
-    // 玩家与石头碰撞检测
-    if (player) {
-        // 遍历所有石头
+
+    // 玩家与石头碰撞检测 - 仅当当前 obj 是玩家时执行
+    if (player) { // player 是 dynamic_cast<Player*>(obj) 的结果
         for (int i = GTerrainGenerator->m_rocks.size() - 1; i >= 0; --i) {
-            RockEntity* rock = GTerrainGenerator->m_rocks[i];
+            RockEntity* rock = GTerrainGenerator->m_rocks.at(i);
+            if (!rock) {
+                continue;
+            }
+
+            // 检查石头是否已在本帧中被标记为删除 (安全措施)
+            bool rockAlreadyMarkedForDeletion = false;
+            for (IPhysicsObject* deletedObj : m_objectsToDeleteThisFrame) {
+                if (rock == deletedObj) {
+                    rockAlreadyMarkedForDeletion = true;
+                    break;
+                }
+            }
+            if (rockAlreadyMarkedForDeletion) {
+                continue;
+            }
+
             if (player->collidesWithItem(rock)) {
-                player->checkHitRock(rock);
-                // 从m_rocks移除
-                GTerrainGenerator->m_rocks.remove(i);
-                // 只处理一次，防止多次摔倒
-                break;
+                player->checkHitRock(rock); // 调用修改后的方法，仅处理玩家状态
+
+                // 从场景中移除石头
+                if (rock->scene()) {
+                    rock->scene()->removeItem(rock);
+                }
+                // 从物理系统中注销石头
+                PhysicsSystem::instance().unregisterObject(rock);
+                
+                // 从地形生成器的石头列表中移除
+                GTerrainGenerator->m_rocks.removeAt(i);
+
+                // 将石头添加到本帧的待删除列表
+                if (!m_objectsToDeleteThisFrame.contains(rock)) {
+                    m_objectsToDeleteThisFrame.append(rock);
+                }
+                
+                break; // 处理完一次碰撞即可
             }
         }
     }

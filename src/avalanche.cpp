@@ -69,7 +69,7 @@ bool Avalanche::isPlayerCaught(qreal playerX) const
 // 判断玩家是否被雪崩超越
 bool Avalanche::isPlayerSurpassed(qreal playerX) const
 {
-    return distanceToPlayerLeft(playerX) < 10; // 距离小于10判定为被超越
+    return distanceToPlayer(playerX) < 10; // 距离小于10判定为被超越
 }
 
 // 计算雪崩前沿与玩家的距离

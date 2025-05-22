@@ -8,6 +8,8 @@
 #include <QPushButton>
 #include "avalanche.h"
 #include "avalancheupdatethread.h"
+#include <QList> // 添加 QList 头文件
+#include "physical.h" // IPhysicsObject 定义
 
 class GameScene : public QGraphicsScene
 {
@@ -71,5 +73,6 @@ private:
     QGraphicsTextItem *GPauseText;
     QPushButton *pauseButton;
     AvalancheUpdateThread* m_avalancheThread;  // 雪崩更新线程
+    QList<IPhysicsObject*> m_objectsToDeleteThisFrame; // 新增：用于存储本帧待删除的对象
 };
 

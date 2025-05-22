@@ -80,11 +80,10 @@ private:
     QElapsedTimer GElapsedTimer;
 
     QTime GLastUpdateTime; // 上次更新时间
-
-
     //ui区域
     QGraphicsTextItem *GPauseText;
     QPushButton *pauseButton;
+    QGraphicsRectItem *GPauseOverlay; // 暂停时的渐变遮罩
     AvalancheUpdateThread* m_avalancheThread;  // 雪崩更新线程
     QList<IPhysicsObject*> m_objectsToDeleteThisFrame; // 新增：用于存储本帧待删除的对象
 };

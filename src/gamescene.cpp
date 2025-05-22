@@ -2,6 +2,7 @@
 #include <QGraphicsView>
 #include <QtSvg>
 #include "physical.h"
+#include "rockentity.h"
 static qreal lastSlope = 0;
 GameScene::GameScene(QObject *parent)
     : QGraphicsScene(parent)

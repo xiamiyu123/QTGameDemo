@@ -3,29 +3,26 @@
 #include <QPen>
 #include <QtMath>
 
+// 构造函数，初始化雪崩参数
 Avalanche::Avalanche(TerrainGenerator* terrain, QGraphicsItem* parent)
-    : QGraphicsPathItem(parent),
-      m_terrain(terrain),
-      m_frontX(0),
+    : QGraphicsPathItem(parent),                // 调用父类构造函数
+      m_terrain(terrain),                       // 记录地形指针
+      m_frontX(0),          // 雪崩前沿初始位置
       m_speed(200),         // 初始速度
       m_acceleration(10),   // 加速度
       m_maxSpeed(650),      // 最大速度（比玩家快）
       m_width(6000),        // 雪崩宽度
       m_visibleRange(2000)  // 默认视距范围
 {
-    setZValue(-1);
-    setBrush(QBrush(QColorConstants::Svg::white)); // 雪崩颜色
-    setPen(QPen(QColorConstants::Svg::white));
+    setZValue(-1); // 图层放在地形下方
+    setBrush(QBrush(QColorConstants::Svg::white)); // 设置雪崩颜色为白色
+    setPen(QPen(QColorConstants::Svg::white));     // 设置雪崩边框颜色为白色
 }
 
 void Avalanche::updateAvalanche(qreal deltaTime, qreal playerX)
 {
-    // 雪崩随时间加速
-    m_speed += m_acceleration * deltaTime;
-    if (m_speed > m_maxSpeed) m_speed = m_maxSpeed;
-
-    // 雪崩前沿推进
-    m_frontX += m_speed * deltaTime;
+    m_speed += m_acceleration * deltaTime;      // 速度随时间增加
+    if (m_speed > m_maxSpeed) m_speed = m_maxSpeed; // 限制最大速度
 
     // 检查雪崩是否在玩家视野范围内
     if (m_frontX + m_width < playerX - m_visibleRange) {
@@ -36,42 +33,49 @@ void Avalanche::updateAvalanche(qreal deltaTime, qreal playerX)
         setVisible(true);
     }
 
-    updateShape(playerX);
+    updateShape(playerX);                       // 更新雪崩形状
 }
 
+// 获取雪崩前沿x坐标
 qreal Avalanche::getFrontX() const
 {
     return m_frontX;
 }
 
+// 设置速度
 void Avalanche::setSpeed(qreal speed)
 {
     m_speed = speed;
 }
 
+// 设置加速度
 void Avalanche::setAcceleration(qreal acc)
 {
     m_acceleration = acc;
 }
 
+// 设置最大速度
 void Avalanche::setMaxSpeed(qreal maxSpeed)
 {
     m_maxSpeed = maxSpeed;
 }
 
-void Avalanche::setVisibleRange(qreal range)
-{
-    m_visibleRange = range;
-}
-
+// 判断玩家是否被雪崩追上
 bool Avalanche::isPlayerCaught(qreal playerX) const
 {
-    return distanceToPlayer(playerX) < 100;
+    return distanceToPlayer(playerX) < 10; // 距离小于10判定为被追上
 }
 
+// 判断玩家是否被雪崩超越
+bool Avalanche::isPlayerSurpassed(qreal playerX) const
+{
+    return distanceToPlayerLeft(playerX) < 10; // 距离小于10判定为被超越
+}
+
+// 计算雪崩前沿与玩家的距离
 qreal Avalanche::distanceToPlayer(qreal playerX) const
 {
-    return qAbs(playerX - m_frontX);
+    return qAbs(playerX - m_frontX); // 取绝对值
 }
 
 void Avalanche::updateShape(qreal playerX)
@@ -81,19 +85,20 @@ void Avalanche::updateShape(qreal playerX)
     // 只绘制可见区域内的雪崩部分
     qreal leftLimit = qMax(m_frontX - m_width, playerX - m_visibleRange * 1.2);
     qreal rightLimit = qMin(m_frontX, playerX + m_visibleRange * 0.5);
-    
+
     // 如果没有可见部分，返回空路径
     if (leftLimit >= rightLimit) {
         setPath(path);
         return;
     }
-    
+
     // 动态计算需要的点数，基于可见雪崩宽度
     qreal visibleWidth = rightLimit - leftLimit;
     int points = qMin(200, qMax(50, int(visibleWidth / 30)));
     qreal step = visibleWidth / (points - 1);
 
     QVector<QPointF> topPoints, bottomPoints;
+    // 生成顶部和底部点
     for (int i = 0; i < points; ++i) {
         qreal x = leftLimit + i * step;
         qreal y = m_terrain->getTerrainHeight(x);
@@ -131,13 +136,13 @@ void Avalanche::updateShape(qreal playerX)
         for (const auto& pt : topPoints) path.lineTo(pt);
         path.lineTo(topPoints.last().x(), bottomPoints.last().y());
     }
-    
+
     // 完成底部路径
     for (int i = bottomPoints.size() - 1; i >= 0; --i)
-        path.lineTo(bottomPoints[i]);
-    path.closeSubpath();
+        path.lineTo(bottomPoints[i]);                         // 底部曲线
+    path.closeSubpath();                                      // 闭合路径
 
-    setPath(path);
+    setPath(path); // 应用路径
 }
 
 // 添加线程安全方法实现
@@ -146,12 +151,12 @@ void Avalanche::updateAvalancheThreadSafe(qreal elapsed, qreal playerX)
 {
     // 复制原来的updateAvalanche逻辑，但不直接修改图形项
     // 仅进行计算并存储结果
-    
+
     QVector<QPointF> newPositions;
-    
+
     // 雪崩更新的核心逻辑
     // ...计算过程...
-    
+
     // 将结果存储到线程安全的缓冲区
     QMutexLocker locker(&m_mutex);
     m_threadCalculatedPositions = newPositions;
@@ -164,9 +169,9 @@ void Avalanche::applyThreadResults()
     if (m_hasThreadResults) {
         // 应用线程计算的结果到实际图形项
         // 这部分在主线程中执行
-        
+
         // ...更新图形项...
-        
+
         m_hasThreadResults = false;
     }
 }

@@ -2,8 +2,9 @@
 #include <QGraphicsView>
 #include <QtSvg>
 #include "physical.h"
-#include "avalancheupdatethread.h" 
+#include "avalancheupdatethread.h"
 
+#include "rockentity.h"
 static qreal lastSlope = 0;
 GameScene::GameScene(QObject *parent)
     : QGraphicsScene(parent)
@@ -80,7 +81,7 @@ void GameScene::initialize()
     if (!views().isEmpty()) {
         views().first()->viewport()->installEventFilter(this);
     }
-    
+
     // 初始设置UI
     updateUI();
 
@@ -178,13 +179,13 @@ void GameScene::togglePause()
         // 更新暂停文字内容
         qreal secs = GElapsedTimer.elapsed() / 1000.0;
         GPauseText->setPlainText(QString("游戏已暂停，已进行" + QString::number(secs, 'f', 2) + "秒"));
-        
+
         // 更改暂停按钮图标
         pauseButton->setIcon(QIcon(":/resource/images/icons/play.svg"));
-        
+
         // 显示暂停文字（位置更新由updateUI负责）
         GPauseText->show();
-        
+
         // 立即更新一次UI以定位暂停文字
         updateUI();
     } else {
@@ -355,6 +356,20 @@ void GameScene::handlePhysicsObjectCollision(IPhysicsObject* obj) {
         if (!player || !player->isFallen()) {
             // 只有在非摔倒状态下才更新旋转以匹配地形
             updateEntityRotation(entity, obj->isOnGround(), terrainSlope);
+        }
+    }
+    // 玩家与石头碰撞检测
+    if (player) {
+        // 遍历所有石头
+        for (int i = GTerrainGenerator->m_rocks.size() - 1; i >= 0; --i) {
+            RockEntity* rock = GTerrainGenerator->m_rocks[i];
+            if (player->collidesWithItem(rock)) {
+                player->checkHitRock(rock);
+                // 从m_rocks移除
+                GTerrainGenerator->m_rocks.remove(i);
+                // 只处理一次，防止多次摔倒
+                break;
+            }
         }
     }
 }

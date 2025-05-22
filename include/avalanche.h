@@ -18,15 +18,17 @@ public:
     void setVisibleRange(qreal range);
     //判断玩家是否被雪崩追上
     bool isPlayerCaught(qreal playerX) const;
+    //判断玩家是否被雪崩超越
+    bool isPlayerSurpassed(qreal playerX) const;
     // 获取雪崩前沿与玩家的距离
     qreal distanceToPlayer(qreal playerX) const;
 
     // 线程安全的雪崩更新方法
     void updateAvalancheThreadSafe(qreal elapsed, qreal playerX);
-    
+
     // 将线程中计算的结果应用到主线程
     void applyThreadResults();
-    
+
 private:
     TerrainGenerator* m_terrain;
     qreal m_frontX;      // 雪崩前沿x坐标
@@ -40,7 +42,7 @@ private:
     bool isInPlayerView(qreal playerX) const;
 
     QMutex m_mutex;  // 保护共享数据的互斥锁
-    
+
     // 线程计算结果的临时存储
     QVector<QPointF> m_threadCalculatedPositions;
     bool m_hasThreadResults;

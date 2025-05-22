@@ -9,6 +9,8 @@
 #include <QMutex>
 #include "perlinnoise.h"
 #include "terraingeneratorthread.h"
+#include "rockentity.h"
+#include <QVector>
 
 class TerrainGenerator : public QObject
 {
@@ -29,17 +31,21 @@ public:
 
     // 获取指定位置的地形坡度（返回斜率值）
     qreal getTerrainSlope(qreal x) const;
-    
+
     // 线程安全的区块生成方法
     void generateChunkThreadSafe(int chunkIndex);
-    
+
     // 在主线程中完成将区块添加到场景的操作
     void addChunkToScene(int chunkIndex);
-    
+
+
+    QVector<RockEntity*> m_rocks; // 存储所有石头
+
 private:
     static const int CHUNK_WIDTH = 3600;    // 地形块宽度
     static const int VIEW_CHUNKS = 1;      // 视图范围内保持的地形块数量
-    
+
+
     QGraphicsScene *m_scene;
     QMap<int, QGraphicsPathItem*> m_chunks; // 当前显示的地形块
     QMap<int, QVector<QPointF>> m_chunkPoints; // 每个地形块的关键点
@@ -49,7 +55,7 @@ private:
 
     // 互斥锁，保护共享资源
     mutable QMutex m_mutex;
-    
+
     // 后台线程生成的区块数据
     QMap<int, QPainterPath> m_generatedPaths;
 

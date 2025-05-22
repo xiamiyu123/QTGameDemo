@@ -7,6 +7,9 @@
 #include <QDebug>
 #include <QMutexLocker>
 
+const qreal MIN_ROCK_DISTANCE = 100; // 最小石头间距
+const qreal MAX_SLOPE_FOR_ROCK = 0.4; // 允许生成石头的最大斜率（绝对值）
+
 TerrainGenerator::TerrainGenerator(QGraphicsScene *scene, QObject *parent)
     : QObject(parent),
       m_scene(scene) {
@@ -225,6 +228,41 @@ void TerrainGenerator::generateChunk(int chunkIndex) {
     m_scene->addItem(terrainItem);
     m_scene->addItem(topItem);
     m_chunks[chunkIndex] = terrainItem; // 根据需求可能需要管理topItem
+
+    // 生成2~3个石头
+    int rockCount = QRandomGenerator::global()->bounded(2, 4);
+    QVector<qreal> rockXs; // 记录已生成石头的x坐标
+    for (int r = 0; r < rockCount; ++r) {
+        // 随机x坐标（块内）
+        qreal x = QRandomGenerator::global()->bounded(0, CHUNK_WIDTH);
+        // 检查与已生成石头的距离
+        bool tooClose = false;
+        for (qreal prevX : rockXs) {
+            if (qAbs(x - prevX) < MIN_ROCK_DISTANCE) {
+                tooClose = true;
+                break;
+            }
+        }
+        if (tooClose) continue;
+
+        qreal globalX = chunkIndex * CHUNK_WIDTH + x;
+        // 检查斜率
+        qreal slope = getTerrainSlope(globalX);
+        if (qAbs(slope) > MAX_SLOPE_FOR_ROCK) continue;
+
+        qreal y = getTerrainHeight(globalX) - 30; // 石头底部贴地
+
+        RockEntity* rock = new RockEntity(30, 30);
+        rock->setPosition(QPointF(globalX, y));
+        qreal angle = qAtan(slope) * 180.0 / M_PI;
+        rock->setRotation(angle);
+        rock->setOnGround(true);
+        m_scene->addItem(rock);
+        m_rocks.append(rock);
+        rockXs.append(x); // 记录本次石头x
+        // 注册到物理系统
+        PhysicsSystem::instance().registerObject(rock);
+    }
 }
 
 // 添加头文件
@@ -417,7 +455,18 @@ void TerrainGenerator::removeDistantChunks(int currentChunk) {
     }
 
     // 从场景和映射中删除
-    for (int index: chunksToRemove) {
+    // 在移除地形块时，移除该块内的石头
+    for (int index : chunksToRemove) {
+        // 移除石头
+        for (int i = m_rocks.size() - 1; i >= 0; --i) {
+            RockEntity* rock = m_rocks[i];
+            if (rock->x() >= index * CHUNK_WIDTH && rock->x() < (index + 1) * CHUNK_WIDTH) {
+                m_scene->removeItem(rock);
+                PhysicsSystem::instance().unregisterObject(rock);
+                delete rock;
+                m_rocks.remove(i);
+            }
+        }
         m_scene->removeItem(m_chunks[index]);
         delete m_chunks[index];
         m_chunks.remove(index);

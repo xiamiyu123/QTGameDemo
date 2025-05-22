@@ -1,12 +1,10 @@
 #include "mainwindow.h"
 #include <QKeyEvent>
-#include <QOpenGLWidget> // 添加OpenGL支持
+#include <QOpenGLWidget>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
 {
-    //打开硬件加速等基本优化
-    QCoreApplication::setAttribute(Qt::AA_UseDesktopOpenGL);
     // 窗口基本设置：设置初始尺寸与标题
     //设置全屏
     setWindowState(Qt::WindowMaximized);

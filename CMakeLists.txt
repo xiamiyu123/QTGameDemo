@@ -72,6 +72,8 @@ else()
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -ffast-math")
 endif()
 
+file(COPY ${CMAKE_SOURCE_DIR}/resource DESTINATION ${CMAKE_BINARY_DIR})
+
 # 编译定义
 target_compile_definitions(${PROJECT_NAME} PRIVATE
         $<$<CONFIG:Release>:QT_NO_DEBUG_OUTPUT>

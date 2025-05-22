@@ -6,7 +6,9 @@
 #include <QMap>
 #include <QVector>
 #include <QRandomGenerator>
+#include <QMutex>
 #include "perlinnoise.h"
+#include "terraingeneratorthread.h"
 #include "rockentity.h"
 #include <QVector>
 
@@ -17,7 +19,7 @@ class TerrainGenerator : public QObject
 
 public:
     TerrainGenerator(QGraphicsScene *scene, QObject *parent = nullptr);
-    
+    ~TerrainGenerator();
     // 初始化地形生成
     void initialize();
     
@@ -29,6 +31,13 @@ public:
 
     // 获取指定位置的地形坡度（返回斜率值）
     qreal getTerrainSlope(qreal x) const;
+
+    // 线程安全的区块生成方法
+    void generateChunkThreadSafe(int chunkIndex);
+
+    // 在主线程中完成将区块添加到场景的操作
+    void addChunkToScene(int chunkIndex);
+
 
     QVector<RockEntity*> m_rocks; // 存储所有石头
 
@@ -43,7 +52,13 @@ private:
     
     int m_seed;  // 随机种子
     QRandomGenerator m_randomGenerator; // 随机数生成器
-    
+
+    // 互斥锁，保护共享资源
+    mutable QMutex m_mutex;
+
+    // 后台线程生成的区块数据
+    QMap<int, QPainterPath> m_generatedPaths;
+
     // 生成地形块
     void generateChunk(int chunkIndex);
 
@@ -54,5 +69,7 @@ private:
     
     // 获取噪声值
     qreal noise(qreal x) const;
+
+    TerrainGeneratorThread* m_generatorThread;
 };
 

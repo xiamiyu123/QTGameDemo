@@ -46,6 +46,11 @@ private:
     QMutex m_mutex;  // 保护共享数据的互斥锁
 
     // 线程计算结果的临时存储
-    QVector<QPointF> m_threadCalculatedPositions;
-    bool m_hasThreadResults;
+    qreal m_threadCalculatedFrontX;
+    qreal m_threadCalculatedSpeed;
+    QVector<QPointF> m_threadCalculatedTopPoints;
+    QVector<QPointF> m_threadCalculatedBottomPoints;
+    QVector<QPointF> m_threadCalculatedArcPoints;
+    bool m_threadCalculatedVisible;
+    bool m_hasThreadResults = false;
 };

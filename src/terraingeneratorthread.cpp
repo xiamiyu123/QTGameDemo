@@ -4,6 +4,7 @@
 TerrainGeneratorThread::TerrainGeneratorThread(TerrainGenerator* terrainGenerator, QObject* parent)
     : QThread(parent), m_terrainGenerator(terrainGenerator), m_abort(false)
 {
+    qDebug() << "地形生成进程启动";
 }
 
 TerrainGeneratorThread::~TerrainGeneratorThread()

@@ -256,14 +256,82 @@ void TerrainGenerator::generateChunkThreadSafe(int chunkIndex)
     qreal startSlope = 0.0; 
     qreal SLOPE_FACTOR = BASE_SLOPE_FACTOR;
     
-    // 这部分代码基本与原来的generateChunk相同，但不创建或添加图形项
-    // 仅生成路径和点数据，存储起来供主线程使用
-    
-    // 这里是地形生成的核心代码...
-    // (从原始的generateChunk方法复制，但不包含创建QGraphicsItem的部分)
+    // 从原始的generateChunk方法复制的地形生成核心代码
+    { // 访问 m_chunkPoints 需要加锁
+        QMutexLocker locker(&m_mutex);
+        if (chunkIndex > 0 && m_chunkPoints.contains(chunkIndex - 1)) {
+            const QVector<QPointF> &prevPoints = m_chunkPoints[chunkIndex - 1];
+            if (!prevPoints.isEmpty()) {
+                startHeight = prevPoints.last().y();
+                if (prevPoints.size() >= 2) {
+                    qreal lastDelta = prevPoints.last().y() - prevPoints[prevPoints.size() - 2].y();
+                    qreal lastDx = prevPoints.last().x() - prevPoints[prevPoints.size() - 2].x();
+                    if (qAbs(lastDx) > 1e-9) { // 避免除以零
+                        startSlope = lastDelta / lastDx;
+                    }
+                }
+            }
+        } else if (chunkIndex < 0 && m_chunkPoints.contains(chunkIndex + 1)) {
+            const QVector<QPointF> &nextPoints = m_chunkPoints[chunkIndex + 1];
+            if (!nextPoints.isEmpty()) {
+                startHeight = nextPoints.first().y();
+                if (nextPoints.size() >= 2) {
+                    qreal firstDelta = nextPoints[1].y() - nextPoints[0].y();
+                    qreal firstDx = nextPoints[1].x() - nextPoints[0].x();
+                    if (qAbs(firstDx) > 1e-9) { // 避免除以零
+                        startSlope = firstDelta / firstDx;
+                    }
+                }
+            }
+        }
+    }
+
+    // 第一个点
+    points.append(QPointF(0, startHeight));
+
+    // 生成随机地形点
+    for (int i = 1; i < POINTS; ++i) {
+        qreal x = (qreal) i / POINTS * CHUNK_WIDTH;
+        qreal globalX = x + chunkIndex * CHUNK_WIDTH;
+
+        qreal noiseValue = noise(globalX * 1); 
+
+        qreal globalFactor = chunkIndex * BASE_SLOPE_FACTOR; 
+        qreal localFactor = qSqrt((qreal) i / POINTS) * SLOPE_FACTOR; 
+        qreal downwardTrend = globalFactor + localFactor;
+
+        qreal baseHeight = BASE_HEIGHT + downwardTrend;
+        qreal blendFactor = 1.0;
+        
+        if (i < TRANSITION_ZONE) {
+            qreal t = (qreal) i / TRANSITION_ZONE;
+            qreal smoothT = (1 - qCos(t * M_PI)) * 0.5; 
+
+            qreal expectedHeight = startHeight + startSlope * x;
+
+            qreal transitionNoise = noise(globalX * 0.02 + 100) * HEIGHT_VARIATION * 0.3;
+            expectedHeight += transitionNoise * smoothT; 
+
+            baseHeight = expectedHeight * (1 - smoothT) + baseHeight * smoothT;
+
+            noiseValue *= smoothT;
+        }
+
+        qreal height = baseHeight + noiseValue * HEIGHT_VARIATION * blendFactor;
+        points.append(QPointF(x, height));
+    }
     
     // 创建地形路径
     QPainterPath path;
+    if (points.isEmpty()) {
+        // 这种情况理论上不应该发生，因为至少会添加一个起始点
+        qWarning() << "TerrainGenerator::generateChunkThreadSafe - points vector is unexpectedly empty for chunkIndex:" << chunkIndex;
+        // 为避免崩溃，存储空路径和点
+        QMutexLocker locker(&m_mutex);
+        m_generatedPaths[chunkIndex] = path;
+        m_chunkPoints[chunkIndex] = points;
+        return;
+    }
     path.moveTo(points.first());
 
     // 添加所有点

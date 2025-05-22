@@ -61,6 +61,14 @@ void GameScene::initialize()
 
     // 将玩家放置在适当位置
     initialPlayerPosition();
+    
+    // 设置事件过滤器监听视口大小变化
+    if (!views().isEmpty()) {
+        views().first()->viewport()->installEventFilter(this);
+    }
+    
+    // 初始设置UI
+    updateUI();
 
     // 启动游戏循环
     GElapsedTimer.start();
@@ -112,9 +120,6 @@ void GameScene::update() {
 
     // 让视图跟随玩家
     centerViewOnPlayer();
-
-    // 更新UI控件
-    updateUI();
 
     // 更新雪崩
     m_avalancheElapsed += deltaTime;
@@ -191,6 +196,16 @@ void GameScene::updateUI()
     pauseButton->setGeometry(vp.width() - 50 - 10, 10, 50, 50);
     pauseButton->show();
 
+}
+
+
+bool GameScene::eventFilter(QObject *watched, QEvent *event)
+{
+    // 监听视口的调整大小事件
+    if (watched == views().first()->viewport() && event->type() == QEvent::Resize) {
+        updateUI();
+    }
+    return QGraphicsScene::eventFilter(watched, event);
 }
 
 // 处理物理对象与地形的碰撞

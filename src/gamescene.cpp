@@ -15,6 +15,14 @@ GameScene::GameScene(QObject *parent)
 
     GState = Running; // 初始化游戏状态为运行中
 
+    // 初始化得分和奖励倍数
+    score = 0;
+    award_speed = 1.0;
+    award_score = 1.0;
+
+    // 连接getscore信号到处理函数
+    connect(this, &GameScene::getscore, this, &GameScene::onGetScore);
+
     // 创建地形生成器
     GTerrainGenerator = new TerrainGenerator(this, this);
     // 创建并隐藏暂停时显示的文本
@@ -586,4 +594,15 @@ void GameScene::updateEntityRotation(BasePhysicsEntity* entity, bool onGround, q
         entity->setRotation(targetAngle);
     }
     // 空中的旋转逻辑由各实体类自行控制
+}
+
+// 新增：处理得分的槽函数
+void GameScene::onGetScore(int points)
+{
+    // 应用分数奖励倍数
+    int adjustedPoints = static_cast<int>(points * award_score);
+    // 增加玩家得分
+    score += adjustedPoints;
+    
+    qDebug() << "玩家得分: " << score << " (奖励倍数: " << award_score << ")";
 }

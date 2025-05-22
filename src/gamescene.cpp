@@ -23,13 +23,26 @@ GameScene::GameScene(QObject *parent)
 
     GState = Running; // 初始化游戏状态为运行中
 
+    // 初始化得分和奖励倍数
+    score = 0;
+    award_speed = 1.0;
+    award_score = 1.0;
+
+    // 连接getscore信号到处理函数
+    connect(this, &GameScene::getscore, this, &GameScene::onGetScore);
+
     // 创建地形生成器
-    GTerrainGenerator = new TerrainGenerator(this, this);
-    // 创建并隐藏暂停时显示的文本
-    GPauseText = addText("", QFont("Arial", 24));
+    GTerrainGenerator = new TerrainGenerator(this, this);    // 创建并隐藏暂停时显示的文本
+    GPauseText = addText("", QFont("Arial", 24, QFont::Bold));
     GPauseText->setDefaultTextColor(Qt::white);
-    GPauseText->setZValue(1000);
+    GPauseText->setZValue(1001);  // 确保文本在遮罩之上
     GPauseText->hide();
+    
+    // 创建暂停时的渐变遮罩
+    GPauseOverlay = new QGraphicsRectItem();
+    GPauseOverlay->setZValue(1000);
+    addItem(GPauseOverlay);
+    GPauseOverlay->hide();
 
     // 创建玩家
     Gplayer = new Player();
@@ -227,9 +240,25 @@ void GameScene::togglePause()
     if (GState == Running) {
         GState = Paused;
         GTimer.stop();
-        // 更新暂停文字内容
-        qreal secs = GElapsedTimer.elapsed() / 1000.0;
-        GPauseText->setPlainText(QString("游戏已暂停，已进行" + QString::number(secs, 'f', 2) + "秒"));
+
+        // 创建渐变效果 - 从深蓝色边缘到浅蓝色中心的径向渐变
+        QGraphicsView *view = views().first();
+        QRectF viewRect = view->mapToScene(view->viewport()->rect()).boundingRect();
+        
+        // 设置遮罩区域覆盖整个可视区域
+        GPauseOverlay->setRect(viewRect);
+        
+        // 创建从边缘深蓝到中心浅蓝的径向渐变
+        QRadialGradient gradient(viewRect.center(), qMax(viewRect.width(), viewRect.height()) / 2);
+        gradient.setColorAt(0.0, QColor(100, 180, 255, 180));   // 中心浅蓝色，半透明
+        gradient.setColorAt(1.0, QColor(10, 50, 120, 230));     // 边缘深蓝色，更不透明
+        
+        GPauseOverlay->setBrush(gradient);
+        GPauseOverlay->setPen(Qt::NoPen);  // 无边框
+        GPauseOverlay->show();
+
+        // 更新暂停文字内容，现在显示分数而不是时间
+        GPauseText->setPlainText(QString("游戏已暂停\n\n当前分数：" + QString::number(score) + " 分"));
 
         // 更改暂停按钮图标
         pauseButton->setIcon(QIcon(":/resource/images/icons/play.svg"));
@@ -242,11 +271,13 @@ void GameScene::togglePause()
     } else {
         GState = Running;
         GPauseText->hide();
+        GPauseOverlay->hide();
         GTimer.start();
         //更改暂停按钮图标
         pauseButton->setIcon(QIcon(":/resource/images/icons/pause.svg"));
     }
 }
+
 
 void GameScene::updateUI()
 {
@@ -603,6 +634,17 @@ void GameScene::updateEntityRotation(BasePhysicsEntity* entity, bool onGround, q
     // 空中的旋转逻辑由各实体类自行控制
 }
 
+// 新增：处理得分的槽函数
+void GameScene::onGetScore(int points)
+{
+    // 应用分数奖励倍数
+    int adjustedPoints = static_cast<int>(points * award_score);
+    // 增加玩家得分
+    score += adjustedPoints;
+
+    qDebug() << "玩家得分: " << score << " (奖励倍数: " << award_score << ")";
+}
+
 // 显示游戏结束对话框
 void GameScene::showGameOverDialog() {
     QDialog dialog;
@@ -683,10 +725,20 @@ void GameScene::showGameOverDialog() {
         }
 
         // 清理场景
-        clear();
-
-        // 重新创建关键对象
+        clear();        // 重新创建关键对象
         GTerrainGenerator = new TerrainGenerator(this, this);
+        
+        // 重新创建暂停相关UI
+        GPauseText = addText("", QFont("Arial", 24, QFont::Bold));
+        GPauseText->setDefaultTextColor(Qt::white);
+        GPauseText->setZValue(1001);
+        GPauseText->hide();
+        
+        GPauseOverlay = new QGraphicsRectItem();
+        GPauseOverlay->setZValue(1000);
+        addItem(GPauseOverlay);
+        GPauseOverlay->hide();
+        
         Gplayer = new Player();
         addItem(Gplayer);
         PhysicsSystem::instance().registerObject(Gplayer);

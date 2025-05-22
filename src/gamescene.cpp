@@ -579,15 +579,20 @@ void GameScene::showGameOverDialog() {
     QVBoxLayout* layout = new QVBoxLayout(&dialog);
     layout->setSpacing(18);
     layout->setContentsMargins(30, 30, 30, 30);
-
     qreal secs = GElapsedTimer.elapsed() / 1000.0;
-    QSettings settings("xiami", "ScrollingTerrain");
-    qreal bestSecs = settings.value("bestTime", 0.0).toDouble();
+
+    QString iniPath = QCoreApplication::applicationDirPath() + "/game_record.ini";
+    QSettings settings(iniPath, QSettings::IniFormat);
+    qreal bestSecs = settings.value("General/bestTime", 0.0).toDouble();
     if (secs > bestSecs) {
         bestSecs = secs;
-        settings.setValue("bestTime", bestSecs);
+        settings.setValue("General/bestTime", bestSecs);
     }
 
+    QLabel* gameOverLabel = new QLabel("GAME OVER");
+    gameOverLabel->setAlignment(Qt::AlignCenter);
+    gameOverLabel->setStyleSheet("font-size: 35px; font-weight: bold; color: #d32f2f; letter-spacing: 2px;");
+    layout->addWidget(gameOverLabel);
     QLabel* title = new QLabel("游戏结束");
     title->setAlignment(Qt::AlignCenter);
     title->setStyleSheet("font-size: 26px; font-weight: bold; color: #1976d2;");

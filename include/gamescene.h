@@ -21,6 +21,7 @@ public:
     ~GameScene();
     
     void initialize();
+    void showGameOverDialog();
     
 protected:
     void keyPressEvent(QKeyEvent *event) override;

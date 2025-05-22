@@ -3,7 +3,7 @@
 #include <QPen>
 #include <QDebug>
 #include <qpainter.h>
-
+#include <QGraphicsScene>
 #include "terraingenerator.h"
 
 // 定义静态常量
@@ -21,7 +21,7 @@ static qreal normalizeAngle(qreal angle) {
 }
 
 Player::Player(QGraphicsItem *parent)
-    : BasePhysicsEntity(30, 30, parent),
+    : BasePhysicsEntity(40, 40, parent),
       is_fallen(false),
       keyLeft(false),
       keySpace(false),
@@ -32,16 +32,32 @@ Player::Player(QGraphicsItem *parent)
       m_takeoffRotation(0.0),
       m_flipRotation(0.0),
       m_cumulativeRotation(0.0),
+      m_drawOffsetX(-20),    // 调整绘制偏移，使角色正确显示
+      m_drawOffsetY(-25),    // 垂直绘制偏移，确保角色站在雪地上
       m_lastFrameRotation(0.0) {
 
     setZValue(-2);
 
     // 设置玩家外观
-    setBrush(QBrush(Qt::red));
-    setPen(QPen(Qt::black, 2));
 
     // 设置实体类型
     setEntityType(EntityType::Player);
+
+    // 加载所有玩家图像
+    m_playerImages.reserve(44);
+    for (int i = 0; i <= 43; i++) {
+        QString path = QString(":/resource/images/player/image%1.png").arg(QString::number(i));
+        m_playerImages.append(QPixmap(path));
+    }
+
+    // 设置当前图像索引
+    m_currentImageIndex = 0;
+
+    // 设置动画状态
+    m_animState = Standing;
+
+    // 设置动画计时器
+    m_animTimer = 0;
 
     // 允许接收键盘焦点
     setFlag(QGraphicsItem::ItemIsFocusable);
@@ -50,6 +66,8 @@ Player::Player(QGraphicsItem *parent)
     // 初始化摔倒恢复计时器
     connect(&m_fallRecoveryTimer, &QTimer::timeout, this, &Player::onFallRecoveryTimeout);
     m_fallRecoveryTimer.setSingleShot(true);
+    // 默认朝向
+    m_facingRight = true;
 }
 
 Player::~Player() {
@@ -63,10 +81,12 @@ void Player::keyPressEvent(QKeyEvent *event) {
     switch (event->key()) {
         case Qt::Key_Left:
             keyLeft = true;
+            m_facingRight = false;
             qDebug() << "Left key pressed";
             break;
         case Qt::Key_Right:
             keyRight = true;
+            m_facingRight = true;
             qDebug() << "Right key pressed";
             break;
         case Qt::Key_Space:
@@ -134,6 +154,9 @@ void Player::notifyTakeoff() {
     m_cumulativeRotation = 0.0;     // 重置累计旋转角度
     m_lastFrameRotation = rotation; // 记录起始角度作为上一帧角度
     qDebug() << "Takeoff with angle:" << m_takeoffRotation;
+    // 设置动画状态
+    m_animState = Flipping;
+    m_animTimer = 0;
 }
 
 // 检查落地角度并判断是否摔倒
@@ -191,9 +214,9 @@ void Player::updateRotate(TerrainGenerator* GTerrainGenerator) {
         setRotation(90); // 简单的90度侧躺姿势
         return;
     }
-    
+
     qreal oldRotation = rotation;
-    
+
     // 当在空中且按下Space键时，旋转,若没按下，则缓慢回到地形角度
     if (isOnGround() || !keySpace) {
         // 计算当前角度归一化值（角度/360）
@@ -225,22 +248,22 @@ void Player::updateRotate(TerrainGenerator* GTerrainGenerator) {
         angle -= rotateSpeed; // 改为减法，实现顺时针旋转
         setRotation(angle);
     }
-    
+
     // 在空中时累加旋转角度变化
     if (!isOnGround()) {
         // 计算本帧旋转了多少度（处理角度溢出）
         qreal rotationDelta = rotation - m_lastFrameRotation;
-        
+
         // 处理角度溢出（例如从359度到1度的变化应该是+2而不是-358）
         if (rotationDelta > 180) {
             rotationDelta -= 360;
         } else if (rotationDelta < -180) {
             rotationDelta += 360;
         }
-        
+
         // 累加到总旋转角度
         m_cumulativeRotation += rotationDelta;
-        
+
         // 更新上一帧角度
         m_lastFrameRotation = rotation;
     }
@@ -252,7 +275,14 @@ void Player::fall() {
     
     is_fallen = true;
     qDebug() << "Player has fallen! Flip rotation was:" << m_flipRotation;
-    
+
+    // 更新动画状态
+    m_animState = Falling;
+    m_animTimer = 0;
+
+    // 启动恢复计时器
+    m_fallRecoveryTimer.setSingleShot(true);
+
     // 启动恢复计时器
     m_fallRecoveryTimer.start(3000); // 3秒后恢复
 }
@@ -283,6 +313,8 @@ bool Player::isFallen() const {
 
 void Player::playerUpdate(TerrainGenerator* GTerrainGenerator) {
     // 处理旋转
+    updateAnimation();
+
     updateRotate(GTerrainGenerator);
 
 }
@@ -290,12 +322,74 @@ void Player::playerUpdate(TerrainGenerator* GTerrainGenerator) {
 
 void Player::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget)
 {
-    // 先调用父类绘制红色方块
-    QGraphicsRectItem::paint(painter, option, widget);
+    Q_UNUSED(option);
+    Q_UNUSED(widget);
 
-    // 绘制底部绿色边
-    QRectF r = rect();
-    QPen greenPen(Qt::green, 4); // 4像素宽绿色线
-    painter->setPen(greenPen);
-    painter->drawLine(r.bottomLeft(), r.bottomRight());
+    // 保存当前画家状态
+    painter->save();
+
+    // 绘制实际图像
+    QPixmap currentImage = m_playerImages[m_currentImageIndex];
+
+    // 创建变换以居中绘制图像
+    QTransform transform;
+
+    // 如果正在空翻，使用独立的旋转
+    if (m_animState == Flipping) {
+        transform.translate(rect().width()/2, rect().height()/2);
+        transform.rotate(m_cumulativeRotation);
+        transform.translate(-rect().width()/2, -rect().height()/2);
+    }
+
+    // 根据朝向翻转图像
+    if (!m_facingRight) {
+        transform.translate(rect().width(), 0);
+        transform.scale(-1, 1);
+    }
+
+    painter->setTransform(transform, true);
+
+    // 绘制图像，居中于碰撞盒
+    painter->drawPixmap(m_drawOffsetX, m_drawOffsetY, currentImage);
+
+    // 恢复画家状态
+    painter->restore();
+
+
+
+
+}
+
+void Player::updateAnimation()
+{
+    // Increase animation timer (assume 60fps)
+    m_animTimer += 0.016f;
+
+    switch (m_animState) {
+    case Standing:
+        // Standing animation remains unchanged: images 0-3
+            m_currentImageIndex = static_cast<int>(m_animTimer * 8) % 4;
+        break;
+    case Running:
+        // Running animation: images 8-12 (5 images cycling)
+            m_currentImageIndex = 8 + (static_cast<int>(m_animTimer * 12) % 5);
+        break;
+    case Jumping:
+        // Jumping animation remains unchanged: images 20-25 (non-looping)
+            m_currentImageIndex = qMin(20 + static_cast<int>(m_animTimer * 10), 25);
+        break;
+    case Flipping:
+        // Flipping animation: images 13-26 (14 images cycling)
+            m_currentImageIndex = 13 + (static_cast<int>(m_animTimer * 12) % 14);
+        break;
+    case Falling:
+        // Falling state: if rotation is near 90º (head down), use image 38;
+            // otherwise use flipping landing buffer: images 1-7 (7 images cycling)
+                if (qAbs(rotation - 90) < 10) {
+                    m_currentImageIndex = 38;
+                } else {
+                    m_currentImageIndex = 1 + (static_cast<int>(m_animTimer * 8) % 7);
+                }
+        break;
+    }
 }

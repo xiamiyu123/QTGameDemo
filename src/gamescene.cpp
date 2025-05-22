@@ -218,12 +218,15 @@ void GameScene::handlePhysicsObjectCollision(IPhysicsObject* obj) {
 
     // 获取实体对象和实际底部位置
     BasePhysicsEntity* entity = dynamic_cast<BasePhysicsEntity*>(obj);
+    Player* player = dynamic_cast<Player*>(obj);
 
     qreal actualObjBottom;
-    if (entity) {
-        actualObjBottom = entity->sceneBoundingRect().bottom() - 5;
-    }
-    else {
+    if (player) {
+        // 对玩家使用特殊的底部计算，考虑到绘制偏移
+        actualObjBottom = player->y() + player->rect().height() - 1;
+    } else if (entity) {
+        actualObjBottom = entity->sceneBoundingRect().bottom() - 2;
+    } else {
         actualObjBottom = objPos.y() + objRect.height();
     }
 
@@ -231,7 +234,7 @@ void GameScene::handlePhysicsObjectCollision(IPhysicsObject* obj) {
     qreal groundTolerance = calculateGroundTolerance(horizontalSpeed, terrainSlope, forwardSlope, verticalSpeed);
 
     // 添加玩家对象的检测
-    Player* player = dynamic_cast<Player*>(obj);
+
     
     bool wasOnGround = obj->isOnGround();
 

@@ -34,6 +34,9 @@ public:
     
     // 获取最后一次空翻角度
     qreal getFlipRotation() const;
+    // 绘制偏移
+    qreal m_drawOffsetX;
+    qreal m_drawOffsetY;
     
     // 判断玩家是否处于摔倒状态
     bool isFallen() const;
@@ -74,4 +77,25 @@ private:
     
     // 常量
     static const qreal MAX_LANDING_ANGLE_DEVIATION; // 最大允许着陆角度偏差
+    enum AnimationState {
+        Standing,
+        Running,
+        Jumping,
+        Falling,
+        Landing,
+        Flipping
+    };
+
+    // 图像资源
+    QVector<QPixmap> m_playerImages; // 玩家图像资源
+    int m_currentImageIndex; // 当前图像索引
+    AnimationState m_animState; // 动画状态
+    float m_animTimer; // 动画计时器
+
+
+    // 朝向
+    bool m_facingRight;
+
+    // 动画处理
+    void updateAnimation();
 };

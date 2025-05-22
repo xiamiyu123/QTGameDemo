@@ -598,11 +598,11 @@ void GameScene::showGameOverDialog() {
     title->setStyleSheet("font-size: 26px; font-weight: bold; color: #1976d2;");
     layout->addWidget(title);
 
-    QLabel* timeLabel = new QLabel(QString("本次游戏时长：%1 秒").arg(secs, 0, 'f', 2));
+    QLabel* timeLabel = new QLabel(QString("本次游戏时长：%1 秒").arg(QString::number(secs, 'f', 2)));
     timeLabel->setAlignment(Qt::AlignCenter);
     layout->addWidget(timeLabel);
 
-    QLabel* bestLabel = new QLabel(QString("历史最佳：%1 秒").arg(bestSecs, 0, 'f', 2));
+    QLabel* bestLabel = new QLabel(QString("历史最佳：%1 秒").arg(QString::number(bestSecs, 'f', 2)));
     bestLabel->setAlignment(Qt::AlignCenter);
     layout->addWidget(bestLabel);
 

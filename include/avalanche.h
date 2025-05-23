@@ -17,13 +17,13 @@ public:
     void setMaxSpeed(qreal maxSpeed);
     void setVisibleRange(qreal range);
     //判断玩家是否被雪崩追上
-    bool isPlayerCaught(qreal playerX) const;
+    bool isPlayerCaught(qreal playerX);
     //判断玩家是否被雪崩超越
-    bool isPlayerSurpassed(qreal playerX) const;
+    bool isPlayerSurpassed(qreal playerX);
     // 获取雪崩前沿与玩家的距离
-    qreal distanceToPlayer(qreal playerX) const;
+    qreal distanceToPlayer(qreal playerX);
     // 获取雪崩末端与玩家的距离
-    qreal distanceToPlayerLeft(qreal playerX) const;
+    qreal distanceToPlayerLeft(qreal playerX);
 
     // 线程安全的雪崩更新方法
     void updateAvalancheThreadSafe(qreal elapsed, qreal playerX);

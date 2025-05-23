@@ -7,10 +7,12 @@
 #include "terraingenerator.h"
 #include "avalanche.h"
 #include "avalancheupdatethread.h"
-#include <QList> // 添加 QList 头文件
-#include "physical.h" // IPhysicsObject 定义
-#include "uimanager.h" // 添加 UIManager 头文件
-#include "collisionhandler.h" // 添加 CollisionHandler 头文件
+#include <QList>
+#include "physical.h" 
+#include "uimanager.h" 
+#include "collisionhandler.h"
+#include "debuglogger.h"
+#include <QGraphicsSceneWheelEvent>
 
 class GameScene : public QGraphicsScene
 {
@@ -72,5 +74,9 @@ private:
 
     AvalancheUpdateThread* m_avalancheThread;  // 雪崩更新线程
     QList<IPhysicsObject*> m_objectsToDeleteThisFrame; // 存储本帧待删除的物理对象的列表
+    void wheelEvent(QGraphicsSceneWheelEvent *event) override {
+        // 阻止滚轮事件继续传递到 QGraphicsView
+        event->accept();// 滚轮事件被拦截防止不会引起视图缩放
+    }
 };
 

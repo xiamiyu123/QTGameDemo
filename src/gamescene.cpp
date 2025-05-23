@@ -47,6 +47,9 @@ GameScene::GameScene(QObject *parent)
     
     // 连接UI事件
     connect(m_uiManager, &UIManager::pauseToggled, this, &GameScene::togglePause);
+    
+    // 初始化调试日志器
+    DebugLogger::instance()->initialize(this);
 
     // 创建雪崩
     avalanche = new Avalanche(GTerrainGenerator);
@@ -95,11 +98,17 @@ void GameScene::initialize()
 }
 
 void GameScene::keyPressEvent(QKeyEvent *event)
-{
-    // 把键盘事件传递给玩家
+{    // 把键盘事件传递给玩家
     // 处理暂停和继续
     if (event->key() == Qt::Key_P) {
         togglePause();
+    }
+    // 处理调试框显示/隐藏 - 支持多种~键
+    else if (event->key() == Qt::Key_AsciiTilde ||   // 英文~键
+             event->text() == "~" ||                 // 文本是~
+             event->text() == "～" ||                // 全角～
+             event->text() == "`") {
+        DebugLogger::instance()->toggleVisibility();
     }
     if (event->isAutoRepeat()) {
         return; // 忽略自动重复事件
@@ -244,6 +253,9 @@ bool GameScene::eventFilter(QObject *watched, QEvent *event)
     // 监听视口的调整大小事件
     if (watched == views().first()->viewport() && event->type() == QEvent::Resize) {
         m_uiManager->updateUI();
+        
+        // 更新调试日志框位置
+        DebugLogger::instance()->updatePosition();
     }
     return QGraphicsScene::eventFilter(watched, event);
 }
@@ -256,7 +268,7 @@ void GameScene::onGetScore(int points)
     // 增加玩家得分
     score += adjustedPoints;
 
-    qDebug() << "玩家得分: " << score << " (奖励倍数: " << award_score << ")";
+    DEBUG_LOG(QString("玩家得分: %1 (奖励倍数: %2)").arg(score).arg(award_score));
 }
 
 // 显示游戏结束对话框

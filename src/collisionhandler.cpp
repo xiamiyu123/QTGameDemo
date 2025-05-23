@@ -1,7 +1,7 @@
 #include "collisionhandler.h"
 #include <QtConcurrent/QtConcurrent>
 #include <QMetaObject>
-#include <QDebug>
+#include "debuglogger.h"
 
 CollisionHandler::CollisionHandler(TerrainGenerator* terrainGenerator, QObject* parent)
     : QObject(parent)
@@ -71,10 +71,9 @@ void CollisionHandler::handlePhysicsObjectCollision(IPhysicsObject* obj, QList<I
             obj->setOnGround(true);
             if (player) { // 如果 obj 是玩家
                 qreal terrainAngle = qRadiansToDegrees(qAtan(terrainSlope));
-                player->checkLanding(terrainAngle);
-            }
+                player->checkLanding(terrainAngle);            }
             obj->setVelocity(QPointF(velocity.x(), 0));
-            qDebug() << "落地: 地形高度 =" << terrainHeight << "角色底部 =" << actualObjBottom;
+            DEBUG_LOG(QString("落地: 地形高度 = %1 角色底部 = %2").arg(terrainHeight).arg(actualObjBottom));
         }
         updateSlopeForce(obj, terrainSlope, horizontalSpeed);
     }
@@ -94,7 +93,7 @@ void CollisionHandler::handlePhysicsObjectCollision(IPhysicsObject* obj, QList<I
                     player->checkLanding(terrainAngle);
                 }
                 obj->setVelocity(QPointF(velocity.x(), 0));
-                qDebug() << "靠近地面落地: 地形高度 =" << terrainHeight << "角色底部 =" << actualObjBottom;
+                DEBUG_LOG(QString("靠近地面落地: 地形高度 = %1 角色底部 = %2").arg(terrainHeight).arg(actualObjBottom));
             }
             updateSlopeForce(obj, terrainSlope, horizontalSpeed);
         }

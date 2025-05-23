@@ -207,6 +207,21 @@ void GameScene::update() {
         showGameOverDialog();
         return;
     }
+
+    // 获取玩家和雪崩的距离
+    qreal playerX = Gplayer->x();
+    qreal avalancheDistance = avalanche->distanceToPlayer(playerX);
+
+    // 如果雪崩距离小于一定值，显示按钮并调整大小
+    if (avalancheDistance < 500) {
+        m_avalancheWarningButton->show();
+        qreal scaleFactor = qMax(1.0, 3.0 - (avalancheDistance / 500.0) * 2.0); // 距离越近，按钮越大
+        int newWidth = static_cast<int>(100 * scaleFactor);
+        int newHeight = static_cast<int>(50 * scaleFactor);
+        m_avalancheWarningButton->setGeometry(10, 10, newWidth, newHeight);
+    } else {
+        m_avalancheWarningButton->hide();
+    }
 }
 
 // 仅用于初始化时放置玩家
@@ -299,6 +314,18 @@ void GameScene::updateUI()
             viewSceneRect.center().y() - textRect.height() / 2
         );
     }
+
+    // 初始化按钮
+    m_avalancheWarningButton = new QPushButton("雪崩警告", nullptr);
+    m_avalancheWarningButton->setStyleSheet(
+        "QPushButton {"
+        "  background-color: red; color: white; font-size: 16px; font-weight: bold;"
+        "  border-radius: 10px; padding: 5px;"
+        "}"
+    );
+    m_avalancheWarningButton->setGeometry(10, 10, 100, 50); // 初始位置和大小
+    m_avalancheWarningButton->hide(); // 初始隐藏
+    m_avalancheWarningButton->setParent(view->viewport()); // 将按钮添加到视图中
 }
 
 // 在GameScene类中添加事件过滤器方法

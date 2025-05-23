@@ -248,7 +248,7 @@ void TerrainGenerator::generateChunk(int chunkIndex) {
         qreal globalX = chunkIndex * CHUNK_WIDTH + x;
         // 检查斜率
         qreal slope = getTerrainSlope(globalX);
-        if (qAbs(slope) > MAX_SLOPE_FOR_ROCK) continue;
+        if (qAbs(slope) > MAX_SLOPE_FOR_ROCK || chunkIndex == 0) continue;
 
         qreal y = getTerrainHeight(globalX) - 30; // 石头底部贴地
 

@@ -46,6 +46,14 @@ GameScene::GameScene(QObject *parent)
     //按钮图片适配大小
     pauseButton->setAttribute(Qt::WA_TranslucentBackground);
 
+    warningButton = new QPushButton();
+    warningButton->setIcon(QIcon(":/resource/images/icons/warning.png"));
+    warningButton->setFocusPolicy(Qt::NoFocus);
+    warningButton->setIconSize(QSize(50, 50));
+    warningButton->setStyleSheet("QPushButton { background: transparent; border: none; }");
+    warningButton->setAttribute(Qt::WA_TranslucentBackground);
+    warningButton->hide();
+
     // 创建雪崩
     avalanche = new Avalanche(GTerrainGenerator);
     addItem(avalanche);
@@ -188,6 +196,23 @@ void GameScene::update() {
         showGameOverDialog();
         return;
     }
+
+    qreal dist = avalanche->distanceToPlayer(Gplayer->x());
+    if (dist < 2500) {
+        warningButton->show();
+        int size;
+        if (dist < 800) {
+            size = 80;
+        } else if (dist < 1200 && dist >= 800) {
+            size = 50 + int((1200 - dist) / 400.0 * 30);
+        } else {
+            size = 50;
+        }
+        warningButton->setIconSize(QSize(size, size));
+        warningButton->setGeometry(10, 10, size, size);
+    } else {
+        warningButton->hide();
+    }
 }
 
 // 仅用于初始化时放置玩家
@@ -280,6 +305,9 @@ void GameScene::updateUI()
             viewSceneRect.center().y() - textRect.height() / 2
         );
     }
+    // 更新警告按钮位置
+    warningButton->setParent(view->viewport());
+    warningButton->setGeometry(10, 10, warningButton->iconSize().width(), warningButton->iconSize().height());
 }
 
 // 在GameScene类中添加事件过滤器方法

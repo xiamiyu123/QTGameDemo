@@ -26,7 +26,7 @@ public:
     void checkLanding(qreal terrainAngle);
 
     // 检查玩家是否与石头碰撞并判断是否摔倒
-    void checkHitRock(RockEntity* rock);//TODO: 需要实现
+    void checkHitRock(RockEntity* rock);
 
     // 记录起跳和离地信息
     void notifyTakeoff();

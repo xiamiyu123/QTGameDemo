@@ -286,7 +286,7 @@ void GameScene::togglePause()
 
 
 void GameScene::updateUI()
-{
+{   if (views().isEmpty()) return;
     QGraphicsView *view = views().first();
     // 确保按钮有父对象
     pauseButton->setParent(view->viewport());
@@ -313,6 +313,7 @@ void GameScene::updateUI()
 // 在GameScene类中添加事件过滤器方法
 bool GameScene::eventFilter(QObject *watched, QEvent *event)
 {
+    if (views().isEmpty()) return false;
     // 监听视口的调整大小事件
     if (watched == views().first()->viewport() && event->type() == QEvent::Resize) {
         updateUI();
@@ -738,6 +739,14 @@ void GameScene::showGameOverDialog() {
         createSceneItems();
         initialize();
     } else {
+        GTimer.stop();
+        if (m_avalancheThread) {
+            m_avalancheThread->stop();
+            m_avalancheThread->wait();
+            delete m_avalancheThread;
+            m_avalancheThread = nullptr;
+        }
+        // 可选：清理其它资源
         qApp->quit();
     }
 }

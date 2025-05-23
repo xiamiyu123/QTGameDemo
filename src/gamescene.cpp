@@ -21,35 +21,14 @@ GameScene::GameScene(QObject *parent)
     // 设置场景大小（足够大以容纳滚动地形）
     setSceneRect(0, 0, 2000000, 2000000);
 
-    GState = Running; // 初始化游戏状态为运行中
-
-    // 初始化得分和奖励倍数
-    score = 0;
-    award_speed = 1.0;
-    award_score = 1.0;
+    // 初始化游戏状态变量
+    resetGameState();
 
     // 连接getscore信号到处理函数
     connect(this, &GameScene::getscore, this, &GameScene::onGetScore);
 
-    // 创建地形生成器
-    GTerrainGenerator = new TerrainGenerator(this, this);    // 创建并隐藏暂停时显示的文本
-    GPauseText = addText("", QFont("Arial", 24, QFont::Bold));
-    GPauseText->setDefaultTextColor(Qt::white);
-    GPauseText->setZValue(1001);  // 确保文本在遮罩之上
-    GPauseText->hide();
-    
-    // 创建暂停时的渐变遮罩
-    GPauseOverlay = new QGraphicsRectItem();
-    GPauseOverlay->setZValue(1000);
-    addItem(GPauseOverlay);
-    GPauseOverlay->hide();
-
-    // 创建玩家
-    Gplayer = new Player();
-    addItem(Gplayer);
-
-    // 注册玩家到物理系统
-    PhysicsSystem::instance().registerObject(Gplayer);
+    // 初始化并创建场景关键元素
+    createSceneItems();
 
     // 设置游戏循环定时器
     connect(&GTimer, &QTimer::timeout, this, &GameScene::update);
@@ -180,16 +159,18 @@ void GameScene::update() {
     }
 
     // 更新地形生成（基于玩家位置）
-    GTerrainGenerator->updateTerrain(Gplayer->x());
+    if (GTerrainGenerator) {
+        GTerrainGenerator->updateTerrain(Gplayer ? Gplayer->x() : 0);
+    }
 
     // 让视图跟随玩家
     centerViewOnPlayer();
 
     // 雪崩更新改为使用线程
     m_avalancheElapsed += deltaTime;
-    if (m_avalancheElapsed >= m_avalancheInterval) {
+    if (m_avalancheThread && m_avalancheElapsed >= m_avalancheInterval) {
         // 请求在线程中更新雪崩
-        m_avalancheThread->requestUpdate(m_avalancheElapsed, Gplayer->x());
+        m_avalancheThread->requestUpdate(m_avalancheElapsed, Gplayer ? Gplayer->x() : 0);
         m_avalancheElapsed = 0;
     }
 
@@ -723,37 +704,66 @@ void GameScene::showGameOverDialog() {
             delete m_avalancheThread;
             m_avalancheThread = nullptr;
         }
-
-        // 清理场景
-        clear();        // 重新创建关键对象
-        GTerrainGenerator = new TerrainGenerator(this, this);
-        
-        // 重新创建暂停相关UI
-        GPauseText = addText("", QFont("Arial", 24, QFont::Bold));
-        GPauseText->setDefaultTextColor(Qt::white);
-        GPauseText->setZValue(1001);
-        GPauseText->hide();
-        
-        GPauseOverlay = new QGraphicsRectItem();
-        GPauseOverlay->setZValue(1000);
-        addItem(GPauseOverlay);
-        GPauseOverlay->hide();
-        
-        Gplayer = new Player();
-        addItem(Gplayer);
-        PhysicsSystem::instance().registerObject(Gplayer);
-        avalanche = new Avalanche(GTerrainGenerator);
-        addItem(avalanche);
-
-        // 重新创建并启动雪崩线程
-        m_avalancheThread = new AvalancheUpdateThread(avalanche, this);
-        connect(m_avalancheThread, &AvalancheUpdateThread::updateCompleted,
-                this, [this]() { avalanche->applyThreadResults(); });
-        m_avalancheThread->start();
-
-        // 重新初始化
+        // 重置并重建
+        resetGameState();
+        clear();
+        createSceneItems();
         initialize();
     } else {
         qApp->quit();
     }
+}
+
+// 重置游戏状态
+void GameScene::resetGameState()
+{
+    // 设置游戏状态
+    GState = Running;
+    
+    // 初始化得分和奖励倍数
+    score = 0;
+    award_speed = 1.0;
+    award_score = 1.0;
+    
+    // 重置更新计时器和对象列表
+    m_avalancheElapsed = 0;
+    m_objectsToDeleteThisFrame.clear();
+    
+    // 停止游戏定时器
+    GTimer.stop();
+    // GElapsedTimer 将在 initialize 中重启
+}
+
+// 新增：创建场景关键元素
+void GameScene::createSceneItems()
+{
+
+    // 地形生成器
+    GTerrainGenerator = new TerrainGenerator(this, this);
+
+    // 暂停文本和遮罩
+    GPauseText = addText("", QFont("Arial", 24, QFont::Bold));
+    GPauseText->setDefaultTextColor(Qt::white);
+    GPauseText->setZValue(1001);
+    GPauseText->hide();
+    GPauseOverlay = new QGraphicsRectItem();
+    GPauseOverlay->setZValue(1000);
+    addItem(GPauseOverlay);
+    GPauseOverlay->hide();
+
+    // 玩家
+    Gplayer = new Player();
+    addItem(Gplayer);
+    PhysicsSystem::instance().registerObject(Gplayer);
+
+    // 雪崩及线程
+    avalanche = new Avalanche(GTerrainGenerator);
+    addItem(avalanche);
+    avalanche->setSpeed(150);
+    avalanche->setAcceleration(5);
+    avalanche->setMaxSpeed(600);
+    m_avalancheThread = new AvalancheUpdateThread(avalanche, this);
+    connect(m_avalancheThread, &AvalancheUpdateThread::updateCompleted,
+            this, [this]() { avalanche->applyThreadResults(); });
+    m_avalancheThread->start();
 }

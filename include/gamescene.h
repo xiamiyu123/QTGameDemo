@@ -10,6 +10,7 @@
 #include <QList> // 添加 QList 头文件
 #include "physical.h" // IPhysicsObject 定义
 #include "uimanager.h" // 添加 UIManager 头文件
+#include "collisionhandler.h" // 添加 CollisionHandler 头文件
 
 class GameScene : public QGraphicsScene
 {
@@ -34,20 +35,6 @@ protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
 
 private slots:
-    void handlePhysicsObjectCollision(IPhysicsObject *obj);
-
-    qreal calculateGroundTolerance(qreal speed, qreal slope, qreal forwardSlope, qreal verticalSpeed);
-
-    bool shouldMaintainGrounded(bool currentlyGrounded, qreal slope, qreal verticalSpeed, qreal horizontalSpeed);
-
-    bool shouldTakeoff(qreal backSlope, qreal currentSlope, qreal forwardSlope, qreal speed);
-
-    void handleTakeoff(IPhysicsObject *obj, qreal slope, qreal speed);
-
-    void updateSlopeForce(IPhysicsObject *obj, qreal slope, qreal speed);
-
-    void updateEntityRotation(BasePhysicsEntity *entity, bool onGround, qreal slope);
-
     void update();
 
     void initialPlayerPosition();
@@ -80,8 +67,8 @@ private:
 
     QElapsedTimer GElapsedTimer;
 
-    // UI管理器
     UIManager* m_uiManager;
+    CollisionHandler* m_collisionHandler; // 碰撞处理器
 
     AvalancheUpdateThread* m_avalancheThread;  // 雪崩更新线程
     QList<IPhysicsObject*> m_objectsToDeleteThisFrame; // 存储本帧待删除的物理对象的列表

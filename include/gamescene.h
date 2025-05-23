@@ -14,14 +14,20 @@
 class GameScene : public QGraphicsScene
 {
     Q_OBJECT
-    
+
 public:
     enum GameState { Running, Paused };
-    GameScene(QObject *parent = nullptr);
+    explicit GameScene(QObject *parent = nullptr);
     ~GameScene();
     
     void initialize();
-    
+    void showGameOverDialog();
+
+
+signals:
+    // 新增获得分数的信号
+    void getscore(int points);
+
 protected:
     void keyPressEvent(QKeyEvent *event) override;
     void keyReleaseEvent(QKeyEvent *event) override;
@@ -48,6 +54,9 @@ private slots:
 
     void initialPlayerPosition();
 
+    // 新增处理得分的槽函数
+    void onGetScore(int points);
+
 private:
     GameState GState;
     Player *Gplayer;
@@ -55,7 +64,11 @@ private:
     QTimer GTimer;
     Avalanche* avalanche;
 
- 
+    // 新增得分和奖励倍数字段
+    int score;                // 玩家当前得分
+    double award_speed;       // 速度奖励倍数
+    double award_score;       // 分数奖励倍数
+
     qreal m_avalancheElapsed = 0;
     const qreal m_avalancheInterval = 0.02; // 雪崩每0.1秒刷新一次
 
@@ -67,11 +80,10 @@ private:
     QElapsedTimer GElapsedTimer;
 
     QTime GLastUpdateTime; // 上次更新时间
-
-
     //ui区域
     QGraphicsTextItem *GPauseText;
     QPushButton *pauseButton;
+    QGraphicsRectItem *GPauseOverlay; // 暂停时的渐变遮罩
     AvalancheUpdateThread* m_avalancheThread;  // 雪崩更新线程
     QList<IPhysicsObject*> m_objectsToDeleteThisFrame; // 新增：用于存储本帧待删除的对象
 };

@@ -8,6 +8,8 @@
 #include <QMutex>
 #include <QGraphicsView>
 #include <QTextEdit>
+#include <QFile>
+#include <QTextStream>
 
 // 调试日志记录器类
 class DebugLogger : public QObject
@@ -76,8 +78,16 @@ private:
     
     // 是否创建了文本项
     bool m_initialized;
-      // 视口叠加层文本编辑框
+    // 视口叠加层文本编辑框
     QTextEdit* m_overlayTextEdit;
+    
+    // 日志文件
+    QFile m_logFile;
+    // 日志文件流
+    QTextStream m_logStream;
+    
+    // 初始化日志文件
+    void initLogFile();
     
     // 创建或更新视口固定文本项
     void createOrUpdateViewportText();

@@ -5,6 +5,7 @@
 #include <QGraphicsView>
 #include <QFontMetrics>
 #include <QScrollBar>
+#include <QDir>
 
 // 初始化静态实例
 DebugLogger* DebugLogger::s_instance = nullptr;
@@ -36,6 +37,9 @@ DebugLogger::DebugLogger(QObject* parent)
     // 配置更新定时器
     connect(&m_updateTimer, &QTimer::timeout, this, &DebugLogger::updateDisplay);
     m_updateTimer.setInterval(500); // 每半秒更新一次
+    
+    // 初始化日志文件
+    initLogFile();
 }
 
 DebugLogger::~DebugLogger()
@@ -54,6 +58,12 @@ DebugLogger::~DebugLogger()
     if (m_overlayTextEdit) {
         m_overlayTextEdit->deleteLater();
         m_overlayTextEdit = nullptr;
+    }
+    
+    // 关闭日志文件
+    if (m_logFile.isOpen()) {
+        m_logStream.flush();
+        m_logFile.close();
     }
 }
 
@@ -87,6 +97,12 @@ void DebugLogger::log(const QString& message)
         // 保持日志数量在最大限制以内
         while (m_logs.size() > MAX_LOG_LINES) {
             m_logs.dequeue();
+        }
+        
+        // 写入日志文件
+        if (m_logFile.isOpen()) {
+            m_logStream << formattedMessage << Qt::endl;
+            m_logStream.flush();
         }
     }
     
@@ -190,4 +206,30 @@ void DebugLogger::toggleVisibility()
 bool DebugLogger::isVisible() const
 {
     return m_visible;
+}
+
+// 初始化日志文件
+void DebugLogger::initLogFile()
+{
+    // 创建日志目录（如果不存在）
+    QDir dir;
+    if (!dir.exists("logs")) {
+        dir.mkdir("logs");
+    }
+    
+    // 使用当前日期和时间作为文件名，确保每次运行都创建新文件
+    QString currentDateTime = QDateTime::currentDateTime().toString("yyyy-MM-dd_hh-mm-ss");
+    QString logFileName = QString("logs/debug_log_%1.txt").arg(currentDateTime);
+    
+    // 打开日志文件
+    m_logFile.setFileName(logFileName);
+    if (m_logFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        m_logStream.setDevice(&m_logFile);
+        
+        // 写入日志头部信息
+        m_logStream << "===== Debug Log Started: " << QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss") << " =====" << Qt::endl;
+        m_logStream.flush();
+    } else {
+        qWarning() << "Failed to open log file:" << logFileName;
+    }
 }

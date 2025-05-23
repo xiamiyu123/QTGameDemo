@@ -58,6 +58,9 @@ private slots:
     void onGetScore(int points);
 
 private:
+    void createSceneItems();  // 创建场景对象
+    void resetGameState();    // 重置游戏状态
+
     GameState GState;
     Player *Gplayer;
     TerrainGenerator *GTerrainGenerator;
@@ -86,6 +89,6 @@ private:
     QGraphicsRectItem *GPauseOverlay; // 暂停时的渐变遮罩
     QPushButton *warningButton;
     AvalancheUpdateThread* m_avalancheThread;  // 雪崩更新线程
-    QList<IPhysicsObject*> m_objectsToDeleteThisFrame; // 新增：用于存储本帧待删除的对象
+    QList<IPhysicsObject*> m_objectsToDeleteThisFrame; // 存储本帧待删除的物理对象的列表
 };
 

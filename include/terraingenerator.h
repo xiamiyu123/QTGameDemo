@@ -12,6 +12,14 @@
 #include "rockentity.h"
 #include <QVector>
 
+// 石头数据结构，存储石头的位置信息
+struct RockGenerationData {
+    qreal localX;      // 块内的X坐标
+    qreal globalX;     // 全局X坐标
+    qreal y;           // Y坐标
+    qreal angle;       // 旋转角度
+};
+
 class TerrainGenerator : public QObject
 {
     Q_OBJECT
@@ -54,10 +62,11 @@ private:
     QRandomGenerator m_randomGenerator; // 随机数生成器
 
     // 互斥锁，保护共享资源
-    mutable QMutex m_mutex;
-
-    // 后台线程生成的区块数据
+    mutable QMutex m_mutex;    // 后台线程生成的区块数据
     QMap<int, QPainterPath> m_generatedPaths;
+    
+    // 后台线程生成的石头数据
+    QMap<int, QVector<RockGenerationData>> m_generatedRocks;
 
     // 生成地形块
     void generateChunk(int chunkIndex);

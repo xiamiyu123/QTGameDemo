@@ -4,7 +4,7 @@
 #include <QBrush>
 #include <QtMath>
 #include <QRandomGenerator>
-#include <QDebug>
+#include "debuglogger.h"
 #include <QMutexLocker>
 
 const qreal MIN_ROCK_DISTANCE = 100; // 最小石头间距
@@ -520,12 +520,14 @@ void TerrainGenerator::removeDistantChunks(int currentChunk) {
         if (qAbs(it.key() - currentChunk) > VIEW_CHUNKS * 2) {
             chunksToRemove.append(it.key());
         }
-    }
-
-    // 添加调试信息
+    }    // 添加调试信息
     if (!chunksToRemove.isEmpty()) {
-        qDebug() << "移除" << chunksToRemove.size() << "个远距离地形块，当前块索引:" << currentChunk;
-        qDebug() << "被移除的块索引:" << chunksToRemove;
+        DEBUG_LOG(QString("移除 %1 个远距离地形块，当前块索引: %2").arg(chunksToRemove.size()).arg(currentChunk));
+        QStringList chunkIndexStrings;
+        for (int idx : chunksToRemove) {
+            chunkIndexStrings << QString::number(idx);
+        }
+        DEBUG_LOG(QString("被移除的块索引: %1").arg(chunkIndexStrings.join(", ")));
     }
 
     // 从场景和映射中删除

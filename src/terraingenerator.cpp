@@ -375,18 +375,75 @@ void TerrainGenerator::generateChunkThreadSafe(int chunkIndex)
     // 添加所有点
     for (int i = 1; i < points.size(); ++i) {
         path.lineTo(points[i]);
-    }
-
-    // 完成地形封闭
+    }    // 完成地形封闭
     path.lineTo(CHUNK_WIDTH, 5000000);
     path.lineTo(0, 5000000);
     path.closeSubpath();
+      // 生成石头的位置数据（不创建实体）
+    QVector<RockGenerationData> rockDataList;
+    int rockCount = QRandomGenerator::global()->bounded(2, 4);
+    QVector<qreal> rockXs; // 记录已生成石头的x坐标
     
-    // 存储生成的路径和点数据
+    for (int r = 0; r < rockCount; ++r) {
+        // 随机x坐标（块内）
+        qreal x = QRandomGenerator::global()->bounded(0, CHUNK_WIDTH);
+        // 检查与已生成石头的距离
+        bool tooClose = false;
+        for (qreal prevX : rockXs) {
+            if (qAbs(x - prevX) < MIN_ROCK_DISTANCE) {
+                tooClose = true;
+                break;
+            }
+        }
+        if (tooClose) continue;
+
+        // 直接使用刚生成的points数据计算高度和斜率
+        // 找到x坐标最接近的两个点
+        int i = 0;
+        while (i < points.size() && points[i].x() < x) {
+            i++;
+        }
+        
+        // 如果没找到合适的点或位置无效，则跳过生成这个石头
+        if (i == 0 || i >= points.size()) {
+            continue;
+        }
+          // 计算斜率
+        qreal x1 = points[i - 1].x();
+        qreal y1 = points[i - 1].y();
+        qreal x2 = points[i].x();
+        qreal y2 = points[i].y();
+        
+        // 避免除零错误
+        qreal dx = x2 - x1;
+        qreal slope = (qAbs(dx) > 1e-9) ? ((y2 - y1) / dx) : 0.0;
+        
+        // 检查斜率，如果太陡则不放置石头
+        if (qAbs(slope) > MAX_SLOPE_FOR_ROCK) continue;
+        
+        // 计算高度（线性插值）
+        qreal height = y1 + slope * (x - x1);
+        qreal y = height - 30; // 石头底部贴地
+        
+        qreal globalX = chunkIndex * CHUNK_WIDTH + x;
+        qreal angle = qAtan(slope) * 180.0 / M_PI;
+        
+        // 保存石头数据
+        RockGenerationData rockData;
+        rockData.localX = x;
+        rockData.globalX = globalX;
+        rockData.y = y;
+        rockData.angle = angle;
+        rockDataList.append(rockData);
+        rockXs.append(x); // 记录本次石头x
+    }
+    
+    // 存储生成的路径、点数据和石头数据
     {
         QMutexLocker locker(&m_mutex);
         m_generatedPaths[chunkIndex] = path;
         m_chunkPoints[chunkIndex] = points;
+        m_generatedRocks[chunkIndex] = rockDataList;
     }
 }
 
@@ -430,9 +487,26 @@ void TerrainGenerator::addChunkToScene(int chunkIndex)
         m_scene->addItem(terrainItem);
         m_scene->addItem(topItem);
     }
-    
-    // 保存图形项
+      // 保存图形项
     m_chunks[chunkIndex] = terrainItem;
+    
+    // 根据预先计算的数据创建石头实体
+    if (m_generatedRocks.contains(chunkIndex)) {
+        const QVector<RockGenerationData>& rockDataList = m_generatedRocks[chunkIndex];
+        for (const RockGenerationData& rockData : rockDataList) {
+            RockEntity* rock = new RockEntity(30, 30);
+            rock->setPosition(QPointF(rockData.globalX, rockData.y));
+            rock->setRotation(rockData.angle);
+            rock->setOnGround(true);
+            m_scene->addItem(rock);
+            m_rocks.append(rock);
+            // 注册到物理系统
+            PhysicsSystem::instance().registerObject(rock);
+        }
+        
+        // 处理完后移除石头数据
+        m_generatedRocks.remove(chunkIndex);
+    }
     
     // 移除已处理的路径
     m_generatedPaths.remove(chunkIndex);
@@ -443,7 +517,7 @@ void TerrainGenerator::removeDistantChunks(int currentChunk) {
 
     // 查找并删除远离的块
     for (auto it = m_chunks.begin(); it != m_chunks.end(); ++it) {
-        if (qAbs(it.key() - currentChunk) > VIEW_CHUNKS) {
+        if (qAbs(it.key() - currentChunk) > VIEW_CHUNKS * 2) {
             chunksToRemove.append(it.key());
         }
     }

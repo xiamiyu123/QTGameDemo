@@ -6,6 +6,7 @@
 #include "physical.h"
 #include "avalancheupdatethread.h"
 #include <QtConcurrent/QtConcurrent>
+#include "uimanager.h"
 
 #include <QDialog>
 #include <QVBoxLayout>
@@ -17,6 +18,7 @@
 static qreal lastSlope = 0;
 GameScene::GameScene(QObject *parent)
     : QGraphicsScene(parent)
+    , m_uiManager(nullptr)
 {
     // 设置场景大小（足够大以容纳滚动地形）
     setSceneRect(0, 0, 2000000, 2000000);
@@ -34,25 +36,12 @@ GameScene::GameScene(QObject *parent)
     connect(&GTimer, &QTimer::timeout, this, &GameScene::update);
     GTimer.setInterval(16); // 约60fps
 
-    // 设置ui控件
-    // 设置暂停按钮
-    pauseButton = new QPushButton();
-    pauseButton->setIcon(QIcon(":/resource/images/icons/pause.svg"));
-    pauseButton->setFocusPolicy(Qt::NoFocus);
-    pauseButton->setIconSize(QSize(50, 50));
-    connect(pauseButton, &QPushButton::pressed, this, &GameScene::togglePause);
-    //隐藏按钮背景
-    pauseButton->setStyleSheet("QPushButton { background-color: transparent; border: none; }");
-    //按钮图片适配大小
-    pauseButton->setAttribute(Qt::WA_TranslucentBackground);
-
-    warningButton = new QPushButton();
-    warningButton->setIcon(QIcon(":/resource/images/icons/warning.png"));
-    warningButton->setFocusPolicy(Qt::NoFocus);
-    warningButton->setIconSize(QSize(50, 50));
-    warningButton->setStyleSheet("QPushButton { background: transparent; border: none; }");
-    warningButton->setAttribute(Qt::WA_TranslucentBackground);
-    warningButton->hide();
+    // 创建UI管理器
+    m_uiManager = new UIManager(this, this);
+    m_uiManager->initialize();
+    
+    // 连接UI事件
+    connect(m_uiManager, &UIManager::pauseToggled, this, &GameScene::togglePause);
 
     // 创建雪崩
     avalanche = new Avalanche(GTerrainGenerator);
@@ -75,7 +64,11 @@ GameScene::~GameScene()
     if (m_avalancheThread) {
         m_avalancheThread->stop();
         m_avalancheThread->wait();
+        delete m_avalancheThread;
+        m_avalancheThread = nullptr;
     }
+    
+    delete m_uiManager;
 }
 
 void GameScene::initialize()
@@ -85,14 +78,10 @@ void GameScene::initialize()
 
     // 将玩家放置在适当位置
     initialPlayerPosition();
-    
-    // 设置事件过滤器监听视口大小变化
+      // 设置事件过滤器监听视口大小变化
     if (!views().isEmpty()) {
         views().first()->viewport()->installEventFilter(this);
     }
-
-    // 初始设置UI
-    updateUI();
 
     // 启动游戏循环
     GElapsedTimer.start();
@@ -188,30 +177,19 @@ void GameScene::update() {
             delete objToDelete;
         }
     }
-    // m_objectsToDeleteThisFrame 会在下一帧 update 开始时被清空
-
-    // 检查玩家是否被雪崩追上
+    // m_objectsToDeleteThisFrame 会在下一帧 update 开始时被清空    // 检查玩家是否被雪崩追上
     if (avalanche->isPlayerCaught(Gplayer->x())) {
         GTimer.stop();
         showGameOverDialog();
         return;
     }
 
+    // 更新警告图标
     qreal dist = avalanche->distanceToPlayer(Gplayer->x());
     if (dist < 2500) {
-        warningButton->show();
-        int size;
-        if (dist < 800) {
-            size = 80;
-        } else if (dist < 1200 && dist >= 800) {
-            size = 50 + int((1200 - dist) / 400.0 * 30);
-        } else {
-            size = 50;
-        }
-        warningButton->setIconSize(QSize(size, size));
-        warningButton->setGeometry(10, 10, size, size);
+        m_uiManager->showWarningIndicator(true, dist);
     } else {
-        warningButton->hide();
+        m_uiManager->showWarningIndicator(false, dist);
     }
 }
 
@@ -246,68 +224,12 @@ void GameScene::togglePause()
     if (GState == Running) {
         GState = Paused;
         GTimer.stop();
-
-        // 创建渐变效果 - 从深蓝色边缘到浅蓝色中心的径向渐变
-        QGraphicsView *view = views().first();
-        QRectF viewRect = view->mapToScene(view->viewport()->rect()).boundingRect();
-        
-        // 设置遮罩区域覆盖整个可视区域
-        GPauseOverlay->setRect(viewRect);
-        
-        // 创建从边缘深蓝到中心浅蓝的径向渐变
-        QRadialGradient gradient(viewRect.center(), qMax(viewRect.width(), viewRect.height()) / 2);
-        gradient.setColorAt(0.0, QColor(100, 180, 255, 180));   // 中心浅蓝色，半透明
-        gradient.setColorAt(1.0, QColor(10, 50, 120, 230));     // 边缘深蓝色，更不透明
-        
-        GPauseOverlay->setBrush(gradient);
-        GPauseOverlay->setPen(Qt::NoPen);  // 无边框
-        GPauseOverlay->show();
-
-        // 更新暂停文字内容，现在显示分数而不是时间
-        GPauseText->setPlainText(QString("游戏已暂停\n\n当前分数：" + QString::number(score) + " 分"));
-
-        // 更改暂停按钮图标
-        pauseButton->setIcon(QIcon(":/resource/images/icons/play.svg"));
-
-        // 显示暂停文字（位置更新由updateUI负责）
-        GPauseText->show();
-
-        // 立即更新一次UI以定位暂停文字
-        updateUI();
+        m_uiManager->showPauseOverlay(true, score);
     } else {
         GState = Running;
-        GPauseText->hide();
-        GPauseOverlay->hide();
+        m_uiManager->showPauseOverlay(false);
         GTimer.start();
-        //更改暂停按钮图标
-        pauseButton->setIcon(QIcon(":/resource/images/icons/pause.svg"));
     }
-}
-
-
-void GameScene::updateUI()
-{   if (views().isEmpty()) return;
-    QGraphicsView *view = views().first();
-    // 确保按钮有父对象
-    pauseButton->setParent(view->viewport());
-    // 固定暂停按钮在右上角，10px 边距
-    QRect vp = view->viewport()->rect();
-    pauseButton->setGeometry(vp.width() - 50 - 10, 10, 50, 50);
-    pauseButton->show();
-
-    // 如果当前状态是暂停，也需要更新暂停文字的位置
-    if (GState == Paused && GPauseText->isVisible()) {
-        QRectF viewSceneRect = view->mapToScene(view->viewport()->rect()).boundingRect();
-        QRectF textRect = GPauseText->boundingRect();
-        // 文字居中到视口
-        GPauseText->setPos(
-            viewSceneRect.center().x() - textRect.width() / 2,
-            viewSceneRect.center().y() - textRect.height() / 2
-        );
-    }
-    // 更新警告按钮位置
-    warningButton->setParent(view->viewport());
-    warningButton->setGeometry(10, 10, warningButton->iconSize().width(), warningButton->iconSize().height());
 }
 
 // 在GameScene类中添加事件过滤器方法
@@ -316,7 +238,7 @@ bool GameScene::eventFilter(QObject *watched, QEvent *event)
     if (views().isEmpty()) return false;
     // 监听视口的调整大小事件
     if (watched == views().first()->viewport() && event->type() == QEvent::Resize) {
-        updateUI();
+        m_uiManager->updateUI();
     }
     return QGraphicsScene::eventFilter(watched, event);
 }
@@ -325,7 +247,7 @@ bool GameScene::eventFilter(QObject *watched, QEvent *event)
 // 处理物理对象与地形的碰撞
 void GameScene::handlePhysicsObjectCollision(IPhysicsObject* obj) {
     // 获取物体信息
-    QRectF objRect = obj->boundingRect(); // 此处是崩溃点 (gamescene.cpp:236)
+    QRectF objRect = obj->boundingRect(); 
     QPointF objPos = obj->position();
     qreal objCenterX = objPos.x() + objRect.width() / 2;
 
@@ -657,98 +579,38 @@ void GameScene::onGetScore(int points)
 
 // 显示游戏结束对话框
 void GameScene::showGameOverDialog() {
-    QDialog dialog;
-    dialog.setWindowTitle("游戏结束");
-    dialog.setModal(true);
-    dialog.setFixedSize(350, 260);
-    dialog.setStyleSheet(
-        "QDialog { background: #f8fafd; border-radius: 18px; }"
-        "QLabel { font-size: 20px; color: #333; }"
-        "QPushButton {"
-        "  min-width: 120px; min-height: 36px; font-size: 18px;"
-        "  border-radius: 8px; background: #e0e7ef; color: #222;"
-        "  margin: 8px 0;"
-        "}"
-        "QPushButton:hover { background: #b6d0f7; }"
-    );
-
-    QVBoxLayout* layout = new QVBoxLayout(&dialog);
-    layout->setSpacing(18);
-    layout->setContentsMargins(30, 30, 30, 30);
     qreal secs = GElapsedTimer.elapsed() / 1000.0;
-
-    QString iniPath = QCoreApplication::applicationDirPath() + "/game_record.ini";
-    QSettings settings(iniPath, QSettings::IniFormat);
-    qreal bestSecs = settings.value("General/bestTime", 0.0).toDouble();
-    if (secs > bestSecs) {
-        bestSecs = secs;
-        settings.setValue("General/bestTime", bestSecs);
-    }
-
-    QLabel* gameOverLabel = new QLabel("GAME OVER");
-    gameOverLabel->setAlignment(Qt::AlignCenter);
-    gameOverLabel->setStyleSheet("font-size: 35px; font-weight: bold; color: #d32f2f; letter-spacing: 2px;");
-    layout->addWidget(gameOverLabel);
-    QLabel* title = new QLabel("游戏结束");
-    title->setAlignment(Qt::AlignCenter);
-    title->setStyleSheet("font-size: 26px; font-weight: bold; color: #1976d2;");
-    layout->addWidget(title);
-
-    QLabel* timeLabel = new QLabel(QString("本次游戏时长：%1 秒").arg(QString::number(secs, 'f', 2)));
-    timeLabel->setAlignment(Qt::AlignCenter);
-    layout->addWidget(timeLabel);
-
-    QLabel* bestLabel = new QLabel(QString("历史最佳：%1 秒").arg(QString::number(bestSecs, 'f', 2)));
-    bestLabel->setAlignment(Qt::AlignCenter);
-    layout->addWidget(bestLabel);
-
-    QPushButton* retryBtn = new QPushButton("再来一次");
-    QPushButton* exitBtn = new QPushButton("退出游戏");
-    retryBtn->setCursor(Qt::PointingHandCursor);
-    exitBtn->setCursor(Qt::PointingHandCursor);
-
-    QHBoxLayout* btnLayout = new QHBoxLayout();
-    btnLayout->addWidget(retryBtn);
-    btnLayout->addWidget(exitBtn);
-    layout->addLayout(btnLayout);
-
-    connect(retryBtn, &QPushButton::clicked, &dialog, &QDialog::accept);
-    connect(exitBtn, &QPushButton::clicked, &dialog, &QDialog::reject);
-
-    // 居中显示（Qt6 推荐写法）
-    QScreen* screen = QGuiApplication::primaryScreen();
-    if (screen) {
-        QRect screenGeometry = screen->geometry();
-        QPoint center = screenGeometry.center() - QPoint(dialog.width() / 2, dialog.height() / 2);
-        dialog.move(center);
-    }
-
-    int result = dialog.exec();
-    if (result == QDialog::Accepted) {
-        // 停止定时器和线程
-        GTimer.stop();
-        if (m_avalancheThread) {
-            m_avalancheThread->stop();
-            m_avalancheThread->wait();
-            delete m_avalancheThread;
-            m_avalancheThread = nullptr;
+    
+    // 使用UIManager显示游戏结束对话框
+    m_uiManager->showGameOverDialog(secs, 
+        [this]() {
+            // 重试逻辑
+            // 停止定时器和线程
+            GTimer.stop();
+            if (m_avalancheThread) {
+                m_avalancheThread->stop();
+                m_avalancheThread->wait();
+                delete m_avalancheThread;
+                m_avalancheThread = nullptr;
+            }
+            // 重置并重建
+            resetGameState();
+            clear();
+            createSceneItems();
+            initialize();
+        },
+        [this]() {
+            // 退出逻辑
+            GTimer.stop();
+            if (m_avalancheThread) {
+                m_avalancheThread->stop();
+                m_avalancheThread->wait();
+                delete m_avalancheThread;
+                m_avalancheThread = nullptr;
+            }
+            qApp->quit();
         }
-        // 重置并重建
-        resetGameState();
-        clear();
-        createSceneItems();
-        initialize();
-    } else {
-        GTimer.stop();
-        if (m_avalancheThread) {
-            m_avalancheThread->stop();
-            m_avalancheThread->wait();
-            delete m_avalancheThread;
-            m_avalancheThread = nullptr;
-        }
-        // 可选：清理其它资源
-        qApp->quit();
-    }
+    );
 }
 
 // 重置游戏状态
@@ -771,22 +633,11 @@ void GameScene::resetGameState()
     // GElapsedTimer 将在 initialize 中重启
 }
 
-// 新增：创建场景关键元素
+// 创建场景关键元素
 void GameScene::createSceneItems()
 {
-
     // 地形生成器
     GTerrainGenerator = new TerrainGenerator(this, this);
-
-    // 暂停文本和遮罩
-    GPauseText = addText("", QFont("Arial", 24, QFont::Bold));
-    GPauseText->setDefaultTextColor(Qt::white);
-    GPauseText->setZValue(1001);
-    GPauseText->hide();
-    GPauseOverlay = new QGraphicsRectItem();
-    GPauseOverlay->setZValue(1000);
-    addItem(GPauseOverlay);
-    GPauseOverlay->hide();
 
     // 玩家
     Gplayer = new Player();

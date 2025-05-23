@@ -5,11 +5,11 @@
 #include <QKeyEvent>
 #include "player.h"
 #include "terraingenerator.h"
-#include <QPushButton>
 #include "avalanche.h"
 #include "avalancheupdatethread.h"
 #include <QList> // 添加 QList 头文件
 #include "physical.h" // IPhysicsObject 定义
+#include "uimanager.h" // 添加 UIManager 头文件
 
 class GameScene : public QGraphicsScene
 {
@@ -34,8 +34,6 @@ protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
 
 private slots:
-    void updateUI();
-
     void handlePhysicsObjectCollision(IPhysicsObject *obj);
 
     qreal calculateGroundTolerance(qreal speed, qreal slope, qreal forwardSlope, qreal verticalSpeed);
@@ -56,6 +54,9 @@ private slots:
 
     // 新增处理得分的槽函数
     void onGetScore(int points);
+    
+    // 暂停/继续游戏
+    void togglePause();
 
 private:
     void createSceneItems();  // 创建场景对象
@@ -75,19 +76,13 @@ private:
     qreal m_avalancheElapsed = 0;
     const qreal m_avalancheInterval = 0.02; // 雪崩每0.1秒刷新一次
 
-    void updatePlayerHeight();
     void centerViewOnPlayer();
-
-    void togglePause();
 
     QElapsedTimer GElapsedTimer;
 
-    QTime GLastUpdateTime; // 上次更新时间
-    //ui区域
-    QGraphicsTextItem *GPauseText;
-    QPushButton *pauseButton;
-    QGraphicsRectItem *GPauseOverlay; // 暂停时的渐变遮罩
-    QPushButton *warningButton;
+    // UI管理器
+    UIManager* m_uiManager;
+
     AvalancheUpdateThread* m_avalancheThread;  // 雪崩更新线程
     QList<IPhysicsObject*> m_objectsToDeleteThisFrame; // 存储本帧待删除的物理对象的列表
 };

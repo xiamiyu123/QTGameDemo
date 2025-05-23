@@ -61,27 +61,33 @@ void Avalanche::setMaxSpeed(qreal maxSpeed)
 }
 
 // 判断玩家是否被雪崩追上
-bool Avalanche::isPlayerCaught(qreal playerX) const
+bool Avalanche::isPlayerCaught(qreal playerX)
 {
-    return distanceToPlayer(playerX) < 10; // 距离小于10判定为被追上
+    if (distanceToPlayer(playerX) <= 0 ) {
+        return true; // 玩家被雪崩追上
+    }
+    return false; // 玩家未被雪崩追上
 }
 
 // 判断玩家是否被雪崩超越
-bool Avalanche::isPlayerSurpassed(qreal playerX) const
+bool Avalanche::isPlayerSurpassed(qreal playerX)
 {
-    return distanceToPlayerLeft(playerX) < 10; // 距离小于10判定为被超越
+    if (distanceToPlayerLeft(playerX) <= 600) {
+        return true; // 玩家被雪崩超越
+    }
+    return false; // 玩家未被雪崩超越
 }
 
 // 计算雪崩前沿与玩家的距离
-qreal Avalanche::distanceToPlayer(qreal playerX) const
+qreal Avalanche::distanceToPlayer(qreal playerX)
 {
-    return qAbs(playerX - m_frontX); // 取绝对值
+    return playerX - m_frontX;
 }
 
 // 计算雪崩末端与玩家的距离
-qreal Avalanche::distanceToPlayerLeft(qreal playerX) const
+qreal Avalanche::distanceToPlayerLeft(qreal playerX)
 {
-    return qAbs(playerX - (m_frontX + m_width)); // 取绝对值
+    return playerX - (m_frontX - m_width);
 }
 
 void Avalanche::updateShape(qreal playerX)

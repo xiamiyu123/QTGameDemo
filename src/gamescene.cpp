@@ -178,8 +178,26 @@ void GameScene::update() {
     centerViewOnPlayer();
 
     // 雪崩更新改为使用线程
+    // 在雪崩更新前添加检查玩家是否被雪崩超越的逻辑
     m_avalancheElapsed += deltaTime;
     if (m_avalancheThread && m_avalancheElapsed >= m_avalancheInterval) {
+        // 检查玩家是否被雪崩超越
+        bool playerSurpassed = avalanche->isPlayerSurpassed(Gplayer->x());
+
+        // 当玩家被超越时，临时将雪崩速度设为0以停止前进
+        if (playerSurpassed) {
+            avalanche->setSpeed(0);
+            avalanche->setAcceleration(0);
+        } else {
+            // 玩家未被超越时恢复雪崩速度和加速度
+            avalanche->setAcceleration(5);
+            if (350 + 5 * deltaTime <= 650) {
+                avalanche->setSpeed(350 + 5 * deltaTime);
+            } else {
+                avalanche->setSpeed(650);
+            }
+        }
+
         // 请求在线程中更新雪崩
         m_avalancheThread->requestUpdate(m_avalancheElapsed, Gplayer ? Gplayer->x() : 0);
         m_avalancheElapsed = 0;
@@ -191,8 +209,15 @@ void GameScene::update() {
             delete objToDelete;
         }
     }
-    // m_objectsToDeleteThisFrame 会在下一帧 update 开始时被清空    // 检查玩家是否被雪崩追上
-    if (avalanche->isPlayerCaught(Gplayer->x())) {
+    // m_objectsToDeleteThisFrame 会在下一帧 update 开始时被清空
+    // 检查玩家是否触碰到雪崩
+    QRectF playerRect = Gplayer->sceneBoundingRect();
+    QPainterPath avalanchePath = avalanche->path();
+    QPainterPath playerPath;
+    playerPath.addRect(playerRect);
+
+    // 如果玩家碰到雪崩，游戏结束
+    if (avalanchePath.intersects(playerPath)) {
         GTimer.stop();
         showGameOverDialog();
         return;

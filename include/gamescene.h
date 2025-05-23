@@ -11,6 +11,7 @@
 #include "physical.h" // IPhysicsObject 定义
 #include "uimanager.h" // 添加 UIManager 头文件
 #include "collisionhandler.h" // 添加 CollisionHandler 头文件
+#include "debuglogger.h" // 添加调试日志器头文件
 
 class GameScene : public QGraphicsScene
 {

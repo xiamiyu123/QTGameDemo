@@ -1,10 +1,11 @@
 #include "terraingeneratorthread.h"
 #include "terraingenerator.h"
+#include "debuglogger.h"
 
 TerrainGeneratorThread::TerrainGeneratorThread(TerrainGenerator* terrainGenerator, QObject* parent)
     : QThread(parent), m_terrainGenerator(terrainGenerator), m_abort(false)
 {
-    qDebug() << "地形生成进程启动";
+    DEBUG_LOG("地形生成进程启动");
 }
 
 TerrainGeneratorThread::~TerrainGeneratorThread()

@@ -1,7 +1,7 @@
 #include "player.h"
 #include <QBrush>
 #include <QPen>
-#include <QDebug>
+#include "debuglogger.h"
 #include <qpainter.h>
 
 #include "terraingenerator.h"
@@ -60,19 +60,16 @@ void Player::keyPressEvent(QKeyEvent *event) {
     if (event->isAutoRepeat())
         return;
 
-    switch (event->key()) {
-        case Qt::Key_Left:
+    switch (event->key()) {        case Qt::Key_Left:
             keyLeft = true;
-            qDebug() << "Left key pressed";
-            break;
-        case Qt::Key_Right:
+            DEBUG_LOG("Left key pressed");
+            break;        case Qt::Key_Right:
             keyRight = true;
-            qDebug() << "Right key pressed";
-            break;
-        case Qt::Key_Space:
+            DEBUG_LOG("Right key pressed");
+            break;        case Qt::Key_Space:
         case Qt::Key_Up:
             keySpace = true;
-            qDebug() << "Space key pressed";
+            DEBUG_LOG("Space key pressed");
         // 处理跳跃
             jump();
             break;
@@ -83,22 +80,20 @@ void Player::keyReleaseEvent(QKeyEvent *event) {
     if (event->isAutoRepeat())
         return;
 
-    switch (event->key()) {
-        case Qt::Key_Left:
+    switch (event->key()) {        case Qt::Key_Left:
             keyLeft = false;
-            qDebug() << "Left key released";
-            break;
-        case Qt::Key_Right:
+            DEBUG_LOG("Left key released");
+            break;        case Qt::Key_Right:
             keyRight = false;
-            qDebug() << "Right key released";
+            DEBUG_LOG("Right key released");
             break;
         case Qt::Key_Space:
         case Qt::Key_Up:
             keySpace = false;
-            qDebug() << "Space key released";
+            DEBUG_LOG("Space key released");
             break;
         case Qt::Key_T://显示调试信息
-            qDebug() << "Rotation:" << rotation;
+            DEBUG_LOG(QString("Rotation: %1").arg(rotation));
     }
 }
 
@@ -107,25 +102,25 @@ void Player::jump() {
         int rem = m_fallRecoveryTimer.remainingTime();
         int newRem = qMax(rem - 200, 0);
         m_fallRecoveryTimer.start(newRem);
-        qDebug() << "Reducing fall recovery time by 200ms, new remaining:" << newRem;
+        DEBUG_LOG(QString("Reducing fall recovery time by 200ms, new remaining: %1").arg(newRem));
         return;
     }
     if (!isOnGround()) {
-        qDebug() << "Jump is not available";
+        DEBUG_LOG("Jump is not available");
         return;
     }
     QPointF vel = velocity();
     vel.setY(m_jumpForce);
     setVelocity(vel);
     setOnGround(false);
-    qDebug() << "Jump";
+    DEBUG_LOG("Jump");
 }
 
 void Player::setOnGround(bool onGround)
 {
     if (m_onGround == onGround) return; // 状态未改变
     m_onGround = onGround;
-    qDebug ()<<"Player on ground state changed to " << onGround;
+    DEBUG_LOG(QString("Player on ground state changed to %1").arg(onGround));
 }
 
 // 当玩家离地（跳跃或从坡上飞出）时调用
@@ -133,16 +128,15 @@ void Player::notifyTakeoff() {
     m_takeoffRotation = rotation;
     m_cumulativeRotation = 0.0;     // 重置累计旋转角度
     m_lastFrameRotation = rotation; // 记录起始角度作为上一帧角度
-    qDebug() << "Takeoff with angle:" << m_takeoffRotation;
+    DEBUG_LOG(QString("Takeoff with angle: %1").arg(m_takeoffRotation));
 }
 
 // 检查落地角度并判断是否摔倒
 void Player::checkLanding(qreal terrainAngle) {
     // 使用累计旋转角度而不是简单的角度差
     m_flipRotation = qAbs(m_cumulativeRotation);
-    
-    qDebug() << "Landing! Total flip rotation:" << m_flipRotation 
-             << "(" << m_flipRotation/360.0 << " flips)";
+      DEBUG_LOG(QString("Landing! Total flip rotation: %1 (%2 flips)")
+             .arg(m_flipRotation).arg(m_flipRotation/360.0));
     
     // 检查是否需要摔倒
     if (!is_fallen) { // 确保不重复判断
@@ -155,10 +149,8 @@ void Player::checkLanding(qreal terrainAngle) {
         if (angleDeviation > 180.0) {
             angleDeviation = 360.0 - angleDeviation;
         }
-        
-        qDebug() << "Landing angle check - Player:" << playerAngle
-                 << "Terrain:" << normalizedTerrainAngle
-                 << "Deviation:" << angleDeviation;
+          DEBUG_LOG(QString("Landing angle check - Player: %1 Terrain: %2 Deviation: %3")
+                 .arg(playerAngle).arg(normalizedTerrainAngle).arg(angleDeviation));
         
         // 如果偏差过大且无法抵抗，则摔倒
         if (angleDeviation > MAX_LANDING_ANGLE_DEVIATION && !canResistFall(angleDeviation)) {
@@ -259,7 +251,7 @@ void Player::fall() {
     if (is_fallen) return;
     
     is_fallen = true;
-    qDebug() << "Player has fallen! Flip rotation was:" << m_flipRotation;
+    DEBUG_LOG(QString("Player has fallen! Flip rotation was: %1").arg(m_flipRotation));
     
     // 启动恢复计时器
     m_fallRecoveryTimer.start(3000); // 3秒后恢复
@@ -269,7 +261,7 @@ void Player::recoverFromFall() {
     if (!is_fallen) return;
     
     is_fallen = false;
-    qDebug() << "Player recovered from fall.";
+    DEBUG_LOG("Player recovered from fall.");
 }
 
 void Player::onFallRecoveryTimeout() {

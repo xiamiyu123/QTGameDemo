@@ -1,10 +1,10 @@
 #include "avalancheupdatethread.h"
-#include "QDebug"
+#include "debuglogger.h"
 
 AvalancheUpdateThread::AvalancheUpdateThread(Avalanche* avalanche, QObject* parent)
     : QThread(parent), m_avalanche(avalanche), m_abort(false), m_updatePending(false)
 {
-    qDebug() << "雪崩更新进程启动";
+    DEBUG_LOG("雪崩更新进程启动");
 }
 
 AvalancheUpdateThread::~AvalancheUpdateThread()

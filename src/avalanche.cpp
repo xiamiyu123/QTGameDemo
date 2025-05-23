@@ -8,7 +8,7 @@ Avalanche::Avalanche(TerrainGenerator* terrain, QGraphicsItem* parent)
     : QGraphicsPathItem(parent),                // 调用父类构造函数
       m_terrain(terrain),                       // 记录地形指针
       m_frontX(0),          // 雪崩前沿初始位置
-      m_speed(200),         // 初始速度
+      m_speed(350),         // 初始速度
       m_acceleration(10),   // 加速度
       m_maxSpeed(650),      // 最大速度（比玩家快）
       m_width(6000),        // 雪崩宽度

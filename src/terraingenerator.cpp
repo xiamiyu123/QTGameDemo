@@ -227,7 +227,7 @@ void TerrainGenerator::generateChunk(int chunkIndex) {
     // 添加到场景中
     m_scene->addItem(terrainItem);
     m_scene->addItem(topItem);
-    m_chunks[chunkIndex] = terrainItem; // 根据需求可能需要管理topItem
+    m_chunks[chunkIndex] = terrainItem;
 
     // 生成2~3个石头
     int rockCount = QRandomGenerator::global()->bounded(2, 4);

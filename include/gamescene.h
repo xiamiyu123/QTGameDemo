@@ -84,6 +84,7 @@ private:
     QGraphicsTextItem *GPauseText;
     QPushButton *pauseButton;
     QGraphicsRectItem *GPauseOverlay; // 暂停时的渐变遮罩
+    QPushButton *warningButton;
     AvalancheUpdateThread* m_avalancheThread;  // 雪崩更新线程
     QList<IPhysicsObject*> m_objectsToDeleteThisFrame; // 新增：用于存储本帧待删除的对象
 };

@@ -113,11 +113,6 @@ void GameScene::keyPressEvent(QKeyEvent *event)
     if (event->isAutoRepeat()) {
         return; // 忽略自动重复事件
     }
-    // 阻断滚轮事件
-    if (event->type() == QEvent::Wheel) {
-        event->accept();
-        return;
-    }
     Gplayer->keyPressEvent(event);
     //QGraphicsScene::keyPressEvent(event);
 }

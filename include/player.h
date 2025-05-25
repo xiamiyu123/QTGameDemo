@@ -40,10 +40,12 @@ public:
     void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget = nullptr) override;
 
     // 获取最后一次空翻角度
-    qreal getFlipRotation() const;
-
-    // 判断玩家是否处于摔倒状态
+    qreal getFlipRotation() const;    // 判断玩家是否处于摔倒状态
     bool isFallen() const;
+
+    // 设置图像缩放因子
+    void setImageScaleFactor(qreal factor);
+    qreal imageScaleFactor() const;
 
     // 常量
     static const qreal MAX_LANDING_ANGLE_DEVIATION; // 最大允许着陆角度偏差
@@ -84,13 +86,12 @@ private:
     qreal m_lastFrameRotation;  // 上一帧的角度
 
     // 摔倒恢复计时器
-    QTimer m_fallRecoveryTimer;
-
-    // 动画系统 - 新增部分
+    QTimer m_fallRecoveryTimer;    // 动画系统 - 新增部分
     QVector<QPixmap> m_animationFrames;  // 存储png1-png38的动画帧
     int m_currentFrame;                  // 当前播放的帧索引
     QTimer m_animationTimer;            // 动画播放定时器
     bool m_animationLoaded;             // 动画是否成功加载的标志
+    qreal m_imageScaleFactor;           // 图像缩放因子，用于调整显示大小
 
     // 移除或注释掉旧的动画相关变量（如果不需要的话）
     /*

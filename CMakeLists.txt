@@ -23,7 +23,7 @@ else()
 endif()
 
 # 查找所需的 Qt6 模块
-find_package(Qt6 COMPONENTS Core Gui Widgets Svg OpenGL OpenGLWidgets Network Multimedia MultimediaWidgets REQUIRED)
+find_package(Qt6 COMPONENTS Core Gui Widgets Svg OpenGL OpenGLWidgets Network Multimedia MultimediaWidgets Concurrent REQUIRED)
 
 # 源文件与头文件
 file(GLOB SOURCES src/*.cpp)
@@ -72,6 +72,8 @@ else()
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -ffast-math")
 endif()
 
+file(COPY ${CMAKE_SOURCE_DIR}/resource DESTINATION ${CMAKE_BINARY_DIR})
+
 # 编译定义
 target_compile_definitions(${PROJECT_NAME} PRIVATE
         $<$<CONFIG:Release>:QT_NO_DEBUG_OUTPUT>
@@ -96,4 +98,5 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
         Qt6::Network
         Qt6::Multimedia
         Qt6::MultimediaWidgets
+        Qt6::Concurrent
 )

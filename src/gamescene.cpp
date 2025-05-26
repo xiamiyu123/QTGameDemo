@@ -250,10 +250,14 @@ void GameScene::update()
     QRectF playerRect = Gplayer->sceneBoundingRect();
     QPainterPath avalanchePath = avalanche->path();
     QPainterPath playerPath;
-    playerPath.addRect(playerRect);
+
+    // 创建一个比玩家实际碰撞箱小的区域（内缩10像素）
+    QRectF toleranceRect = playerRect.adjusted(10, 10, -10, -10);
+    playerPath.addRect(toleranceRect);
 
     // 如果玩家碰到雪崩，游戏结束
-    if (avalanchePath.intersects(playerPath))
+    if (avalanchePath.intersects(playerPath) &&
+        avalanche->isPlayerSignificantlyInside(Gplayer->sceneBoundingRect()))
     {
         GTimer.stop();
         showGameOverDialog();

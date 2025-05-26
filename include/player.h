@@ -93,7 +93,7 @@ private:
     bool m_animationLoaded;             // 动画是否成功加载的标志
     qreal m_imageScaleFactor;           // 图像缩放因子，用于调整显示大小
 
-    // 移除或注释掉旧的动画相关变量（如果不需要的话）
+    // 移除旧的动画相关变量
     /*
     enum AnimationState {
         Standing,

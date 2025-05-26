@@ -382,22 +382,22 @@ void Player::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QW
             r.x() + (r.width() - size.width()) / 2,
             r.y() + (r.height() - size.height()) / 2,
             size.width(),
-            size.height()
+            size.height() + 2 // 增加5像素高度以适应底部
         );
         
-        // 在绘制时进行高质量缩放
+        // 在绘制时进行缩放
         painter->drawPixmap(targetRect, currentPixmap, currentPixmap.rect());
         
         // 恢复绘图设置
         painter->restore();
-
-        // 如果需要，仍然可以绘制底部绿色边框作为调试标识
-        QPen greenPen(Qt::green, 2);
-        painter->setPen(greenPen);
-        painter->drawLine(r.bottomLeft(), r.bottomRight());
+        // 已移除
+        // 底部绿色边框作为调试标识
+        // QPen greenPen(Qt::green, 2);
+        // painter->setPen(greenPen);
+        // painter->drawLine(r.bottomLeft(), r.bottomRight());
 
     } else {
-        // 如果动画未加载，回退到原始的红色方块绘制
+        // 如果动画未加载，使用原始的红色方块绘制
         QGraphicsRectItem::paint(painter, option, widget);
 
         // 绘制底部绿色边

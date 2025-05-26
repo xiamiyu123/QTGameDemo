@@ -286,3 +286,25 @@ void Avalanche::applyThreadResults()
         m_hasThreadResults = false;
     }
 }
+
+// 判断玩家是否明显进入雪崩区域
+bool Avalanche::isPlayerSignificantlyInside(const QRectF& playerRect) const
+{
+    // 创建雪崩的边界矩形
+    QRectF avalancheRect = path().boundingRect();
+
+    // 计算玩家矩形与雪崩矩形的交集
+    QRectF intersection = playerRect.intersected(avalancheRect);
+
+    if (intersection.isEmpty()) {
+        return false;
+    }
+
+    // 计算相交部分面积占玩家面积的比例
+    qreal playerArea = playerRect.width() * playerRect.height();
+    qreal intersectionArea = intersection.width() * intersection.height();
+    qreal overlapRatio = intersectionArea / playerArea;
+
+    // 如果相交面积超过玩家面积的20%，则认为玩家明显进入雪崩
+    return overlapRatio > 0.5;
+}

@@ -32,7 +32,8 @@ Player::Player(QGraphicsItem *parent)
       m_takeoffRotation(0.0),
       m_flipRotation(0.0),
       m_cumulativeRotation(0.0),
-      m_lastFrameRotation(0.0) {
+      m_lastFrameRotation(0.0),
+      m_imageScaleFactor(1) { // 添加图像缩放因子
 
     setZValue(-2);
 
@@ -68,13 +69,10 @@ void Player::loadAnimationFrames() {
 
     for (int i = 1; i <= 38; ++i) {
         QString filename = QString("image%1.png").arg(QString::number(i));
-        QString fullPath = basePath + filename;
-
-        QPixmap pixmap(fullPath);
+        QString fullPath = basePath + filename;        QPixmap pixmap(fullPath);
         if (!pixmap.isNull()) {
-            // 缩放到合适大小（30x30像素）
-            QPixmap scaledPixmap = pixmap.scaled(200, 200, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-            m_animationFrames.append(scaledPixmap);
+            // 保存原始图像，不进行缩放，在绘制时再进行高质量缩放
+            m_animationFrames.append(pixmap);
             DEBUG_LOG(QString("Loaded animation frame: %1").arg(filename));
         } else {
             DEBUG_LOG(QString("Failed to load animation frame: %1").arg(fullPath));
@@ -347,6 +345,16 @@ bool Player::isFallen() const {
     return is_fallen;
 }
 
+void Player::setImageScaleFactor(qreal factor) {
+    // 限制缩放因子在合理范围内，防止图像过大或过小
+    m_imageScaleFactor = qBound(0.5, factor, 3.0);
+    update(); // 触发重绘
+}
+
+qreal Player::imageScaleFactor() const {
+    return m_imageScaleFactor;
+}
+
 void Player::playerUpdate(TerrainGenerator* GTerrainGenerator) {
     // 处理旋转
     updateRotate(GTerrainGenerator);
@@ -361,21 +369,36 @@ void Player::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QW
 
     // 如果动画已加载且有帧数据，绘制当前动画帧
     if (m_animationLoaded && !m_animationFrames.isEmpty() &&
-        m_currentFrame >= 0 && m_currentFrame < m_animationFrames.size()) {
+        m_currentFrame >= 0 && m_currentFrame < m_animationFrames.size()) {        QRectF r = rect();
+        const QPixmap& currentPixmap = m_animationFrames[m_currentFrame];        // 保存当前绘图设置
+        painter->save();
 
-        QRectF r = rect();
-        const QPixmap& currentPixmap = m_animationFrames[m_currentFrame];
+        // 设置高质量渲染选项
+        painter->setRenderHint(QPainter::SmoothPixmapTransform, true);
+        painter->setRenderHint(QPainter::Antialiasing, true);
 
-        // 绘制动画帧，保持在矩形范围内
-        painter->drawPixmap(r.toRect(), currentPixmap);
+        // 使用自定义缩放因子计算绘制区域
+        QSizeF size = r.size() * m_imageScaleFactor;
+        QRectF targetRect(
+            r.x() + (r.width() - size.width()) / 2,
+            r.y() + (r.height() - size.height()) / 2,
+            size.width(),
+            size.height() + 2 // 增加5像素高度以适应底部
+        );
 
-        // 如果需要，仍然可以绘制底部绿色边框作为调试标识
-        //QPen greenPen(Qt::green, 2);
-        //painter->setPen(greenPen);
-        //painter->drawLine(r.bottomLeft(), r.bottomRight());
+        // 在绘制时进行缩放
+        painter->drawPixmap(targetRect, currentPixmap, currentPixmap.rect());
+
+        // 恢复绘图设置
+        painter->restore();
+        // 已移除
+        // 底部绿色边框作为调试标识
+        // QPen greenPen(Qt::green, 2);
+        // painter->setPen(greenPen);
+        // painter->drawLine(r.bottomLeft(), r.bottomRight());
 
     } else {
-        // 如果动画未加载，回退到原始的红色方块绘制
+        // 如果动画未加载，使用原始的红色方块绘制
         QGraphicsRectItem::paint(painter, option, widget);
 
         // 绘制底部绿色边

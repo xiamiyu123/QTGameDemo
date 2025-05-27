@@ -352,7 +352,7 @@ void GameScene::showGameOverDialog()
     qreal secs = GElapsedTimer.elapsed() / 1000.0;
 
     // 使用UIManager显示游戏结束对话框
-    m_uiManager->showGameOverDialog(secs, [this]()
+    m_uiManager->showGameOverDialog(score, [this]()
                                     {
             // 重试逻辑
             // 停止定时器和线程

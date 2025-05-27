@@ -31,6 +31,9 @@ public:
     // 将线程中计算的结果应用到主线程
     void applyThreadResults();
 
+    // 判断玩家是否明显进入雪崩区域
+    bool isPlayerSignificantlyInside(const QRectF& playerRect) const;
+
 private:
     TerrainGenerator* m_terrain;
     qreal m_frontX;      // 雪崩前沿x坐标
@@ -54,3 +57,4 @@ private:
     bool m_threadCalculatedVisible;
     bool m_hasThreadResults = false;
 };
+

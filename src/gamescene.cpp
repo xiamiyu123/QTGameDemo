@@ -16,6 +16,7 @@
 #include "rockentity.h"
 #include <QSettings>
 #include <QScreen>
+static qreal lastSlope = 0;
 GameScene::GameScene(QObject *parent)
     : QGraphicsScene(parent), m_uiManager(nullptr), m_collisionHandler(nullptr)
 {
@@ -367,12 +368,12 @@ void GameScene::showGameOverDialog()
             resetGameState();
             clear();
             createSceneItems();
-            
+
             // 更新碰撞处理器中的地形生成器引用
             if (m_collisionHandler) {
                 m_collisionHandler->updateTerrainGenerator(GTerrainGenerator);
             }
-            
+
             initialize(); }, [this]()
                                     {
             // 退出逻辑

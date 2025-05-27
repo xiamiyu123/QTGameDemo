@@ -73,7 +73,7 @@ void Player::loadAnimationFrames() {
         QPixmap pixmap(fullPath);
         if (!pixmap.isNull()) {
             // 缩放到合适大小（30x30像素）
-            QPixmap scaledPixmap = pixmap.scaled(30, 30, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+            QPixmap scaledPixmap = pixmap.scaled(200, 200, Qt::KeepAspectRatio, Qt::SmoothTransformation);
             m_animationFrames.append(scaledPixmap);
             DEBUG_LOG(QString("Loaded animation frame: %1").arg(filename));
         } else {
@@ -96,14 +96,15 @@ int Player::getCurrentAnimationRange() const {
         // 跳跃摔倒再站起：image16-25 (索引15-24)
         return 15 + (m_currentFrame % 10); // 10帧循环
     } else if (!isOnGround()) {
-        // 后空翻平稳落地：image26-30 (索引25-29)
-        return 25 + (m_currentFrame % 5); // 5帧循环
+        // 在空中：固定显示 image25 (索引24)
+        return 24; // 不管是否空翻都显示第25张图片
     } else {
         // 地面滑行：image1-13 (索引0-12)
         return m_currentFrame % 13; // 13帧循环
     }
 }
 
+// 修改updateAnimation方法
 void Player::updateAnimation() {
     if (m_animationLoaded && !m_animationFrames.isEmpty()) {
         // 简单递增帧计数器
@@ -369,9 +370,9 @@ void Player::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QW
         painter->drawPixmap(r.toRect(), currentPixmap);
 
         // 如果需要，仍然可以绘制底部绿色边框作为调试标识
-        QPen greenPen(Qt::green, 2);
-        painter->setPen(greenPen);
-        painter->drawLine(r.bottomLeft(), r.bottomRight());
+        //QPen greenPen(Qt::green, 2);
+        //painter->setPen(greenPen);
+        //painter->drawLine(r.bottomLeft(), r.bottomRight());
 
     } else {
         // 如果动画未加载，回退到原始的红色方块绘制

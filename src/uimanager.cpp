@@ -202,7 +202,7 @@ void UIManager::showWarningIndicator(bool show, qreal distance)
     }
 }
 
-void UIManager::showGameOverDialog(qreal gameTime, const std::function<void()>& onRetry, const std::function<void()>& onExit)
+void UIManager::showGameOverDialog(int score, const std::function<void()>& onRetry, const std::function<void()>& onExit)
 {
     QDialog dialog;
     dialog.setWindowTitle("游戏结束");
@@ -222,31 +222,31 @@ void UIManager::showGameOverDialog(qreal gameTime, const std::function<void()>& 
     QVBoxLayout* layout = new QVBoxLayout(&dialog);
     layout->setSpacing(18);
     layout->setContentsMargins(30, 30, 30, 30);
-    qreal secs = gameTime;
 
+    // 读取历史最高分
     QString iniPath = QCoreApplication::applicationDirPath() + "/game_record.ini";
     QSettings settings(iniPath, QSettings::IniFormat);
-    qreal bestSecs = settings.value("General/bestTime", 0.0).toDouble();
-    if (secs > bestSecs) {
-        bestSecs = secs;
-        settings.setValue("General/bestTime", bestSecs);
+    int bestScore = settings.value("General/bestScore", 0).toInt();
+    if (score >= bestScore) {
+        bestScore = score;
+        settings.setValue("General/bestScore", bestScore);
     }
 
     QLabel* gameOverLabel = new QLabel("GAME OVER");
     gameOverLabel->setAlignment(Qt::AlignCenter);
     gameOverLabel->setStyleSheet("font-size: 35px; font-weight: bold; color: #d32f2f; letter-spacing: 2px;");
     layout->addWidget(gameOverLabel);
-    
+
     QLabel* title = new QLabel("游戏结束");
     title->setAlignment(Qt::AlignCenter);
     title->setStyleSheet("font-size: 26px; font-weight: bold; color: #1976d2;");
     layout->addWidget(title);
 
-    QLabel* timeLabel = new QLabel(QString("本次游戏时长：%1 秒").arg(QString::number(secs, 'f', 2)));
-    timeLabel->setAlignment(Qt::AlignCenter);
-    layout->addWidget(timeLabel);
+    QLabel* scoreLabel = new QLabel(QString("本次得分：%1 分").arg(score));
+    scoreLabel->setAlignment(Qt::AlignCenter);
+    layout->addWidget(scoreLabel);
 
-    QLabel* bestLabel = new QLabel(QString("历史最佳：%1 秒").arg(QString::number(bestSecs, 'f', 2)));
+    QLabel* bestLabel = new QLabel(QString("历史最高：%1 分").arg(bestScore));
     bestLabel->setAlignment(Qt::AlignCenter);
     layout->addWidget(bestLabel);
 
@@ -263,7 +263,6 @@ void UIManager::showGameOverDialog(qreal gameTime, const std::function<void()>& 
     connect(retryBtn, &QPushButton::clicked, &dialog, &QDialog::accept);
     connect(exitBtn, &QPushButton::clicked, &dialog, &QDialog::reject);
 
-    // 居中显示
     QScreen* screen = QGuiApplication::primaryScreen();
     if (screen) {
         QRect screenGeometry = screen->geometry();

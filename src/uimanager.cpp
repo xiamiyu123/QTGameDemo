@@ -11,6 +11,7 @@
 #include <QCoreApplication>
 #include <QRadialGradient>
 #include <QStyleOptionGraphicsItem>
+#include <QGraphicsProxyWidget>
 
 UIManager::UIManager(QGraphicsScene* scene, QObject* parent)
     : QObject(parent)
@@ -202,81 +203,120 @@ void UIManager::showWarningIndicator(bool show, qreal distance)
     }
 }
 
-void UIManager::showGameOverDialog(qreal gameTime, const std::function<void()>& onRetry, const std::function<void()>& onExit)
-{
-    QDialog dialog;
-    dialog.setWindowTitle("游戏结束");
-    dialog.setModal(true);
-    dialog.setFixedSize(350, 260);
-    dialog.setStyleSheet(
-        "QDialog { background: #f8fafd; border-radius: 18px; }"
-        "QLabel { font-size: 20px; color: #333; }"
-        "QPushButton {"
-        "  min-width: 120px; min-height: 36px; font-size: 18px;"
-        "  border-radius: 8px; background: #e0e7ef; color: #222;"
-        "  margin: 8px 0;"
-        "}"
-        "QPushButton:hover { background: #b6d0f7; }"
-    );
 
-    QVBoxLayout* layout = new QVBoxLayout(&dialog);
+void UIManager::showGameOverDialog(int score, const std::function<void()>& onRetry, const std::function<void()>& onExit)
+{
+    QGraphicsView* view = getView();
+    if (!view) return;
+
+    QRectF sceneRect = view->mapToScene(view->viewport()->rect()).boundingRect();
+
+    // 卡片内容
+    QWidget* card = new QWidget;
+    card->setStyleSheet("background: #e3f2fd; border: 2px solid #1976d2; border-radius: 0px;");
+    QVBoxLayout* layout = new QVBoxLayout(card);
     layout->setSpacing(18);
     layout->setContentsMargins(30, 30, 30, 30);
-    qreal secs = gameTime;
+
+    QLabel* title = new QLabel("GAME OVER");
+    title->setAlignment(Qt::AlignCenter);
+    title->setStyleSheet("font-size: 40px; font-weight: bold; color: #1976d2; border: none;");
+    layout->addWidget(title);
+
+    QLabel* scoreLabel = new QLabel(QString("本次得分：<b style='color:#1976d2;'>%1</b> 分").arg(QString::number(score)));
+    scoreLabel->setAlignment(Qt::AlignCenter);
+    scoreLabel->setStyleSheet("font-size: 26px; color: #1565c0; border: none;");
+    layout->addWidget(scoreLabel);
 
     QString iniPath = QCoreApplication::applicationDirPath() + "/game_record.ini";
     QSettings settings(iniPath, QSettings::IniFormat);
-    qreal bestSecs = settings.value("General/bestTime", 0.0).toDouble();
-    if (secs > bestSecs) {
-        bestSecs = secs;
-        settings.setValue("General/bestTime", bestSecs);
+    int bestScore = settings.value("General/bestScore", 0).toInt();
+    if (score >= bestScore) {
+        settings.setValue("General/bestScore", score);
+        bestScore = score;
     }
-
-    QLabel* gameOverLabel = new QLabel("GAME OVER");
-    gameOverLabel->setAlignment(Qt::AlignCenter);
-    gameOverLabel->setStyleSheet("font-size: 35px; font-weight: bold; color: #d32f2f; letter-spacing: 2px;");
-    layout->addWidget(gameOverLabel);
-    
-    QLabel* title = new QLabel("游戏结束");
-    title->setAlignment(Qt::AlignCenter);
-    title->setStyleSheet("font-size: 26px; font-weight: bold; color: #1976d2;");
-    layout->addWidget(title);
-
-    QLabel* timeLabel = new QLabel(QString("本次游戏时长：%1 秒").arg(QString::number(secs, 'f', 2)));
-    timeLabel->setAlignment(Qt::AlignCenter);
-    layout->addWidget(timeLabel);
-
-    QLabel* bestLabel = new QLabel(QString("历史最佳：%1 秒").arg(QString::number(bestSecs, 'f', 2)));
+    QLabel* bestLabel = new QLabel(QString("历史最高：<b style='color:#d32f2f;'>%1</b> 分").arg(QString::number(bestScore)));
     bestLabel->setAlignment(Qt::AlignCenter);
+    bestLabel->setStyleSheet("font-size: 22px; color: #d32f2f; border: none;");
     layout->addWidget(bestLabel);
 
-    QPushButton* retryBtn = new QPushButton("再来一次");
-    QPushButton* exitBtn = new QPushButton("退出游戏");
+    // 居中显示卡片
+    QGraphicsProxyWidget* proxy = m_scene->addWidget(card);
+    proxy->setZValue(2001);
+    QSize cardSize(350, 220);
+    card->setFixedSize(cardSize);
+    proxy->setPos(sceneRect.center().x() - cardSize.width() / 2,
+                  sceneRect.center().y() - cardSize.height() / 2);
+
+    // 右下角按钮参数
+    int btnDiameter = 70;
+    int margin = 40;
+
+    // 再来一次按钮（上）
+    QPushButton* retryBtn = new QPushButton;
+    retryBtn->setText("↻");
+    retryBtn->setToolTip("再来一次");
+    retryBtn->setFixedSize(btnDiameter, btnDiameter);
+    retryBtn->setStyleSheet(
+        "QPushButton {"
+        "border-radius: 35px;"
+        "background: transparent;"
+        "color: white;"
+        "font-size: 32px;"
+        "font-weight: bold;"
+        "border: 3px solid #1565c0;"
+        "}"
+        "QPushButton:hover { background: #1565c0; }"
+    );
     retryBtn->setCursor(Qt::PointingHandCursor);
+
+    QGraphicsProxyWidget* retryProxy = m_scene->addWidget(retryBtn);
+    retryProxy->setZValue(2002);
+    retryProxy->setPos(sceneRect.right() - btnDiameter - margin,
+                       sceneRect.bottom() - btnDiameter * 2 - margin - 20);
+
+    // 退出按钮（下）
+    QPushButton* exitBtn = new QPushButton;
+    exitBtn->setText("⏻");
+    exitBtn->setToolTip("退出游戏");
+    exitBtn->setFixedSize(btnDiameter, btnDiameter);
+    exitBtn->setStyleSheet(
+        "QPushButton {"
+        "border-radius: 35px;"
+        "background: transparent;"
+        "color: white;"
+        "font-size: 32px;"
+        "font-weight: bold;"
+        "border: 3px solid #b71c1c;"
+        "}"
+        "QPushButton:hover { background: #b71c1c; }"
+    );
     exitBtn->setCursor(Qt::PointingHandCursor);
 
-    QHBoxLayout* btnLayout = new QHBoxLayout();
-    btnLayout->addWidget(retryBtn);
-    btnLayout->addWidget(exitBtn);
-    layout->addLayout(btnLayout);
+    QGraphicsProxyWidget* exitProxy = m_scene->addWidget(exitBtn);
+    exitProxy->setZValue(2002);
+    exitProxy->setPos(sceneRect.right() - btnDiameter - margin,
+                      sceneRect.bottom() - btnDiameter - margin);
 
-    connect(retryBtn, &QPushButton::clicked, &dialog, &QDialog::accept);
-    connect(exitBtn, &QPushButton::clicked, &dialog, &QDialog::reject);
-
-    // 居中显示
-    QScreen* screen = QGuiApplication::primaryScreen();
-    if (screen) {
-        QRect screenGeometry = screen->geometry();
-        QPoint center = screenGeometry.center() - QPoint(dialog.width() / 2, dialog.height() / 2);
-        dialog.move(center);
-    }
-
-    int result = dialog.exec();
-    if (result == QDialog::Accepted) {
+    // 按钮事件
+    QObject::connect(retryBtn, &QPushButton::clicked, [=]() {
+        m_scene->removeItem(proxy);
+        m_scene->removeItem(retryProxy);
+        m_scene->removeItem(exitProxy);
+        delete proxy;
+        delete retryProxy;
+        delete exitProxy;
         if (onRetry) onRetry();
-    } else {
+    });
+    QObject::connect(exitBtn, &QPushButton::clicked, [=]() {
+        m_scene->removeItem(proxy);
+        m_scene->removeItem(retryProxy);
+        m_scene->removeItem(exitProxy);
+        delete proxy;
+        delete retryProxy;
+        delete exitProxy;
         if (onExit) onExit();
-    }
+    });
 }
 
 QGraphicsView* UIManager::getView() const

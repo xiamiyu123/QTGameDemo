@@ -16,6 +16,7 @@
 #include "rockentity.h"
 #include <QSettings>
 #include <QScreen>
+static qreal lastSlope = 0;
 GameScene::GameScene(QObject *parent)
     : QGraphicsScene(parent), m_uiManager(nullptr), m_collisionHandler(nullptr)
 {
@@ -352,7 +353,7 @@ void GameScene::showGameOverDialog()
     qreal secs = GElapsedTimer.elapsed() / 1000.0;
 
     // 使用UIManager显示游戏结束对话框
-    m_uiManager->showGameOverDialog(secs, [this]()
+    m_uiManager->showGameOverDialog(score, [this]()
                                     {
             // 重试逻辑
             // 停止定时器和线程
@@ -367,12 +368,12 @@ void GameScene::showGameOverDialog()
             resetGameState();
             clear();
             createSceneItems();
-            
+
             // 更新碰撞处理器中的地形生成器引用
             if (m_collisionHandler) {
                 m_collisionHandler->updateTerrainGenerator(GTerrainGenerator);
             }
-            
+
             initialize(); }, [this]()
                                     {
             // 退出逻辑

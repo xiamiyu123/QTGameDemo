@@ -23,7 +23,7 @@ public:
     void updateUI();
     void showPauseOverlay(bool show, int score = 0);
     void showWarningIndicator(bool show, qreal distance);
-    void showGameOverDialog(qreal gameTime, const std::function<void()>& onRetry, const std::function<void()>& onExit);
+    void showGameOverDialog(int score, const std::function<void()>& onRetry, const std::function<void()>& onExit);
 
     // 设置与获取
     QPushButton* getPauseButton() const { return m_pauseButton; }

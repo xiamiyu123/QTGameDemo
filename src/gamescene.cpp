@@ -62,6 +62,9 @@ GameScene::GameScene(QObject *parent)
             this, [this]()
             { avalanche->applyThreadResults(); });
     m_avalancheThread->start();
+
+    // 运行测试构造代码
+    test();
 }
 
 GameScene::~GameScene()

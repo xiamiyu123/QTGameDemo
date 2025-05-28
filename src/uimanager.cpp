@@ -326,3 +326,31 @@ QGraphicsView* UIManager::getView() const
     }
     return m_scene->views().first();
 }
+
+bool UIManager::isUIManagerObject(QGraphicsItem* item) const
+{
+    if (!item) {
+        return false;
+    }
+    
+    // 检查是否为暂停遮罩
+    if (item == m_pauseOverlay) {
+        return true;
+    }
+    
+    // 检查是否为暂停文本
+    if (item == m_pauseText) {
+        return true;
+    }
+    
+    // 检查是否为按钮的代理项 (QGraphicsProxyWidget)
+    QGraphicsProxyWidget* proxyWidget = qgraphicsitem_cast<QGraphicsProxyWidget*>(item);
+    if (proxyWidget) {
+        QWidget* widget = proxyWidget->widget();
+        if (widget == m_pauseButton || widget == m_warningButton) {
+            return true;
+        }
+    }
+    
+    return false;
+}

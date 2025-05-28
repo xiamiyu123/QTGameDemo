@@ -296,25 +296,30 @@ void UIManager::showGameOverDialog(int score, const std::function<void()>& onRet
     QGraphicsProxyWidget* exitProxy = m_scene->addWidget(exitBtn);
     exitProxy->setZValue(2002);
     exitProxy->setPos(sceneRect.right() - btnDiameter - margin,
-                      sceneRect.bottom() - btnDiameter - margin);
-
-    // 按钮事件
+                      sceneRect.bottom() - btnDiameter - margin);    // 按钮事件
     QObject::connect(retryBtn, &QPushButton::clicked, [=]() {
+        // 先从场景中移除，但延迟删除避免在事件处理过程中删除对象
         m_scene->removeItem(proxy);
         m_scene->removeItem(retryProxy);
         m_scene->removeItem(exitProxy);
-        delete proxy;
-        delete retryProxy;
-        delete exitProxy;
+        
+        // 使用 deleteLater 延迟删除，避免在事件处理过程中删除对象
+        proxy->deleteLater();
+        retryProxy->deleteLater();
+        exitProxy->deleteLater();
+        
         if (onRetry) onRetry();
-    });
-    QObject::connect(exitBtn, &QPushButton::clicked, [=]() {
+    });    QObject::connect(exitBtn, &QPushButton::clicked, [=]() {
+        // 先从场景中移除，但延迟删除避免在事件处理过程中删除对象
         m_scene->removeItem(proxy);
         m_scene->removeItem(retryProxy);
         m_scene->removeItem(exitProxy);
-        delete proxy;
-        delete retryProxy;
-        delete exitProxy;
+        
+        // 使用 deleteLater 延迟删除，避免在事件处理过程中删除对象
+        proxy->deleteLater();
+        retryProxy->deleteLater();
+        exitProxy->deleteLater();
+        
         if (onExit) onExit();
     });
 }

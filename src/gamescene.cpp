@@ -366,12 +366,12 @@ void GameScene::showGameOverDialog()
             resetGameState();
             clearGameObjects();
             createSceneItems();
-            
+
             // 更新碰撞处理器中的地形生成器引用
             if (m_collisionHandler) {
                 m_collisionHandler->updateTerrainGenerator(GTerrainGenerator);
             }
-            
+
             initialize(); }, [this]()
                                     {
             // 退出逻辑
@@ -402,10 +402,10 @@ void GameScene::resetGameState()
 
     // 停止游戏定时器
     GTimer.stop();
-    
+
     // 手动删除游戏对象，保留UI元素
     clearGameObjects();
-    
+
     // GElapsedTimer 将在 initialize 中重启
 }
 
@@ -419,14 +419,14 @@ void GameScene::clearGameObjects()
         delete Gplayer;
         Gplayer = nullptr;
     }
-    
+
     // 删除雪崩
     if (avalanche) {
         removeItem(avalanche);
         delete avalanche;
         avalanche = nullptr;
     }
-    
+
     // 清理地形生成器
     if (GTerrainGenerator) {
         GTerrainGenerator->clearAllResources();
@@ -436,7 +436,7 @@ void GameScene::clearGameObjects()
       // 清理物理系统中剩余的对象
     const QList<IPhysicsObject*>& physicsObjects = PhysicsSystem::instance().getPhysicsObjects();
     QList<IPhysicsObject*> objectsToDelete = physicsObjects;
-    
+
     for (IPhysicsObject* obj : objectsToDelete) {
         if (obj) {
             BasePhysicsEntity* entity = dynamic_cast<BasePhysicsEntity*>(obj);
@@ -447,7 +447,7 @@ void GameScene::clearGameObjects()
             delete obj;
         }
     }
-    
+
     // 强制清理所有剩余的图形项目，排除UI元素
     QList<QGraphicsItem*> allItems = items();
     for (QGraphicsItem* item : allItems) {
@@ -456,7 +456,7 @@ void GameScene::clearGameObjects()
             dynamic_cast<QGraphicsTextItem*>(item)) {
             continue;
         }
-        
+
         // 删除其他所有项目（包括可能遗留的轮廓线）
         removeItem(item);
         delete item;

@@ -16,6 +16,7 @@
 #include "rockentity.h"
 #include <QSettings>
 #include <QScreen>
+#include <QGraphicsProxyWidget>
 GameScene::GameScene(QObject *parent)
     : QGraphicsScene(parent), m_uiManager(nullptr), m_collisionHandler(nullptr)
 {
@@ -349,8 +350,6 @@ void GameScene::onGetScore(int points)
 // 显示游戏结束对话框
 void GameScene::showGameOverDialog()
 {
-    qreal secs = GElapsedTimer.elapsed() / 1000.0;
-
     // 使用UIManager显示游戏结束对话框
     m_uiManager->showGameOverDialog(score, [this]()
                                     {
@@ -434,8 +433,7 @@ void GameScene::clearGameObjects()
         delete GTerrainGenerator;
         GTerrainGenerator = nullptr;
     }
-    
-    // 清理物理系统中剩余的对象
+      // 清理物理系统中剩余的对象
     const QList<IPhysicsObject*>& physicsObjects = PhysicsSystem::instance().getPhysicsObjects();
     QList<IPhysicsObject*> objectsToDelete = physicsObjects;
     
@@ -448,6 +446,20 @@ void GameScene::clearGameObjects()
             PhysicsSystem::instance().unregisterObject(obj);
             delete obj;
         }
+    }
+    
+    // 强制清理所有剩余的图形项目，排除UI元素
+    QList<QGraphicsItem*> allItems = items();
+    for (QGraphicsItem* item : allItems) {
+        // 保留UI相关的项目（ProxyWidget 是按钮等UI元素的包装器）
+        if (dynamic_cast<QGraphicsProxyWidget*>(item) ||
+            dynamic_cast<QGraphicsTextItem*>(item)) {
+            continue;
+        }
+        
+        // 删除其他所有项目（包括可能遗留的轮廓线）
+        removeItem(item);
+        delete item;
     }
 }
 

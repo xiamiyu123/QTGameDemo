@@ -222,12 +222,11 @@ void TerrainGenerator::generateChunk(int chunkIndex) {
 
     QGraphicsPathItem *topItem = new QGraphicsPathItem(topPath);
     topItem->setPen(QPen(Qt::black, 2)); // 顶部曲线保持黑色
-    topItem->setPos(chunkIndex * CHUNK_WIDTH, 0);
-
-    // 添加到场景中
+    topItem->setPos(chunkIndex * CHUNK_WIDTH, 0);    // 添加到场景中
     m_scene->addItem(terrainItem);
     m_scene->addItem(topItem);
     m_chunks[chunkIndex] = terrainItem;
+    m_topLineItems[chunkIndex] = topItem;
 
     // 生成2~3个石头
     int rockCount = QRandomGenerator::global()->bounded(2, 4);
@@ -463,14 +462,18 @@ void TerrainGenerator::addChunkToScene(int chunkIndex)
     }
     
     QPainterPath path = m_generatedPaths[chunkIndex];
-    
-    // 创建地形项（白色填充）
+      // 创建地形项（白色填充）
     QGraphicsPathItem *terrainItem = new QGraphicsPathItem(path);
     terrainItem->setBrush(QBrush(QColor(240, 240, 240))); // 雪地颜色
     terrainItem->setPen(QPen(QColor(240, 240, 240), 2)); // 竖直和底部边框设为白色
     terrainItem->setPos(chunkIndex * CHUNK_WIDTH, 0);
     
+    // 添加地形项到场景
+    m_scene->addItem(terrainItem);
+    m_chunks[chunkIndex] = terrainItem;
+    
     // 创建顶部曲线路径（黑色边框）
+    QGraphicsPathItem *topItem = nullptr;
     if (m_chunkPoints.contains(chunkIndex)) {
         const QVector<QPointF>& points = m_chunkPoints[chunkIndex];
         QPainterPath topPath;
@@ -479,16 +482,13 @@ void TerrainGenerator::addChunkToScene(int chunkIndex)
             topPath.lineTo(points[i]);
         }
         
-        QGraphicsPathItem *topItem = new QGraphicsPathItem(topPath);
+        topItem = new QGraphicsPathItem(topPath);
         topItem->setPen(QPen(Qt::black, 2)); // 顶部曲线保持黑色
         topItem->setPos(chunkIndex * CHUNK_WIDTH, 0);
-        
-        // 添加到场景中
-        m_scene->addItem(terrainItem);
+          // 添加轮廓线到场景并保存
         m_scene->addItem(topItem);
+        m_topLineItems[chunkIndex] = topItem;
     }
-      // 保存图形项
-    m_chunks[chunkIndex] = terrainItem;
     
     // 根据预先计算的数据创建石头实体
     if (m_generatedRocks.contains(chunkIndex)) {
@@ -542,10 +542,20 @@ void TerrainGenerator::removeDistantChunks(int currentChunk) {
                 delete rock;
                 m_rocks.remove(i);
             }
+        }        // 移除地形块
+        if (m_chunks.contains(index)) {
+            m_scene->removeItem(m_chunks[index]);
+            delete m_chunks[index];
+            m_chunks.remove(index);
         }
-        m_scene->removeItem(m_chunks[index]);
-        delete m_chunks[index];
-        m_chunks.remove(index);
+        
+        // 移除轮廓线
+        if (m_topLineItems.contains(index)) {
+            m_scene->removeItem(m_topLineItems[index]);
+            delete m_topLineItems[index];
+            m_topLineItems.remove(index);
+        }
+        
         // 保留地形点数据，因为可能需要用于连接
     }
 }
@@ -601,8 +611,7 @@ void TerrainGenerator::clearAllResources()
         m_generatorThread->stop();
         m_generatorThread->wait();
     }
-    
-    // 清理地形块
+      // 清理地形块
     for (auto it = m_chunks.begin(); it != m_chunks.end(); ++it) {
         if (it.value()) {
             m_scene->removeItem(it.value());
@@ -610,6 +619,15 @@ void TerrainGenerator::clearAllResources()
         }
     }
     m_chunks.clear();
+    
+    // 清理轮廓线
+    for (auto it = m_topLineItems.begin(); it != m_topLineItems.end(); ++it) {
+        if (it.value()) {
+            m_scene->removeItem(it.value());
+            delete it.value();
+        }
+    }
+    m_topLineItems.clear();
     
     // 清理石头
     for (RockEntity* rock : m_rocks) {

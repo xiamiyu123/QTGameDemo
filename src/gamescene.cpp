@@ -16,7 +16,7 @@
 #include "rockentity.h"
 #include <QSettings>
 #include <QScreen>
-static qreal lastSlope = 0;
+#include <QGraphicsProxyWidget>
 GameScene::GameScene(QObject *parent)
     : QGraphicsScene(parent), m_uiManager(nullptr), m_collisionHandler(nullptr)
 {
@@ -350,8 +350,6 @@ void GameScene::onGetScore(int points)
 // 显示游戏结束对话框
 void GameScene::showGameOverDialog()
 {
-    qreal secs = GElapsedTimer.elapsed() / 1000.0;
-
     // 使用UIManager显示游戏结束对话框
     m_uiManager->showGameOverDialog(score, [this]()
                                     {
@@ -366,7 +364,7 @@ void GameScene::showGameOverDialog()
             }
             // 重置并重建
             resetGameState();
-            clear();
+            clearGameObjects();
             createSceneItems();
 
             // 更新碰撞处理器中的地形生成器引用
@@ -404,7 +402,65 @@ void GameScene::resetGameState()
 
     // 停止游戏定时器
     GTimer.stop();
+
+    // 手动删除游戏对象，保留UI元素
+    clearGameObjects();
+
     // GElapsedTimer 将在 initialize 中重启
+}
+
+// 添加新的方法来清理游戏对象
+void GameScene::clearGameObjects()
+{
+    // 删除玩家
+    if (Gplayer) {
+        removeItem(Gplayer);
+        PhysicsSystem::instance().unregisterObject(Gplayer);
+        delete Gplayer;
+        Gplayer = nullptr;
+    }
+
+    // 删除雪崩
+    if (avalanche) {
+        removeItem(avalanche);
+        delete avalanche;
+        avalanche = nullptr;
+    }
+
+    // 清理地形生成器
+    if (GTerrainGenerator) {
+        GTerrainGenerator->clearAllResources();
+        delete GTerrainGenerator;
+        GTerrainGenerator = nullptr;
+    }
+      // 清理物理系统中剩余的对象
+    const QList<IPhysicsObject*>& physicsObjects = PhysicsSystem::instance().getPhysicsObjects();
+    QList<IPhysicsObject*> objectsToDelete = physicsObjects;
+
+    for (IPhysicsObject* obj : objectsToDelete) {
+        if (obj) {
+            BasePhysicsEntity* entity = dynamic_cast<BasePhysicsEntity*>(obj);
+            if (entity) {
+                removeItem(entity);
+            }
+            PhysicsSystem::instance().unregisterObject(obj);
+            delete obj;
+        }
+    }
+
+    // 强制清理所有剩余的图形项目，排除UI元素
+    QList<QGraphicsItem*> allItems = items();
+    for (QGraphicsItem* item : allItems) {
+        // 保留UI相关的项目（ProxyWidget 是按钮等UI元素的包装器）
+        if (dynamic_cast<QGraphicsProxyWidget*>(item) ||
+            dynamic_cast<QGraphicsTextItem*>(item)) {
+            continue;
+        }
+
+        // 删除其他所有项目（包括可能遗留的轮廓线）
+        removeItem(item);
+        delete item;
+    }
 }
 
 // 创建场景关键元素
@@ -429,4 +485,5 @@ void GameScene::createSceneItems()
             this, [this]()
             { avalanche->applyThreadResults(); });
     m_avalancheThread->start();
+
 }

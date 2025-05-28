@@ -306,15 +306,15 @@ void GameScene::centerViewOnPlayer()
 
 void GameScene::togglePause()
 {
-    if (GState == Running)
+    if (GState == GameState::Running)
     {
-        GState = Paused;
+        GState = GameState::Paused;
         GTimer.stop();
         m_uiManager->showPauseOverlay(true, score);
     }
     else
     {
-        GState = Running;
+        GState = GameState::Running;
         m_uiManager->showPauseOverlay(false);
         GTimer.start();
     }
@@ -389,7 +389,7 @@ void GameScene::showGameOverDialog()
 void GameScene::resetGameState()
 {
     // 设置游戏状态
-    GState = Running;
+    GState = GameState::Running;
 
     // 初始化得分和奖励倍数
     score = 0;
@@ -404,7 +404,13 @@ void GameScene::resetGameState()
     GTimer.stop();
 
     // 手动删除游戏对象，保留UI元素
-    clearGameObjects();
+    // 首次启动时不需要清理，只有在重试或退出时才需要
+    static bool first = true;
+    if (!first) {
+        clearGameObjects();
+    }
+    first = false; // 确保只在第一次初始化时不清理
+
 
     // GElapsedTimer 将在 initialize 中重启
 }
@@ -446,18 +452,14 @@ void GameScene::clearGameObjects()
             PhysicsSystem::instance().unregisterObject(obj);
             delete obj;
         }
-    }
-
-    // 强制清理所有剩余的图形项目，排除UI元素
+    }    // 强制清理所有剩余的图形项目，排除UI元素
     QList<QGraphicsItem*> allItems = items();
     for (QGraphicsItem* item : allItems) {
-        // 保留UI相关的项目（ProxyWidget 是按钮等UI元素的包装器）
-        if (dynamic_cast<QGraphicsProxyWidget*>(item) ||
-            dynamic_cast<QGraphicsTextItem*>(item)) {
+        // 保留UIManager管理的所有UI元素
+        if (m_uiManager && m_uiManager->isUIManagerObject(item)) {
             continue;
         }
-
-        // 删除其他所有项目（包括可能遗留的轮廓线）
+        
         removeItem(item);
         delete item;
     }

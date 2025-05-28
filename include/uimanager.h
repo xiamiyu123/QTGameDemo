@@ -23,12 +23,15 @@ public:
     void updateUI();
     void showPauseOverlay(bool show, int score = 0);
     void showWarningIndicator(bool show, qreal distance);
-    void showGameOverDialog(int score, const std::function<void()>& onRetry, const std::function<void()>& onExit);
-
-    // 设置与获取
+    void showGameOverDialog(int score, const std::function<void()>& onRetry, const std::function<void()>& onExit);    // 设置与获取
     QPushButton* getPauseButton() const { return m_pauseButton; }
     QPushButton* getWarningButton() const { return m_warningButton; }
     bool isPauseTextVisible() const { return m_pauseText && m_pauseText->isVisible(); }
+    QGraphicsRectItem* getPauseOverlay() const { return m_pauseOverlay; }
+    QGraphicsTextItem* getPauseText() const { return m_pauseText; }
+    
+    // 判断物体是否为UI管理器管理的对象
+    bool isUIManagerObject(QGraphicsItem* item) const;
 
 signals:
     void pauseToggled(); // 暂停状态改变信号

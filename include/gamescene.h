@@ -78,5 +78,7 @@ private:
         // 阻止滚轮事件继续传递到 QGraphicsView
         event->accept();// 滚轮事件被拦截防止不会引起视图缩放
     }
+
+    void clearGameObjects(); // 清理游戏对象但保留UI元素
 };
 

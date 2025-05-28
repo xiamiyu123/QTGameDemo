@@ -47,8 +47,11 @@ public:
     void addChunkToScene(int chunkIndex);
 
 
-    QVector<RockEntity*> m_rocks; // 存储所有石头
-
+    QVector<RockEntity*> m_rocks; // 存储所有石头 - 移到public部分
+    
+    // 添加清理方法
+    void clearAllResources();
+    
 private:
     static const int CHUNK_WIDTH = 3600;    // 地形块宽度
     static const int VIEW_CHUNKS = 1;      // 视图范围内保持的地形块数量

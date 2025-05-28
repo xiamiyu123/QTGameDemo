@@ -593,3 +593,36 @@ TerrainGenerator::~TerrainGenerator() {
         m_generatorThread->wait();
     }
 }
+
+void TerrainGenerator::clearAllResources()
+{
+    // 停止线程
+    if (m_generatorThread) {
+        m_generatorThread->stop();
+        m_generatorThread->wait();
+    }
+    
+    // 清理地形块
+    for (auto it = m_chunks.begin(); it != m_chunks.end(); ++it) {
+        if (it.value()) {
+            m_scene->removeItem(it.value());
+            delete it.value();
+        }
+    }
+    m_chunks.clear();
+    
+    // 清理石头
+    for (RockEntity* rock : m_rocks) {
+        if (rock) {
+            m_scene->removeItem(rock);
+            PhysicsSystem::instance().unregisterObject(rock);
+            delete rock;
+        }
+    }
+    m_rocks.clear();
+    
+    // 清理其他数据
+    m_chunkPoints.clear();
+    m_generatedPaths.clear();
+    m_generatedRocks.clear();
+}

@@ -58,7 +58,8 @@ private:
 
 
     QGraphicsScene *m_scene;
-    QMap<int, QGraphicsPathItem*> m_chunks; // 当前显示的地形块
+    QMap<int, QGraphicsPathItem*> m_chunks; // 地形块图形项
+    QMap<int, QGraphicsPathItem*> m_topLines; // 地形轮廓线图形项 - 添加这行
     QMap<int, QVector<QPointF>> m_chunkPoints; // 每个地形块的关键点
     
     int m_seed;  // 随机种子

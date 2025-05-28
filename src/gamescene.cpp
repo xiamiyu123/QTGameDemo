@@ -306,6 +306,11 @@ void GameScene::centerViewOnPlayer()
 
 void GameScene::togglePause()
 {
+    // 安全检查：确保UI管理器和游戏状态都准备就绪
+    if (!m_uiManager || !Gplayer || !GTerrainGenerator) {
+        return; // 游戏正在重建中，忽略暂停请求
+    }
+    
     if (GState == GameState::Running)
     {
         GState = GameState::Paused;
@@ -354,6 +359,9 @@ void GameScene::showGameOverDialog()
     m_uiManager->showGameOverDialog(score, [this]()
                                     {
             // 重试逻辑
+            // 临时断开UI信号连接，防止在重建过程中触发暂停
+            disconnect(m_uiManager, &UIManager::pauseToggled, this, &GameScene::togglePause);
+            
             // 停止定时器和线程
             GTimer.stop();
             if (m_avalancheThread) {
@@ -372,7 +380,11 @@ void GameScene::showGameOverDialog()
                 m_collisionHandler->updateTerrainGenerator(GTerrainGenerator);
             }
 
-            initialize(); }, [this]()
+            initialize(); 
+            
+            // 重新连接UI信号
+            connect(m_uiManager, &UIManager::pauseToggled, this, &GameScene::togglePause);
+            }, [this]()
                                     {
             // 退出逻辑
             GTimer.stop();

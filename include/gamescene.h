@@ -19,7 +19,7 @@ class GameScene : public QGraphicsScene
     Q_OBJECT
 
 public:
-    enum GameState { Running, Paused };
+    enum GameState { Running, Paused, GameOver };
     explicit GameScene(QObject *parent = nullptr);
     ~GameScene();
     

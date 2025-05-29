@@ -10,13 +10,8 @@
 #include "collisionhandler.h"
 
 #include <QDialog>
-#include <QVBoxLayout>
-#include <QLabel>
-#include <QPushButton>
 #include "rockentity.h"
-#include <QSettings>
-#include <QScreen>
-#include <QGraphicsProxyWidget>
+
 GameScene::GameScene(QObject *parent)
     : QGraphicsScene(parent), m_uiManager(nullptr), m_collisionHandler(nullptr)
 {
@@ -62,6 +57,14 @@ GameScene::GameScene(QObject *parent)
             this, [this]()
             { avalanche->applyThreadResults(); });
     m_avalancheThread->start();
+
+    // // 连接玩家摔倒信号（测试用）
+    // connect(Gplayer, &Player::playerFallen, m_uiManager, &UIManager::showScorePopup);
+    //
+    // // 同时连接到加分系统
+    // connect(Gplayer, &Player::playerFallen, this, [this](int points, const QString&) {
+    //     emit getscore(points);
+    // });
 }
 
 GameScene::~GameScene()
@@ -275,18 +278,6 @@ void GameScene::update()
     {
         m_uiManager->showWarningIndicator(false, dist);
     }
-
-    //test
-    if (Gplayer->isFallen())
-    {
-        m_uiManager->showScorePopup(100,"FALL！");
-        return;
-    }
-
-    // if (!Gplayer->isFallen()) {
-    //     m_uiManager->showScorePopup(+100, "NOT FALL！");
-    //     return;
-    // }
 }
 
 // 仅用于初始化时放置玩家
@@ -365,7 +356,6 @@ void GameScene::onGetScore(int points)
 
     if (m_uiManager) {
         m_uiManager->setScore(score);
-        m_uiManager->showScorePopup(adjustedPoints, "跳跃奖励");
     }
 }
 
@@ -379,7 +369,6 @@ void GameScene::showGameOverDialog()
             // 重试逻辑
             // 临时断开UI信号连接，防止在重建过程中触发暂停
             disconnect(m_uiManager, &UIManager::pauseToggled, this, &GameScene::togglePause);
-            
             // 停止定时器和线程
             GTimer.stop();
             if (m_avalancheThread) {
@@ -398,10 +387,21 @@ void GameScene::showGameOverDialog()
                 m_collisionHandler->updateTerrainGenerator(GTerrainGenerator);
             }
 
-            initialize(); 
-            
+        // // 重新连接玩家摔倒信号（测试用）
+        // connect(Gplayer, &Player::playerFallen, m_uiManager, &UIManager::showScorePopup);
+        // connect(Gplayer, &Player::playerFallen, this, [this](int points, const QString&) {
+        //     emit getscore(points);
+        //      });
+
+        // 重置UI状态
+        if (m_uiManager) {
+            m_uiManager->resetUI();
+        }
+
+            initialize();
+
             // 重新连接UI信号
-            connect(m_uiManager, &UIManager::pauseToggled, this, &GameScene::togglePause);
+        connect(m_uiManager, &UIManager::pauseToggled, this, &GameScene::togglePause);
             }, [this]()
                                     {
             // 退出逻辑
@@ -517,5 +517,11 @@ void GameScene::createSceneItems()
             this, [this]()
             { avalanche->applyThreadResults(); });
     m_avalancheThread->start();
+
+    // 连接玩家摔倒信号（测试用）
+    // connect(Gplayer, &Player::playerFallen, m_uiManager, &UIManager::showScorePopup);
+    // connect(Gplayer, &Player::playerFallen, this, [this](int points, const QString&) {
+    //     emit getscore(points);
+    // });
 
 }

@@ -23,7 +23,6 @@ public:
     // UI管理方法
     void updateUI();
     void setScore(int score);
-    void showScorePopup(int points, const QString& reason);
     void showPauseOverlay(bool show, int score = 0);
     void showWarningIndicator(bool show, qreal distance);
     void showGameOverDialog(int score, const std::function<void()>& onRetry, const std::function<void()>& onExit);    // 设置与获取
@@ -35,6 +34,13 @@ public:
     
     // 判断物体是否为UI管理器管理的对象
     bool isUIManagerObject(QGraphicsItem* item) const;
+
+    // 重置UI状态，用于游戏重新开始
+    void resetUI();
+
+public slots:
+    // 显示得分弹出提示（槽函数）
+    void showScorePopup(int points, const QString& reason);
 
 signals:
     void pauseToggled(); // 暂停状态改变信号

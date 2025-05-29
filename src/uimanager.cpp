@@ -116,13 +116,13 @@ void UIManager::createScoreLabel()
     m_scoreLabel->setAlignment(Qt::AlignRight);
 
     // 添加临时得分提示标签
-    QFont popupFont(family, 32, QFont::Bold);
+    QFont popupFont(family, 30, QFont::Bold);
     m_scorePopupLabel = new QLabel();
     m_scorePopupLabel->setFont(popupFont);
     m_scorePopupLabel->setStyleSheet("color: yellow; "
-                                    "background: transparent; "
-                                    "border: none"
-                                    "padding: 5px 10px;");
+                                      "background: transparent; "
+                                      "border: none;"
+                                      "padding: 5px 10px;");
     m_scorePopupLabel->setAlignment(Qt::AlignRight);
     m_scorePopupLabel->hide();
 
@@ -187,19 +187,12 @@ void UIManager::updateUI()
         QRect vp = view->viewport()->rect();
         m_scoreLabel->setGeometry(vp.width() - 250, -23, 200, 82);
         m_scoreLabel->show();
-
-        // 更新临时得分提示标签位置
-        if (m_scorePopupLabel) {
-            m_scorePopupLabel->setParent(view->viewport());
-            // 放在分数标签下方居中位置
-            m_scorePopupLabel->setGeometry(vp.width() - 350, 60, 300, 50);
-        }
     }
 }
 
 void UIManager::setScore(int score) {
     if (m_scoreLabel) {
-        m_scoreLabel->setText(QString("分数: %1").arg(score));
+        m_scoreLabel->setText(QString("%1").arg(score));
     }
 }
 
@@ -444,8 +437,42 @@ void UIManager::showScorePopup(int points, const QString& reason)
     // 显示标签
     m_scorePopupLabel->show();
 
+    QGraphicsView* view = getView();
+    if (!view) return;
+    QRect vp = view->viewport()->rect();
+
+
+    // 更新临时得分提示标签位置
+    if (m_scorePopupLabel) {
+        m_scorePopupLabel->setParent(view->viewport());
+        // 放在分数标签下方居中位置
+        m_scorePopupLabel->setGeometry(vp.width() - 350, 60, 300, 50);
+    }
+
+
     // 启动计时器，2秒后隐藏
     m_popupTimer->start(2000);
+
+    // 更新UI确保位置正确
+    updateUI();
+}
+
+void UIManager::resetUI()
+{
+    // 重置得分标签
+    if (m_scoreLabel) {
+        m_scoreLabel->setText("0");
+    }
+
+    // 隐藏弹出标签
+    if (m_scorePopupLabel) {
+        m_scorePopupLabel->hide();
+    }
+
+    // 停止计时器
+    if (m_popupTimer) {
+        m_popupTimer->stop();
+    }
 
     // 更新UI确保位置正确
     updateUI();

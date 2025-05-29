@@ -6,6 +6,8 @@
 #include <QRandomGenerator>
 #include "debuglogger.h"
 #include <QMutexLocker>
+#include "physical.h"
+#include "npcentity.h"
 
 const qreal MIN_ROCK_DISTANCE = 100; // 最小石头间距
 const qreal MAX_SLOPE_FOR_ROCK = 0.4; // 允许生成石头的最大斜率（绝对值）
@@ -258,9 +260,39 @@ void TerrainGenerator::generateChunk(int chunkIndex) {
         rock->setOnGround(true);
         m_scene->addItem(rock);
         m_rocks.append(rock);
-        rockXs.append(x); // 记录本次石头x
-        // 注册到物理系统
+        rockXs.append(x); // 记录本次石头x        // 注册到物理系统
         PhysicsSystem::instance().registerObject(rock);
+    }
+    
+    // 生成一个企鹅NPC
+    if (chunkIndex > 0) { // 跳过第一个地形块
+        // 随机选择生成位置（块内）
+        qreal npcX = QRandomGenerator::global()->bounded(CHUNK_WIDTH / 4, CHUNK_WIDTH * 3 / 4);
+        qreal globalNpcX = chunkIndex * CHUNK_WIDTH + npcX;
+        
+        // 检查斜率是否适合生成NPC
+        qreal npcSlope = getTerrainSlope(globalNpcX);
+        if (qAbs(npcSlope) <= MAX_SLOPE_FOR_ROCK) { // 使用与石头相同的斜率限制
+            qreal npcY = getTerrainHeight(globalNpcX) - 15; // NPC高度的一半
+            
+            // 创建企鹅NPC
+            auto penguin = NPCFactory::createPenguinNPC(QPointF(globalNpcX, npcY));
+            NPCEntity* penguinPtr = penguin.release(); // 释放unique_ptr的所有权
+            
+            // 设置NPC初始状态
+            penguinPtr->setOnGround(true);
+            penguinPtr->setActive(false); // 初始状态不激活
+            
+            // 添加到场景和存储列表
+            m_scene->addItem(penguinPtr);
+            m_npcs.append(penguinPtr);
+            
+            // 注册到物理系统
+            PhysicsSystem::instance().registerObject(penguinPtr);
+            
+            DEBUG_LOG(QString("Generated penguin NPC at chunk %1, position (%2, %3)")
+                      .arg(chunkIndex).arg(globalNpcX).arg(npcY));
+        }
     }
 }
 
@@ -432,17 +464,56 @@ void TerrainGenerator::generateChunkThreadSafe(int chunkIndex)
         rockData.localX = x;
         rockData.globalX = globalX;
         rockData.y = y;
-        rockData.angle = angle;
-        rockDataList.append(rockData);
+        rockData.angle = angle;        rockDataList.append(rockData);
         rockXs.append(x); // 记录本次石头x
     }
     
-    // 存储生成的路径、点数据和石头数据
+    // 生成企鹅NPC的位置数据（不创建实体）
+    QVector<NPCGenerationData> npcDataList;
+    if (chunkIndex > 0) { // 跳过第一个地形块
+        // 随机选择生成位置（块内）
+        qreal npcX = QRandomGenerator::global()->bounded(CHUNK_WIDTH / 4, CHUNK_WIDTH * 3 / 4);
+        
+        // 计算高度和斜率
+        int i = 0;
+        while (i < points.size() && points[i].x() < npcX) {
+            i++;
+        }
+        
+        if (i > 0 && i < points.size()) {
+            // 计算斜率
+            qreal x1 = points[i - 1].x();
+            qreal y1 = points[i - 1].y();
+            qreal x2 = points[i].x();
+            qreal y2 = points[i].y();
+            
+            qreal dx = x2 - x1;
+            qreal slope = (qAbs(dx) > 1e-9) ? ((y2 - y1) / dx) : 0.0;
+            
+            // 检查斜率是否适合生成NPC
+            if (qAbs(slope) <= MAX_SLOPE_FOR_ROCK) {
+                // 计算高度（线性插值）
+                qreal height = y1 + slope * (npcX - x1);
+                qreal npcY = height - 15; // NPC高度的一半
+                qreal globalNpcX = chunkIndex * CHUNK_WIDTH + npcX;
+                
+                // 保存NPC数据
+                NPCGenerationData npcData;
+                npcData.localX = npcX;
+                npcData.globalX = globalNpcX;
+                npcData.y = npcY;
+                npcData.type = NPCEntity::NPCType::Ground; // 企鹅是地面类型
+                npcDataList.append(npcData);
+            }
+        }
+    }
+      // 存储生成的路径、点数据、石头数据和NPC数据
     {
         QMutexLocker locker(&m_mutex);
         m_generatedPaths[chunkIndex] = path;
         m_chunkPoints[chunkIndex] = points;
         m_generatedRocks[chunkIndex] = rockDataList;
+        m_generatedNPCs[chunkIndex] = npcDataList;
     }
 }
 
@@ -503,9 +574,35 @@ void TerrainGenerator::addChunkToScene(int chunkIndex)
             // 注册到物理系统
             PhysicsSystem::instance().registerObject(rock);
         }
-        
-        // 处理完后移除石头数据
+          // 处理完后移除石头数据
         m_generatedRocks.remove(chunkIndex);
+    }
+    
+    // 根据预先计算的数据创建NPC实体
+    if (m_generatedNPCs.contains(chunkIndex)) {
+        const QVector<NPCGenerationData>& npcDataList = m_generatedNPCs[chunkIndex];
+        for (const NPCGenerationData& npcData : npcDataList) {
+            // 目前只创建企鹅NPC
+            auto penguin = NPCFactory::createPenguinNPC(QPointF(npcData.globalX, npcData.y));
+            NPCEntity* penguinPtr = penguin.release(); // 释放unique_ptr的所有权
+            
+            // 设置NPC初始状态
+            penguinPtr->setOnGround(true);
+            penguinPtr->setActive(false); // 初始状态不激活，等待进入画面
+            
+            // 添加到场景和存储列表
+            m_scene->addItem(penguinPtr);
+            m_npcs.append(penguinPtr);
+            
+            // 注册到物理系统
+            PhysicsSystem::instance().registerObject(penguinPtr);
+            
+            DEBUG_LOG(QString("Created penguin NPC at chunk %1, position (%2, %3)")
+                      .arg(chunkIndex).arg(npcData.globalX).arg(npcData.y));
+        }
+        
+        // 处理完后移除NPC数据
+        m_generatedNPCs.remove(chunkIndex);
     }
     
     // 移除已处理的路径

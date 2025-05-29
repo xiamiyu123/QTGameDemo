@@ -1,6 +1,4 @@
 #include "collisionhandler.h"
-#include <QtConcurrent/QtConcurrent>
-#include <QMetaObject>
 #include "debuglogger.h"
 
 CollisionHandler::CollisionHandler(TerrainGenerator* terrainGenerator, QObject* parent)
@@ -184,41 +182,7 @@ void CollisionHandler::handlePlayerRockCollision(Player* player, QList<IPhysicsO
             }
             
             break; // 处理完一次碰撞即可
-        }
-    }    // 并行处理石头碰撞检测
-    auto checkRockCollision = [this, player, &objectsToDelete](RockEntity* rock) {
-        // 确保石头和玩家都有效
-        if (!rock || !rock->scene() || !player->scene()) return;
-
-        // 检查石头是否已在本帧中被标记为删除
-        bool rockAlreadyMarkedForDeletion = false;
-        for (IPhysicsObject* deletedObj : objectsToDelete) {
-            if (rock == deletedObj) {
-                rockAlreadyMarkedForDeletion = true;
-                break;
-            }
-        }
-        if (rockAlreadyMarkedForDeletion) return;
-
-        // 确保两个对象都在同一场景
-        if (player->scene() == rock->scene() && player->collidesWithItem(rock)) {
-            // 线程安全地处理碰撞结果
-            QMetaObject::invokeMethod(this, [this, player, rock, &objectsToDelete]() {
-                player->checkHitRock(rock);
-                if (rock->scene()) {
-                    rock->scene()->removeItem(rock);
-                }
-                PhysicsSystem::instance().unregisterObject(rock);
-                m_terrainGenerator->m_rocks.removeOne(rock);
-                if (!objectsToDelete.contains(rock)) {
-                    objectsToDelete.append(rock);
-                }
-            }, Qt::QueuedConnection);
-        }
-    };
-
-    // QtConcurrent 并行处理所有石头
-    QtConcurrent::blockingMap(m_terrainGenerator->m_rocks, checkRockCollision);
+        }    }
 }
 
 // 计算动态地面检测容差

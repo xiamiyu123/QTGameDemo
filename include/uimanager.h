@@ -5,6 +5,7 @@
 #include <QGraphicsView>
 #include <QGraphicsTextItem>
 #include <QGraphicsRectItem>
+#include <QLabel>
 #include <QPushButton>
 
 class UIManager : public QObject
@@ -21,6 +22,7 @@ public:
 
     // UI管理方法
     void updateUI();
+    void setScore(int score);
     void showPauseOverlay(bool show, int score = 0);
     void showWarningIndicator(bool show, qreal distance);
     void showGameOverDialog(int score, const std::function<void()>& onRetry, const std::function<void()>& onExit);    // 设置与获取
@@ -45,10 +47,12 @@ private:
     QPushButton* m_pauseButton;
     QGraphicsRectItem* m_pauseOverlay;
     QPushButton* m_warningButton;
+    QLabel* m_scoreLabel;
 
     // 创建UI元素的辅助方法
     void createPauseElements();
     void createWarningElements();
+    void createScoreLabel();
     void setupButtonStyle(QPushButton* button, const QString& iconPath, bool transparent = true);
 
     // 获取主视图

@@ -35,6 +35,9 @@ void UIManager::initialize()
     
     // 创建警告UI元素
     createWarningElements();
+
+    // 创建得分标签
+    createScoreLabel();
     
     // 更新初始UI位置
     updateUI();
@@ -90,6 +93,18 @@ void UIManager::createWarningElements()
     m_warningButton->hide();
 }
 
+void UIManager::createScoreLabel()
+{
+    // 创建分数标签
+    QFont scoreFont("Comic Sans MS", 30, QFont::Bold);
+    m_scoreLabel = new QLabel("0");
+    m_scoreLabel->setFont(scoreFont);
+    m_scoreLabel->setStyleSheet("color: #fff; "
+                                "border: none; "
+                                "background: transparent; padding: 6px 18px;");
+    m_scoreLabel->setAlignment(Qt::AlignCenter);
+}
+
 void UIManager::setupButtonStyle(QPushButton* button, const QString& iconPath, bool transparent)
 {
     if (!button) return;
@@ -133,6 +148,20 @@ void UIManager::updateUI()
         m_warningButton->setGeometry(10, 10, 
                                      m_warningButton->iconSize().width(), 
                                      m_warningButton->iconSize().height());
+    }
+
+    // 更新分数标签位置
+    if (m_scoreLabel) {
+        m_scoreLabel->setParent(view->viewport());
+        QRect vp = view->viewport()->rect();
+        m_scoreLabel->setGeometry(vp.width() - 400, 10, 180, 50);
+        m_scoreLabel->show();
+    }
+}
+
+void UIManager::setScore(int score) {
+    if (m_scoreLabel) {
+        m_scoreLabel->setText(QString("分数: %1").arg(score));
     }
 }
 

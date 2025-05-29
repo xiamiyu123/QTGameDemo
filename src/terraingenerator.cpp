@@ -741,3 +741,19 @@ void TerrainGenerator::clearAllResources()
     m_generatedPaths.clear();
     m_generatedRocks.clear();
 }
+
+// 在文件末尾添加方法实现：
+void TerrainGenerator::addRespawnedNPC(std::unique_ptr<NPCEntity> npc) {
+    if (npc) {
+        DebugLogger::instance()->log("Terrain generator accepting respawned NPC for management");
+        
+        // 将NPC添加到m_npcs列表中以便管理
+        // 注意：这里需要转移unique_ptr的所有权
+        NPCEntity* rawPtr = npc.release(); // 释放unique_ptr的所有权
+        m_npcs.append(rawPtr); // 添加到管理列表
+        
+        DebugLogger::instance()->log(QString("Added respawned NPC to terrain generator, total NPCs: %1").arg(m_npcs.size()));
+    } else {
+        DebugLogger::instance()->log("Cannot add null NPC to terrain generator");
+    }
+}

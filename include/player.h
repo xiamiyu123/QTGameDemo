@@ -50,9 +50,11 @@ public:
     
     // 获取携带数量
     int getCarriedCount() const { return static_cast<int>(m_carriedNPCs.size()); }
-    
-    // 获取最高优先级的NPC
+      // 获取最高优先级的NPC
     NPCEntity* getHighestPriorityNPC() const;
+    
+    // 获取最低优先级的NPC
+    NPCEntity* getLowestPriorityNPC() const;
     
     // 获取最高优先级的NPC效果
     NPCCarryEffect getHighestPriorityEffect() const;
@@ -77,6 +79,10 @@ private:
 class Player : public BasePhysicsEntity
 {
     Q_OBJECT
+
+signals:
+    // NPC掉落信号，用于通知GameScene重生NPC
+    void npcDropped(NPCEntity::NPCType npcType, QPointF position);
 
 public:
     Player(QGraphicsItem *parent = nullptr);
@@ -137,11 +143,21 @@ public:
     // 应用携带效果到玩家属性
     void applyCarryEffects();
     
-    // === 调试和辅助方法 ===
-    // 获取携带状态的字符串描述
+    // === 碰撞和冷却相关方法 ===
+    // 判断是否可以拾取NPC（检查冷却状态）
+    bool canPickupNPC() const;
+    
+    // 失去NPC并进入冷却状态（碰撞时调用）
+    void loseNPCAndCooldown();
+    
+    // 判断碰撞是否会被NPC效果抵消
+    bool isCollisionResisted() const;
+    
+    // === 调试辅助方法 ===
+    // 获取携带状态的描述字符串
     QString getCarryStatusString() const;
     
-    // 调试输出所有携带的NPC信息
+    // 打印所有携带的NPC信息
     void debugPrintCarriedNPCs() const;
 
     // 常量
@@ -165,6 +181,7 @@ private:
 private slots:
     void onFallRecoveryTimeout(); // 摔倒恢复计时器回调
     void updateAnimation(); // 动画更新槽
+    void onPickupCooldownEnd(); // NPC拾取冷却结束槽
 
 private:
     // 基本状态
@@ -195,4 +212,8 @@ private:
     qreal m_baseSpeed;                  // 基础移动速度（未应用效果）
     qreal m_baseJumpForce;             // 基础跳跃力（未应用效果）
     int m_maxCarryCount;               // 最大携带数量限制
+    
+    // NPC拾取冷却相关
+    bool m_isPickupCooldown;           // 是否在冷却状态
+    QTimer m_pickupCooldownTimer;      // 冷却计时器
 };

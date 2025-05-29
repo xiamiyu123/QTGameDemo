@@ -9,6 +9,9 @@
 // 定义静态常量
 const qreal Player::MAX_LANDING_ANGLE_DEVIATION = 45.0; // 45度最大偏差
 
+// 定义NPC拾取冷却时间（毫秒）
+const int PICKUP_COOLDOWN_MS = 3000; // 3秒冷却
+
 // 辅助函数：将角度归一化到[-180, 180]范围
 static qreal normalizeAngle(qreal angle) {
     angle = fmod(angle, 360.0);
@@ -24,19 +27,27 @@ Player::Player(QGraphicsItem *parent)
     : BasePhysicsEntity(30, 30, parent),
       is_fallen(false),
       keyLeft(false),
-      keySpace(false),
       keyRight(false),
-      m_moveSpeed(500),
+      keySpace(false),
       rotateSpeed(3),
+      m_moveSpeed(500),
       m_jumpForce(-300),
       m_takeoffRotation(0.0),
       m_flipRotation(0.0),
       m_cumulativeRotation(0.0),
       m_lastFrameRotation(0.0),
-      m_imageScaleFactor(1),  // 添加图像缩放因子
-      m_baseSpeed(500),       // 初始化基础速度
-      m_baseJumpForce(-300),  // 初始化基础跳跃力
-      m_maxCarryCount(5)      // 设置最大携带数量为5
+      m_fallRecoveryTimer(this),
+      m_animationFrames(),
+      m_currentFrame(0),
+      m_animationTimer(this),
+      m_animationLoaded(false),
+      m_imageScaleFactor(1),
+      m_npcCarryManager(),
+      m_baseSpeed(500),
+      m_baseJumpForce(-300),
+      m_maxCarryCount(5),
+      m_isPickupCooldown(false),
+      m_pickupCooldownTimer(this)
 {
 
     setZValue(-2);
@@ -50,11 +61,14 @@ Player::Player(QGraphicsItem *parent)
 
     // 允许接收键盘焦点
     setFlag(QGraphicsItem::ItemIsFocusable);
-    setFocus();
-
-    // 初始化摔倒恢复计时器
+    setFocus();    // 初始化摔倒恢复计时器
     connect(&m_fallRecoveryTimer, &QTimer::timeout, this, &Player::onFallRecoveryTimeout);
     m_fallRecoveryTimer.setSingleShot(true);
+    
+    // 初始化拾取冷却计时器
+    connect(&m_pickupCooldownTimer, &QTimer::timeout, this, &Player::onPickupCooldownEnd);
+    m_pickupCooldownTimer.setSingleShot(true);
+    
     loadAnimationFrames();
 
     // 设置动画定时器
@@ -229,7 +243,16 @@ void Player::checkLanding(qreal terrainAngle) {
 
 void Player::checkHitRock(RockEntity* rock) {
     if (!rock) return;
-    // 玩家摔倒
+    
+    // 检查是否有NPC提供碰撞抵抗
+    if (isCollisionResisted()) {
+        DEBUG_LOG("Rock collision resisted by NPC effect!");
+        // 失去一个NPC并进入冷却，但不摔倒
+        loseNPCAndCooldown();
+        return;
+    }
+    
+    // 没有抵抗能力，玩家摔倒
     fall();
     // 从场景移除石头、从物理系统注销和删除石头对象的操作
     // 现在由 GameScene::handlePhysicsObjectCollision 处理，以支持延迟删除。
@@ -254,13 +277,13 @@ qreal Player::getTargetVelocityX() const {
 
 // 修改updateRotate处理摔倒姿势
 void Player::updateRotate(TerrainGenerator* GTerrainGenerator) {
+    Q_UNUSED(GTerrainGenerator);  // 标记参数未使用
+    
     if (is_fallen) {
         // 摔倒姿势 - 侧躺
         setRotation(90); // 简单的90度侧躺姿势
         return;
     }
-
-    qreal oldRotation = rotation;
 
     // 当在空中且按下Space键时，旋转,若没按下，则缓慢回到地形角度
     if (isOnGround() || !keySpace) {
@@ -336,9 +359,15 @@ void Player::onFallRecoveryTimeout() {
     recoverFromFall();
 }
 
+void Player::onPickupCooldownEnd() {
+    m_isPickupCooldown = false;
+    DebugLogger::instance()->log("Player pickup cooldown ended");
+}
+
 bool Player::canResistFall(qreal angleDeviation) const {
-    // 未来可扩展为返回true的条件
-    return false;
+    Q_UNUSED(angleDeviation);  // 标记参数未使用
+    // 检查是否有携带的NPC提供碰撞抵抗
+    return isCollisionResisted();
 }
 
 qreal Player::getFlipRotation() const {
@@ -416,9 +445,18 @@ void Player::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QW
 // === NPCCarryManager 实现 ===
 
 void NPCCarryManager::addNPC(NPCEntity* npc) {
-    if (!npc || m_npcSet.find(npc) != m_npcSet.end()) {
-        return; // NPC为空或已经携带
+    if (!npc) {
+        DebugLogger::instance()->log("Cannot add null NPC to carry manager");
+        return;
     }
+    
+    if (m_npcSet.find(npc) != m_npcSet.end()) {
+        DebugLogger::instance()->log("NPC already in carry list - skipping");
+        return; // NPC已经携带
+    }
+    
+    DebugLogger::instance()->log(QString("Adding NPC with priority %1 to carry list")
+                                .arg(npc->getPriority()));
     
     // 标记NPC为已携带状态
     npc->setCarried(true);
@@ -427,14 +465,18 @@ void NPCCarryManager::addNPC(NPCEntity* npc) {
     m_npcSet.insert(npc);
     m_carriedNPCs.emplace(npc, npc->getCarryEffect(), npc->getPriority());
     
-    DEBUG_LOG(QString("携带NPC，优先级: %1, 当前携带数量: %2")
-              .arg(npc->getPriority()).arg(m_carriedNPCs.size()));
+    DebugLogger::instance()->log(QString("Successfully added NPC, current carry count: %1")
+                                .arg(m_carriedNPCs.size()));
 }
 
 bool NPCCarryManager::removeNPC(NPCEntity* npc) {
     if (!npc || m_npcSet.find(npc) == m_npcSet.end()) {
+        DebugLogger::instance()->log("Cannot remove NPC: not found in carry list");
         return false; // NPC为空或未携带
     }
+    
+    DebugLogger::instance()->log(QString("Removing NPC with priority %1 from carry list")
+                                .arg(npc->getPriority()));
     
     // 从集合移除
     m_npcSet.erase(npc);
@@ -444,17 +486,23 @@ bool NPCCarryManager::removeNPC(NPCEntity* npc) {
     
     // 从优先级队列重建（因为priority_queue不支持直接删除中间元素）
     std::priority_queue<CarriedNPC> tempQueue;
+    int removedCount = 0;
+    
     while (!m_carriedNPCs.empty()) {
         CarriedNPC carried = m_carriedNPCs.top();
         m_carriedNPCs.pop();
         if (carried.npc != npc) {
             tempQueue.push(carried);
+        } else {
+            removedCount++;
         }
     }
     m_carriedNPCs = std::move(tempQueue);
     
-    DEBUG_LOG(QString("丢弃NPC，当前携带数量: %1").arg(m_carriedNPCs.size()));
-    return true;
+    DebugLogger::instance()->log(QString("Removed %1 instances of NPC, current carry count: %2")
+                                .arg(removedCount).arg(m_carriedNPCs.size()));
+    
+    return removedCount > 0;
 }
 
 NPCEntity* NPCCarryManager::getHighestPriorityNPC() const {
@@ -462,6 +510,28 @@ NPCEntity* NPCCarryManager::getHighestPriorityNPC() const {
         return nullptr;
     }
     return m_carriedNPCs.top().npc;
+}
+
+NPCEntity* NPCCarryManager::getLowestPriorityNPC() const {
+    if (m_carriedNPCs.empty()) {
+        return nullptr;
+    }
+    
+    // 由于优先级队列是最大堆，最低优先级的元素在底部
+    // 我们需要遍历找到最低优先级
+    auto tempQueue = m_carriedNPCs;
+    CarriedNPC lowest = tempQueue.top();
+    tempQueue.pop();
+    
+    while (!tempQueue.empty()) {
+        CarriedNPC current = tempQueue.top();
+        tempQueue.pop();
+        if (current.priority < lowest.priority) {
+            lowest = current;
+        }
+    }
+    
+    return lowest.npc;
 }
 
 NPCCarryEffect NPCCarryManager::getHighestPriorityEffect() const {
@@ -517,69 +587,116 @@ std::vector<NPCEntity*> NPCCarryManager::getAllCarriedNPCs() const {
 // === Player NPC携带系统实现 ===
 
 bool Player::pickupNPC(NPCEntity* npc) {
-    // 检查是否在拾取冷却中
-    if (m_isPickupCooldown) {
-        DEBUG_LOG("NPC拾取处于冷却中，无法拾取");
+    if (!canPickupNPC() || !npc || !npc->isCarriable() || npc->isCarried()) {
+        DebugLogger::instance()->log("Cannot pickup NPC: failed preconditions");
         return false;
     }
-
-    if (!npc || !npc->isCarriable() || npc->isCarried()) {
-        return false;
-    }
-    
-    // 检查携带数量限制
-    if (m_npcCarryManager.getCarriedCount() >= m_maxCarryCount) {
-        DEBUG_LOG(QString("携带数量已达上限: %1").arg(m_maxCarryCount));
+      
+    if (getCarriedNPCCount() >= m_maxCarryCount) {
+        DebugLogger::instance()->log("Cannot pickup NPC: carry limit reached");
         return false;
     }
     
-    // 添加到携带管理器
+    // 先设置NPC状态，防止重复拾取
+    npc->setCarried(true);
+    
+    // 添加到管理器
     m_npcCarryManager.addNPC(npc);
     
-    // 应用新的携带效果
-    applyCarryEffects();
-    
-    // 从场景中立即删除该NPC
+    // === 从场景中移除NPC（但不删除对象） ===
     if (npc->scene()) {
         npc->scene()->removeItem(npc);
+        DebugLogger::instance()->log("Removed NPC from scene after pickup");
     }
     
     // 从物理系统注销
     PhysicsSystem::instance().unregisterObject(npc);
     
-    DEBUG_LOG(QString("成功拾取NPC，优先级: %1, 效果: %2")
-              .arg(npc->getPriority())
-              .arg(npc->getCarryEffect().effectDescription));
+    // 应用携带效果
+    applyCarryEffects();
+      
+    DebugLogger::instance()->log(QString("Successfully picked up NPC with priority %1, carrying %2 NPCs")
+                                .arg(npc->getPriority()).arg(getCarriedNPCCount()));
     
     return true;
 }
 
 bool Player::dropNPC(NPCEntity* npc) {
-    if (npc) {
-        // 丢弃指定的NPC
-        if (!m_npcCarryManager.removeNPC(npc)) {
-            return false;
-        }
-    } else {
-        // 丢弃优先级最低的NPC
-        std::vector<NPCEntity*> allCarried = m_npcCarryManager.getAllCarriedNPCs();
-        if (allCarried.empty()) {
-            return false;
-        }
-        
-        // 找到优先级最低的NPC（在末尾，因为按优先级降序排列）
-        NPCEntity* lowestPriorityNPC = allCarried.back();
-        if (!m_npcCarryManager.removeNPC(lowestPriorityNPC)) {
-            return false;
-        }
+    if (!npc || !m_npcCarryManager.isCarrying(npc)) {
+        return false;
     }
     
-    // 重新应用携带效果
-    applyCarryEffects();
+    // 从管理器移除
+    bool removed = m_npcCarryManager.removeNPC(npc);
     
-    DEBUG_LOG("成功丢弃NPC");
-    return true;
+    if (removed) {
+        // 重置NPC状态
+        npc->setCarried(false);
+        
+        // 重新应用携带效果
+        applyCarryEffects();
+          DebugLogger::instance()->log(QString("Dropped NPC with priority %1").arg(npc->getPriority()));
+    }
+    
+    return removed;
 }
+
+void Player::loseNPCAndCooldown() {
+    // 失去最低优先级的NPC
+    NPCEntity* lowestPriorityNPC = m_npcCarryManager.getLowestPriorityNPC();
+    
+    if (lowestPriorityNPC) {
+        QPointF respawnPos = pos(); // 在玩家位置重生
+        NPCEntity::NPCType npcType = lowestPriorityNPC->getNPCType();
+        
+        DebugLogger::instance()->log(QString("About to lose NPC with priority %1, current count: %2")
+                                    .arg(lowestPriorityNPC->getPriority())
+                                    .arg(getCarriedNPCCount()));
+        
+        // 移除NPC - 这会真正从携带列表中删除
+        bool removed = dropNPC(lowestPriorityNPC);
+        
+        if (removed) {
+            // 发射信号，让GameScene处理重生
+            emit npcDropped(npcType, respawnPos);
+            DebugLogger::instance()->log(QString("Lost NPC due to collision, remaining: %1")
+                                        .arg(getCarriedNPCCount()));
+        } else {
+            DebugLogger::instance()->log("Failed to remove NPC from carry list!");
+        }
+    } else {
+        DebugLogger::instance()->log("No NPC to lose - carry list might be empty");
+    }
+    
+    // 进入冷却状态
+    m_isPickupCooldown = true;
+    m_pickupCooldownTimer.start(PICKUP_COOLDOWN_MS);
+      DebugLogger::instance()->log(QString("Pickup cooldown started for %1ms").arg(PICKUP_COOLDOWN_MS));
+}
+
+bool Player::isCollisionResisted() const {
+    int carriedCount = getCarriedNPCCount();
+    bool canResist = carriedCount > 0;
+    
+    DebugLogger::instance()->log(QString("Collision resistance check: carrying %1 NPCs, can resist: %2")
+                                .arg(carriedCount).arg(canResist ? "YES" : "NO"));
+    
+    return canResist;
+}
+
+void Player::applyCarryEffects() {
+    NPCCarryEffect totalEffect = getCurrentCarryEffect();
+    
+    // 应用速度倍率
+    m_moveSpeed = m_baseSpeed * totalEffect.speedMultiplier;
+    
+    // 应用跳跃力倍率
+    m_jumpForce = m_baseJumpForce * totalEffect.jumpForceMultiplier;
+      DebugLogger::instance()->log(QString("Applied carry effects: speed=%1, jump=%2")
+                     .arg(m_moveSpeed).arg(m_jumpForce));
+}
+
+// === NPC携带查询方法实现 ===
 
 int Player::getCarriedNPCCount() const {
     return m_npcCarryManager.getCarriedCount();
@@ -601,106 +718,10 @@ std::vector<NPCEntity*> Player::getAllCarriedNPCs() const {
     return m_npcCarryManager.getAllCarriedNPCs();
 }
 
-void Player::applyCarryEffects() {
-    NPCCarryEffect totalEffect = m_npcCarryManager.getTotalEffect();
-    
-    // 应用速度效果
-    m_moveSpeed = m_baseSpeed * totalEffect.speedMultiplier;
-    
-    // 应用跳跃力效果
-    m_jumpForce = m_baseJumpForce * totalEffect.jumpForceMultiplier;
-    
-    DEBUG_LOG(QString("应用携带效果 - 速度倍数: %1, 跳跃倍数: %2, 当前速度: %3, 当前跳跃力: %4")
-              .arg(totalEffect.speedMultiplier)
-              .arg(totalEffect.jumpForceMultiplier)
-              .arg(m_moveSpeed)
-              .arg(m_jumpForce));
-    
-    // 可以根据需要添加更多效果的应用逻辑
-    // 如重力、旋转阻力等
-}
-
-// === 调试和辅助方法 ===
-
-QString Player::getCarryStatusString() const {
-    int count = getCarriedNPCCount();
-    if (count == 0) {
-        return "未携带任何NPC";
-    }
-    
-    QString status = QString("携带 %1 个NPC: ").arg(count);
-    NPCEntity* highest = getHighestPriorityNPC();
-    if (highest) {
-        status += QString("最高优先级NPC优先级为 %1").arg(highest->getPriority());
-    }
-    
-    return status;
-}
-
-void Player::debugPrintCarriedNPCs() const {
-    std::vector<NPCEntity*> carried = getAllCarriedNPCs();
-    DEBUG_LOG(QString("当前携带 %1 个NPC:").arg(carried.size()));
-    
-    for (size_t i = 0; i < carried.size(); ++i) {
-        NPCEntity* npc = carried[i];
-        if (npc) {
-            DEBUG_LOG(QString("  NPC %1: 优先级=%2, 效果=%3")
-                      .arg(i + 1)
-                      .arg(npc->getPriority())
-                      .arg(npc->getCarryEffect().effectDescription));
-        }
-    }
-}
-
-// 判断玩家是否可以拾取NPC（检查冷却时间）
 bool Player::canPickupNPC() const {
     return !m_isPickupCooldown;
 }
 
-// 失去NPC并进入冷却状态
-void Player::loseNPCAndCooldown() {
-    // 已经在冷却中，不重复操作
-    if (m_isPickupCooldown) {
-        return;
-    }
-
-    // 获取优先级最低的NPC
-    NPCEntity* lowestNPC = m_npcCarryManager.getLowestPriorityNPC();
-    if (lowestNPC) {
-        // 记录NPC的类型和位置，用于创建新NPC
-        NPCEntity::NPCType npcType = lowestNPC->getNPCType();
-        QPointF npcPos = pos() + QPointF(0, 50); // 在玩家脚下生成
-        
-        // 移除优先级最低的NPC
-        m_npcCarryManager.removeNPC(lowestNPC);
-        
-        // 重新应用携带效果
-        applyCarryEffects();
-        
-        // 创建新的NPC在原地（此部分需要在碰撞处理中实现）
-        emit npcDropped(npcType, npcPos);
-        
-        DEBUG_LOG("失去了优先级最低的NPC，进入拾取冷却期");
-    }
-    
-    // 进入冷却状态
-    m_isPickupCooldown = true;
-    
-    // 启动冷却计时器
-    m_pickupCooldownTimer.singleShot(PICKUP_COOLDOWN_MS, this, &Player::onPickupCooldownEnd);
-}
-
-// 冷却结束回调
-void Player::onPickupCooldownEnd() {
-    m_isPickupCooldown = false;
-    DEBUG_LOG("NPC拾取冷却结束，可以再次拾取");
-}
-
-// 判断碰撞是否会被NPC效果抵消
-bool Player::isCollisionResisted() const {
-    // 获取当前携带效果
-    NPCCarryEffect effect = m_npcCarryManager.getTotalEffect();
-    
-    // 如果有免疫摔倒效果，则抵消碰撞
-    return effect.immuneToFall;
+QString Player::getCarryStatusString() const {
+    return QString("Carrying %1/%2 NPCs").arg(getCarriedNPCCount()).arg(m_maxCarryCount);
 }

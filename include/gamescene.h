@@ -47,11 +47,12 @@ private slots:
     // 新增处理得分的槽函数
     void onGetScore(int points);
       // 暂停/继续游戏
-    void togglePause();
-
-    // NPC管理槽函数
+    void togglePause();    // NPC管理槽函数
     void spawnNPC();
     void spawnRandomNPC(const QPointF& position);
+    
+    // NPC掉落重生槽函数
+    void onNPCDropped(NPCEntity::NPCType npcType, QPointF position);
 
 private:
     void createSceneItems();  // 创建场景对象

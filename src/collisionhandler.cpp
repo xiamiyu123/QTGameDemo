@@ -334,32 +334,52 @@ void CollisionHandler::handlePlayerNPCCollision(Player* player) {
     
     // 遍历地形生成器中的所有NPC检查碰撞
     auto& npcs = m_terrainGenerator->m_npcs;
-    for (NPCEntity* npc : npcs) {
+    
+    // 使用迭代器以便安全地移除元素
+    for (auto it = npcs.begin(); it != npcs.end(); ) {
+        NPCEntity* npc = *it;
+        
         if (!npc || !npc->scene()) {
+            // 移除无效的NPC引用
+            it = npcs.erase(it);
             continue;
         }
         
         // 检查NPC是否可以被携带且未被携带
         if (!npc->isCarriable() || npc->isCarried()) {
+            ++it;
             continue;
         }
         
         // 检查玩家是否已达到携带上限
-        if (player->getCarriedNPCCount() >= 5) { // 最大携带数量限制
-            break; // 如果已满，不需要继续检查碰撞
+        if (player->getCarriedNPCCount() >= 5) {
+            break;
+        }
+          
+        // 检查NPC是否在合理距离内
+        qreal distance = QLineF(player->pos(), npc->pos()).length();
+        if (distance > 100) {
+            ++it;
+            continue;
         }
         
-        // 进行碰撞检测
-        if (player->scene() == npc->scene() && player->collidesWithItem(npc)) {
+        // 碰撞检测
+        if (player->collidesWithItem(npc)) {
+            DebugLogger::instance()->log(QString("Player-NPC collision detected! Distance: %1, Attempting pickup...")
+                                        .arg(distance));
+            
             // 尝试拾取NPC
             if (player->pickupNPC(npc)) {
-                DEBUG_LOG(QString("玩家拾取了NPC，优先级: %1, 效果: %2")
-                          .arg(npc->getPriority())
-                          .arg(npc->getCarryEffect().effectDescription));
-                
-                // 可选：播放拾取音效或显示视觉效果
-                // 这里可以添加拾取反馈
+                DebugLogger::instance()->log("NPC pickup successful! Removing from terrain list.");
+                // 拾取成功，从npcs列表移除
+                it = npcs.erase(it);
+                break; // 一次只处理一个拾取
+            } else {
+                DebugLogger::instance()->log("NPC pickup failed!");
+                ++it;
             }
+        } else {
+            ++it;
         }
     }
 }

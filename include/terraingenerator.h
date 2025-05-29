@@ -59,6 +59,9 @@ public:
     // 添加清理方法
     void clearAllResources();
     
+    // 添加：
+    void addRespawnedNPC(std::unique_ptr<NPCEntity> npc);
+    
 private:
     static const int CHUNK_WIDTH = 3600;    // 地形块宽度
     static const int VIEW_CHUNKS = 1;      // 视图范围内保持的地形块数量

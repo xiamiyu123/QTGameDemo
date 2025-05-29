@@ -17,11 +17,9 @@ struct NPCCarryEffect {
     qreal jumpForceMultiplier = 1.0;  // 跳跃力倍数
     qreal gravityMultiplier = 1.0;    // 重力倍数
     qreal rotationResistance = 0.0;   // 旋转阻力 (0.0-1.0, 0表示无阻力)
-    
-    // 特殊效果标识
+      // 特殊效果标识
     bool enableDoubleJump = false;    // 是否允许二段跳
     bool enableGliding = false;       // 是否允许滑翔
-    bool immuneToFall = false;        // 是否免疫摔倒
     
     // 效果描述（用于UI显示）
     QString effectDescription;

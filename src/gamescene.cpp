@@ -504,12 +504,13 @@ void GameScene::clearGameObjects()
 void GameScene::createSceneItems()
 {
     // 地形生成器
-    GTerrainGenerator = new TerrainGenerator(this, this);
-
-    // 玩家
+    GTerrainGenerator = new TerrainGenerator(this, this);    // 玩家
     Gplayer = new Player();
     addItem(Gplayer);
     PhysicsSystem::instance().registerObject(Gplayer);
+    
+    // 连接Player的NPC掉落信号
+    connect(Gplayer, &Player::npcDropped, this, &GameScene::onNPCDropped);
 
     // 雪崩及线程
     avalanche = new Avalanche(GTerrainGenerator);
@@ -529,18 +530,16 @@ void GameScene::createSceneItems()
 
 void GameScene::initializeNPCSystem()
 {
-    // 暂时禁用随机NPC生成系统
-    // 只保留地形生成时创建的企鹅NPC
-    
-    // 创建NPC生成定时器但不启动
+    // 启用随机NPC生成系统以便测试拾取功能
+    // 创建NPC生成定时器并启动
     m_npcSpawnTimer = new QTimer(this);
-    // connect(m_npcSpawnTimer, &QTimer::timeout, this, &GameScene::spawnNPC);
+    connect(m_npcSpawnTimer, &QTimer::timeout, this, &GameScene::spawnNPC);
     
-    // 不启动定时器
-    // m_npcSpawnTimer->setInterval(QRandomGenerator::global()->bounded(3000, 5000));
-    // m_npcSpawnTimer->start();
+    // 启动定时器，每3-5秒生成一个NPC
+    m_npcSpawnTimer->setInterval(QRandomGenerator::global()->bounded(3000, 5000));
+    m_npcSpawnTimer->start();
     
-    DEBUG_LOG("NPC系统已初始化（随机生成已禁用）");
+    DEBUG_LOG("NPC系统已初始化（随机生成已启用）");
 }
 
 void GameScene::spawnNPC()
@@ -751,4 +750,45 @@ QPointF GameScene::getNPCSpawnPosition()
     }
     
     return QPointF(spawnX, spawnY);
+}
+
+// === NPC掉落重生系统实现 ===
+
+void GameScene::onNPCDropped(NPCEntity::NPCType npcType, QPointF position) {
+    DebugLogger::instance()->log(QString("Player dropped NPC type %1 at position (%2, %3)")
+                                .arg(static_cast<int>(npcType))
+                                .arg(position.x())
+                                .arg(position.y()));
+    
+    std::unique_ptr<NPCEntity> newNPC = nullptr;
+    
+    // 根据类型创建新的NPC
+    if (npcType == NPCEntity::NPCType::Ground) {
+        newNPC = NPCFactory::createPenguinNPC(position);
+        if (newNPC) {
+            DebugLogger::instance()->log("Created replacement Penguin NPC");
+        }
+    }
+    // 飞行NPC目前是抽象类，暂不支持
+    
+    if (newNPC) {
+        // 设置NPC状态：立即激活（因为在玩家附近）
+        newNPC->setActive(true);
+        
+        // 添加到场景
+        addItem(newNPC.get());
+        
+        // 注册到物理系统
+        PhysicsSystem::instance().registerObject(newNPC.get());
+        
+        // 由地形生成器管理生命周期
+        if (GTerrainGenerator) {
+            GTerrainGenerator->addRespawnedNPC(std::move(newNPC));
+            DebugLogger::instance()->log("Added respawned NPC to terrain generator management");
+        }
+        
+        DebugLogger::instance()->log("Successfully respawned NPC");
+    } else {
+        DebugLogger::instance()->log("Failed to create replacement NPC");
+    }
 }

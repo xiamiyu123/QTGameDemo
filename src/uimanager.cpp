@@ -101,13 +101,13 @@ void UIManager::createScoreLabel()
     int id = QFontDatabase::addApplicationFont(":/resource/fonts/Kalmansk-Regular.otf");
     QString family = QFontDatabase::applicationFontFamilies(id).at(0);
 
-    QFont scoreFont(family, 50, QFont::Bold);
-    m_scoreLabel = new QLabel("0");
+    QFont scoreFont(family, 52, QFont::Bold);
+    m_scoreLabel = new QLabel("987654321");
     m_scoreLabel->setFont(scoreFont);
     m_scoreLabel->setStyleSheet("color: #fff; "
                                 "border: none; "
                                 "background: transparent; padding: 6px 18px;");
-    m_scoreLabel->setAlignment(Qt::AlignCenter);
+    m_scoreLabel->setAlignment(Qt::AlignRight);
 }
 
 void UIManager::setupButtonStyle(QPushButton* button, const QString& iconPath, bool transparent)
@@ -159,7 +159,7 @@ void UIManager::updateUI()
     if (m_scoreLabel) {
         m_scoreLabel->setParent(view->viewport());
         QRect vp = view->viewport()->rect();
-        m_scoreLabel->setGeometry(vp.width() - 400, -10, 180, 70);
+        m_scoreLabel->setGeometry(vp.width() - 250, -23, 200, 82);
         m_scoreLabel->show();
     }
 }

@@ -319,6 +319,9 @@ void Player::fall() {
 
     // 启动恢复计时器
     m_fallRecoveryTimer.start(3000); // 3秒后恢复
+
+    // // 发射摔倒信号（测试用）
+    // emit playerFallen(100, "FALL！");
 }
 
 void Player::recoverFromFall() {

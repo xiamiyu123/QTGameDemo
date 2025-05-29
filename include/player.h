@@ -50,6 +50,10 @@ public:
     // 常量
     static const qreal MAX_LANDING_ANGLE_DEVIATION; // 最大允许着陆角度偏差
 
+signals:
+    // // 玩家摔倒信号（测试用）
+    // void playerFallen(int points, const QString& reason);
+
 protected:
     // 根据输入计算目标速度
     qreal getTargetVelocityX() const override;

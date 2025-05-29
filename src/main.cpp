@@ -2,7 +2,7 @@
 #include <QApplication>
 
 int main(int argc, char *argv[]) {
-    // 在创建 QApplication 实例之前添加此行
+        // 在创建 QApplication 实例之前添加此行
     QApplication::setAttribute(Qt::AA_UseDesktopOpenGL);
 
     QApplication app(argc, argv);
@@ -13,3 +13,4 @@ int main(int argc, char *argv[]) {
 
     return app.exec();
 }
+

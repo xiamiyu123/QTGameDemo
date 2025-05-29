@@ -62,6 +62,8 @@ add_executable(${PROJECT_NAME}
         ${SOURCES}
         ${HEADERS}
         ${QRC_SOURCES}
+        include/login.h
+        src/login.cpp
 )
 
 # Release 模式下的编译与链接优化

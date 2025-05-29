@@ -20,12 +20,20 @@ NPCEntity::NPCEntity(NPCType type, qreal width, qreal height, QGraphicsItem *par
       m_movementSpeed(100),
       m_aiUpdateTimer(0),
       m_isActive(true),
-      m_shouldDestroy(false)
+      m_shouldDestroy(false),
+      m_priority(0),
+      m_isCarriable(true),
+      m_isCarried(false)
 {
     // 设置实体类型
-    setEntityType(EntityType::NPC);    // NPC默认外观（子类可以重写）
+    setEntityType(EntityType::NPC);
+    
+    // NPC默认外观（子类可以重写）
     setBrush(QBrush(Qt::blue));
     setPen(QPen(Qt::black, 1));
+    
+    // 初始化默认携带效果（无效果）
+    m_carryEffect = NPCCarryEffect();
     
     // 子类需要实现initializeNPC()
 }
@@ -46,6 +54,10 @@ void NPCEntity::resetNPC()
     m_aiUpdateTimer = 0;
     m_isActive = true;
     m_shouldDestroy = false;
+    
+    // 重置携带系统相关状态
+    m_isCarried = false;
+    // 注意：优先级和携带效果不重置，因为它们是NPC类型的固有属性
     
     // 重置物理状态
     setVelocity(QPointF(0, 0));

@@ -30,6 +30,18 @@ void PenguinNPC::initializeNPC()
     setMovementSpeed(PENGUIN_SPEED);
     setActive(false); // 初始状态不激活，等待进入画面
     
+    // === 设置携带系统相关属性 ===
+    setPriority(10);  // 企鹅优先级设为10（中等优先级）
+    setCarriable(true); // 企鹅可以被携带
+    
+    // 设置企鹅的携带效果：增加移动速度和跳跃力
+    NPCCarryEffect penguinEffect;
+    penguinEffect.speedMultiplier = 1.2;      // 速度提升20%
+    penguinEffect.jumpForceMultiplier = 1.1;  // 跳跃力提升10%
+    penguinEffect.rotationResistance = 0.1;   // 轻微的旋转阻力
+    penguinEffect.effectDescription = "企鹅伙伴：移动速度+20%，跳跃力+10%";
+    setCarryEffect(penguinEffect);
+    
     DEBUG_LOG("PenguinNPC initialized");
 }
 

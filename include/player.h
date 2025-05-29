@@ -5,9 +5,74 @@
 #include <QTimer>
 #include <QPixmap>
 #include <QVector>
+#include <QString>
+#include <queue>
+#include <functional>
+#include <set>
+#include <vector>
 #include "terraingenerator.h"
+#include "npcentity.h"
 
 class RockEntity; // 前向声明
+
+// === NPC携带系统相关 ===
+/**
+ * CarriedNPC: 被携带的NPC信息
+ */
+struct CarriedNPC {
+    NPCEntity* npc;          // NPC指针
+    NPCCarryEffect effect;   // 携带效果
+    int priority;            // 优先级
+    
+    CarriedNPC(NPCEntity* n, const NPCCarryEffect& e, int p)
+        : npc(n), effect(e), priority(p) {}
+    
+    // 优先级比较器（用于最大堆，优先级高的在前）
+    bool operator<(const CarriedNPC& other) const {
+        return priority < other.priority;
+    }
+};
+
+/**
+ * NPCCarryManager: NPC携带管理器
+ * 使用优先级队列管理携带的NPC
+ */
+class NPCCarryManager {
+public:
+    NPCCarryManager() = default;
+    ~NPCCarryManager() = default;
+    
+    // 添加携带的NPC
+    void addNPC(NPCEntity* npc);
+    
+    // 移除特定NPC
+    bool removeNPC(NPCEntity* npc);
+    
+    // 获取携带数量
+    int getCarriedCount() const { return static_cast<int>(m_carriedNPCs.size()); }
+    
+    // 获取最高优先级的NPC
+    NPCEntity* getHighestPriorityNPC() const;
+    
+    // 获取最高优先级的NPC效果
+    NPCCarryEffect getHighestPriorityEffect() const;
+    
+    // 获取总效果（可能需要叠加多个NPC的效果）
+    NPCCarryEffect getTotalEffect() const;
+    
+    // 清空所有携带的NPC
+    void clear();
+    
+    // 检查是否携带了特定NPC
+    bool isCarrying(NPCEntity* npc) const;
+    
+    // 获取所有携带的NPC列表（按优先级排序）
+    std::vector<NPCEntity*> getAllCarriedNPCs() const;
+
+private:
+    std::priority_queue<CarriedNPC> m_carriedNPCs;  // 优先级队列
+    std::set<NPCEntity*> m_npcSet;                  // 用于快速查找的集合
+};
 
 class Player : public BasePhysicsEntity
 {
@@ -46,6 +111,38 @@ public:
     // 设置图像缩放因子
     void setImageScaleFactor(qreal factor);
     qreal imageScaleFactor() const;
+
+    // === NPC携带系统相关方法 ===
+    // 拾取NPC
+    bool pickupNPC(NPCEntity* npc);
+    
+    // 丢弃NPC（丢弃优先级最低的，或指定的NPC）
+    bool dropNPC(NPCEntity* npc = nullptr);
+    
+    // 获取携带的NPC数量
+    int getCarriedNPCCount() const;
+    
+    // 获取优先级最高的NPC
+    NPCEntity* getHighestPriorityNPC() const;
+    
+    // 获取当前总的携带效果
+    NPCCarryEffect getCurrentCarryEffect() const;
+    
+    // 检查是否已携带特定NPC
+    bool isCarryingNPC(NPCEntity* npc) const;
+    
+    // 获取所有携带的NPC列表
+    std::vector<NPCEntity*> getAllCarriedNPCs() const;
+    
+    // 应用携带效果到玩家属性
+    void applyCarryEffects();
+    
+    // === 调试和辅助方法 ===
+    // 获取携带状态的字符串描述
+    QString getCarryStatusString() const;
+    
+    // 调试输出所有携带的NPC信息
+    void debugPrintCarriedNPCs() const;
 
     // 常量
     static const qreal MAX_LANDING_ANGLE_DEVIATION; // 最大允许着陆角度偏差
@@ -93,20 +190,9 @@ private:
     bool m_animationLoaded;             // 动画是否成功加载的标志
     qreal m_imageScaleFactor;           // 图像缩放因子，用于调整显示大小
 
-    // 移除旧的动画相关变量
-    /*
-    enum AnimationState {
-        Standing,
-        Running,
-        Jumping,
-        Falling,
-        Landing,
-        Flipping
-    };
-    QVector<QPixmap> m_playerImages; // 玩家图像资源
-    int m_currentImageIndex; // 当前图像索引
-    AnimationState m_animState; // 动画状态
-    float m_animTimer; // 动画计时器
-    bool m_facingRight; // 朝向
-    */
+    // === NPC携带系统相关成员变量 ===
+    NPCCarryManager m_npcCarryManager;  // NPC携带管理器
+    qreal m_baseSpeed;                  // 基础移动速度（未应用效果）
+    qreal m_baseJumpForce;             // 基础跳跃力（未应用效果）
+    int m_maxCarryCount;               // 最大携带数量限制
 };

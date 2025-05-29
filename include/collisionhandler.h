@@ -5,6 +5,7 @@
 #include "terraingenerator.h"
 #include "player.h"
 #include "rockentity.h"
+#include "npcentity.h"
 
 class CollisionHandler : public QObject
 {
@@ -37,10 +38,11 @@ private:
     void updateSlopeForce(IPhysicsObject* obj, qreal slope, qreal speed);
 
     // 更新实体旋转
-    void updateEntityRotation(BasePhysicsEntity* entity, bool onGround, qreal slope);
-
-    // 处理玩家与石头的碰撞
+    void updateEntityRotation(BasePhysicsEntity* entity, bool onGround, qreal slope);    // 处理玩家与石头的碰撞
     void handlePlayerRockCollision(Player* player, QList<IPhysicsObject*>& objectsToDelete);
+
+    // 处理玩家与NPC的碰撞（拾取系统）
+    void handlePlayerNPCCollision(Player* player);
 
     // 地形生成器引用
     TerrainGenerator* m_terrainGenerator;

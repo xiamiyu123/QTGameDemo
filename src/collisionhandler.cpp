@@ -121,11 +121,11 @@ void CollisionHandler::handlePhysicsObjectCollision(IPhysicsObject* obj, QList<I
         if (!asPlayer || !asPlayer->isFallen()) {
             updateEntityRotation(entity, obj->isOnGround(), terrainSlope);
         }
-    }
-
-    // 玩家与石头碰撞检测 - 仅当当前 obj 是玩家时执行
+    }    // 玩家与石头碰撞检测 - 仅当当前 obj 是玩家时执行
     if (player) {
         handlePlayerRockCollision(player, objectsToDelete);
+        // 玩家与NPC碰撞检测（拾取系统）
+        handlePlayerNPCCollision(player);
     }
 }
 
@@ -318,4 +318,48 @@ void CollisionHandler::updateEntityRotation(BasePhysicsEntity* entity, bool onGr
         entity->setRotation(targetAngle);
     }
     // 空中的旋转逻辑由各实体类自行控制
+}
+
+// 处理玩家与NPC的碰撞（拾取系统）
+void CollisionHandler::handlePlayerNPCCollision(Player* player) {
+    // 防御性检查
+    if (!player || !m_terrainGenerator) {
+        return;
+    }
+    
+    // 确保玩家在场景中
+    if (!player->scene()) {
+        return;
+    }
+    
+    // 遍历地形生成器中的所有NPC检查碰撞
+    auto& npcs = m_terrainGenerator->m_npcs;
+    for (NPCEntity* npc : npcs) {
+        if (!npc || !npc->scene()) {
+            continue;
+        }
+        
+        // 检查NPC是否可以被携带且未被携带
+        if (!npc->isCarriable() || npc->isCarried()) {
+            continue;
+        }
+        
+        // 检查玩家是否已达到携带上限
+        if (player->getCarriedNPCCount() >= 5) { // 最大携带数量限制
+            break; // 如果已满，不需要继续检查碰撞
+        }
+        
+        // 进行碰撞检测
+        if (player->scene() == npc->scene() && player->collidesWithItem(npc)) {
+            // 尝试拾取NPC
+            if (player->pickupNPC(npc)) {
+                DEBUG_LOG(QString("玩家拾取了NPC，优先级: %1, 效果: %2")
+                          .arg(npc->getPriority())
+                          .arg(npc->getCarryEffect().effectDescription));
+                
+                // 可选：播放拾取音效或显示视觉效果
+                // 这里可以添加拾取反馈
+            }
+        }
+    }
 }

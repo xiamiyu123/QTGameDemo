@@ -8,6 +8,32 @@
 // 前向声明
 class QGraphicsScene;
 
+// === NPC携带效果结构体 ===
+/**
+ * NPCCarryEffect: NPC被携带时对玩家的影响效果
+ */
+struct NPCCarryEffect {
+    qreal speedMultiplier = 1.0;      // 移动速度倍数 (1.0 = 无变化)
+    qreal jumpForceMultiplier = 1.0;  // 跳跃力倍数
+    qreal gravityMultiplier = 1.0;    // 重力倍数
+    qreal rotationResistance = 0.0;   // 旋转阻力 (0.0-1.0, 0表示无阻力)
+    
+    // 特殊效果标识
+    bool enableDoubleJump = false;    // 是否允许二段跳
+    bool enableGliding = false;       // 是否允许滑翔
+    bool immuneToFall = false;        // 是否免疫摔倒
+    
+    // 效果描述（用于UI显示）
+    QString effectDescription;
+    
+    // 默认构造函数
+    NPCCarryEffect() = default;
+    
+    // 便利构造函数
+    NPCCarryEffect(qreal speed, qreal jump = 1.0, const QString& desc = "")
+        : speedMultiplier(speed), jumpForceMultiplier(jump), effectDescription(desc) {}
+};
+
 /**
  * NPCEntity: NPC基类
  * 为游戏中的NPC提供基础实现，支持AI行为
@@ -31,6 +57,23 @@ public:
     NPCType getNPCType() const { return m_npcType; }
     void setMovementSpeed(qreal speed) { m_movementSpeed = speed; }
     qreal getMovementSpeed() const { return m_movementSpeed; }
+
+    // === NPC携带系统相关 ===
+    // 优先级属性（数值越大优先级越高）
+    int getPriority() const { return m_priority; }
+    void setPriority(int priority) { m_priority = priority; }
+    
+    // 携带效果属性
+    const NPCCarryEffect& getCarryEffect() const { return m_carryEffect; }
+    void setCarryEffect(const NPCCarryEffect& effect) { m_carryEffect = effect; }
+    
+    // 是否可以被携带
+    bool isCarriable() const { return m_isCarriable; }
+    void setCarriable(bool carriable) { m_isCarriable = carriable; }
+    
+    // 是否已被携带
+    bool isCarried() const { return m_isCarried; }
+    void setCarried(bool carried) { m_isCarried = carried; }
 
     // === NPC生命周期管理 ===
     bool isActive() const { return m_isActive; }
@@ -64,6 +107,12 @@ protected:
     qreal m_aiUpdateTimer;
     bool m_isActive;
     bool m_shouldDestroy;
+    
+    // === 携带系统相关属性 ===
+    int m_priority;                   // 优先级（默认为0）
+    NPCCarryEffect m_carryEffect;     // 携带效果
+    bool m_isCarriable;              // 是否可被携带（默认true）
+    bool m_isCarried;                // 是否已被携带（默认false）
 
 private:
     // 默认AI行为 - 强制向右移动

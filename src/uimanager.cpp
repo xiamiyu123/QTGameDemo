@@ -9,6 +9,7 @@
 #include <QPushButton>
 #include <QSettings>
 #include <QCoreApplication>
+#include <qfontdatabase.h>
 #include <QRadialGradient>
 #include <QStyleOptionGraphicsItem>
 #include <QGraphicsProxyWidget>
@@ -96,7 +97,11 @@ void UIManager::createWarningElements()
 void UIManager::createScoreLabel()
 {
     // 创建分数标签
-    QFont scoreFont("Comic Sans MS", 30, QFont::Bold);
+    // 引入新字体
+    int id = QFontDatabase::addApplicationFont(":/resource/fonts/Kalmansk-Regular.otf");
+    QString family = QFontDatabase::applicationFontFamilies(id).at(0);
+
+    QFont scoreFont(family, 50, QFont::Bold);
     m_scoreLabel = new QLabel("0");
     m_scoreLabel->setFont(scoreFont);
     m_scoreLabel->setStyleSheet("color: #fff; "
@@ -154,7 +159,7 @@ void UIManager::updateUI()
     if (m_scoreLabel) {
         m_scoreLabel->setParent(view->viewport());
         QRect vp = view->viewport()->rect();
-        m_scoreLabel->setGeometry(vp.width() - 400, 10, 180, 50);
+        m_scoreLabel->setGeometry(vp.width() - 400, -10, 180, 70);
         m_scoreLabel->show();
     }
 }

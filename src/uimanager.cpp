@@ -302,24 +302,24 @@ void UIManager::showGameOverDialog(int score, const std::function<void()>& onRet
         m_scene->removeItem(proxy);
         m_scene->removeItem(retryProxy);
         m_scene->removeItem(exitProxy);
-        
+
         // 使用 deleteLater 延迟删除，避免在事件处理过程中删除对象
         proxy->deleteLater();
         retryProxy->deleteLater();
         exitProxy->deleteLater();
-        
+
         if (onRetry) onRetry();
     });    QObject::connect(exitBtn, &QPushButton::clicked, [=]() {
         // 先从场景中移除，但延迟删除避免在事件处理过程中删除对象
         m_scene->removeItem(proxy);
         m_scene->removeItem(retryProxy);
         m_scene->removeItem(exitProxy);
-        
+
         // 使用 deleteLater 延迟删除，避免在事件处理过程中删除对象
         proxy->deleteLater();
         retryProxy->deleteLater();
         exitProxy->deleteLater();
-        
+
         if (onExit) onExit();
     });
 }
@@ -337,17 +337,17 @@ bool UIManager::isUIManagerObject(QGraphicsItem* item) const
     if (!item) {
         return false;
     }
-    
+
     // 检查是否为暂停遮罩
     if (item == m_pauseOverlay) {
         return true;
     }
-    
+
     // 检查是否为暂停文本
     if (item == m_pauseText) {
         return true;
     }
-    
+
     // 检查是否为按钮的代理项 (QGraphicsProxyWidget)
     QGraphicsProxyWidget* proxyWidget = qgraphicsitem_cast<QGraphicsProxyWidget*>(item);
     if (proxyWidget) {
@@ -356,6 +356,6 @@ bool UIManager::isUIManagerObject(QGraphicsItem* item) const
             return true;
         }
     }
-    
+
     return false;
 }

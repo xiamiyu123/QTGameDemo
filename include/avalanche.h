@@ -25,6 +25,15 @@ public:
     // 获取雪崩末端与玩家的距离
     qreal distanceToPlayerLeft(qreal playerX);
 
+    //获取雪崩初始速度
+    qreal getInitialSpeed();
+
+    //获取雪崩初始加速度
+    qreal getInitialAcceleration();
+
+    //获取雪崩速度上限
+    qreal getMaxSpeed();
+
     // 线程安全的雪崩更新方法
     void updateAvalancheThreadSafe(qreal elapsed, qreal playerX);
 

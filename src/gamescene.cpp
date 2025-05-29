@@ -225,14 +225,14 @@ void GameScene::update()
         else
         {
             // 玩家未被超越时恢复雪崩速度和加速度
-            avalanche->setAcceleration(5);
-            if (350 + 5 * deltaTime <= 650)
+            avalanche->setAcceleration(avalanche->getInitialAcceleration());
+            if (avalanche->getInitialSpeed() + avalanche->getInitialAcceleration() * deltaTime <= avalanche->getMaxSpeed())
             {
-                avalanche->setSpeed(350 + 5 * deltaTime);
+                avalanche->setSpeed(avalanche->getInitialSpeed() + avalanche->getInitialAcceleration() * deltaTime);
             }
             else
             {
-                avalanche->setSpeed(650);
+                avalanche->setSpeed(avalanche->getMaxSpeed());
             }
         }
 
@@ -320,7 +320,7 @@ void GameScene::togglePause()
         GTimer.stop();
         m_uiManager->showPauseOverlay(true, score);
     }
-    else
+    else if (GState == GameState::Paused)
     {
         GState = GameState::Running;
         m_uiManager->showPauseOverlay(false);
@@ -358,6 +358,7 @@ void GameScene::onGetScore(int points)
 // 显示游戏结束对话框
 void GameScene::showGameOverDialog()
 {
+    GState = GameOver;
     // 使用UIManager显示游戏结束对话框
     m_uiManager->showGameOverDialog(score, [this]()
                                     {

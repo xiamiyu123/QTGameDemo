@@ -308,3 +308,18 @@ bool Avalanche::isPlayerSignificantlyInside(const QRectF& playerRect) const
     // 如果相交面积超过玩家面积的20%，则认为玩家明显进入雪崩
     return overlapRatio > 0.5;
 }
+
+qreal Avalanche::getInitialSpeed()
+{
+    return m_speed; // 返回初始速度
+}
+
+qreal Avalanche::getInitialAcceleration()
+{
+    return m_acceleration; // 返回初始加速度
+}
+
+qreal Avalanche::getMaxSpeed()
+{
+    return m_maxSpeed; // 返回最大速度
+}

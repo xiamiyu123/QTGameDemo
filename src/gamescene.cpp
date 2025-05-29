@@ -350,6 +350,10 @@ void GameScene::onGetScore(int points)
     score += adjustedPoints;
 
     DEBUG_LOG(QString("玩家得分: %1 (奖励倍数: %2)").arg(score).arg(award_score));
+
+    if (m_uiManager) {
+        m_uiManager->setScore(score);
+    }
 }
 
 // 显示游戏结束对话框

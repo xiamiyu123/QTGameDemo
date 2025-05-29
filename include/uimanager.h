@@ -23,6 +23,7 @@ public:
     // UI管理方法
     void updateUI();
     void setScore(int score);
+    void showScorePopup(int points, const QString& reason);
     void showPauseOverlay(bool show, int score = 0);
     void showWarningIndicator(bool show, qreal distance);
     void showGameOverDialog(int score, const std::function<void()>& onRetry, const std::function<void()>& onExit);    // 设置与获取
@@ -48,6 +49,8 @@ private:
     QGraphicsRectItem* m_pauseOverlay;
     QPushButton* m_warningButton;
     QLabel* m_scoreLabel;
+    QLabel* m_scorePopupLabel;
+    QTimer* m_popupTimer;
 
     // 创建UI元素的辅助方法
     void createPauseElements();

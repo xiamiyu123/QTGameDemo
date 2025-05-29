@@ -275,6 +275,18 @@ void GameScene::update()
     {
         m_uiManager->showWarningIndicator(false, dist);
     }
+
+    //test
+    if (Gplayer->isFallen())
+    {
+        m_uiManager->showScorePopup(100,"FALL！");
+        return;
+    }
+
+    // if (!Gplayer->isFallen()) {
+    //     m_uiManager->showScorePopup(+100, "NOT FALL！");
+    //     return;
+    // }
 }
 
 // 仅用于初始化时放置玩家
@@ -353,6 +365,7 @@ void GameScene::onGetScore(int points)
 
     if (m_uiManager) {
         m_uiManager->setScore(score);
+        m_uiManager->showScorePopup(adjustedPoints, "跳跃奖励");
     }
 }
 

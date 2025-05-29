@@ -13,6 +13,7 @@
 #include <QRadialGradient>
 #include <QStyleOptionGraphicsItem>
 #include <QGraphicsProxyWidget>
+#include <QTimer>
 
 UIManager::UIManager(QGraphicsScene* scene, QObject* parent)
     : QObject(parent)
@@ -21,6 +22,9 @@ UIManager::UIManager(QGraphicsScene* scene, QObject* parent)
     , m_pauseButton(nullptr)
     , m_pauseOverlay(nullptr)
     , m_warningButton(nullptr)
+    , m_scoreLabel(nullptr)
+    , m_scorePopupLabel(nullptr)
+    , m_popupTimer(nullptr)
 {
 }
 
@@ -96,18 +100,40 @@ void UIManager::createWarningElements()
 
 void UIManager::createScoreLabel()
 {
-    // 创建分数标签
+
     // 引入新字体
     int id = QFontDatabase::addApplicationFont(":/resource/fonts/Kalmansk-Regular.otf");
     QString family = QFontDatabase::applicationFontFamilies(id).at(0);
 
+    // 创建分数标签
     QFont scoreFont(family, 52, QFont::Bold);
-    m_scoreLabel = new QLabel("987654321");
+    m_scoreLabel = new QLabel("0");
     m_scoreLabel->setFont(scoreFont);
-    m_scoreLabel->setStyleSheet("color: #fff; "
+    m_scoreLabel->setStyleSheet("color: yellow; "
                                 "border: none; "
-                                "background: transparent; padding: 6px 18px;");
+                                "background: transparent; "
+                                "padding: 6px 18px;");
     m_scoreLabel->setAlignment(Qt::AlignRight);
+
+    // 添加临时得分提示标签
+    QFont popupFont(family, 32, QFont::Bold);
+    m_scorePopupLabel = new QLabel();
+    m_scorePopupLabel->setFont(popupFont);
+    m_scorePopupLabel->setStyleSheet("color: yellow; "
+                                    "background: transparent; "
+                                    "border: none"
+                                    "padding: 5px 10px;");
+    m_scorePopupLabel->setAlignment(Qt::AlignRight);
+    m_scorePopupLabel->hide();
+
+    // 初始化计时器
+    m_popupTimer = new QTimer(this);
+    m_popupTimer->setSingleShot(true);
+    connect(m_popupTimer, &QTimer::timeout, this, [this]() {
+        if (m_scorePopupLabel) {
+            m_scorePopupLabel->hide();
+        }
+    });
 }
 
 void UIManager::setupButtonStyle(QPushButton* button, const QString& iconPath, bool transparent)
@@ -161,6 +187,13 @@ void UIManager::updateUI()
         QRect vp = view->viewport()->rect();
         m_scoreLabel->setGeometry(vp.width() - 250, -23, 200, 82);
         m_scoreLabel->show();
+
+        // 更新临时得分提示标签位置
+        if (m_scorePopupLabel) {
+            m_scorePopupLabel->setParent(view->viewport());
+            // 放在分数标签下方居中位置
+            m_scorePopupLabel->setGeometry(vp.width() - 350, 60, 300, 50);
+        }
     }
 }
 
@@ -386,10 +419,34 @@ bool UIManager::isUIManagerObject(QGraphicsItem* item) const
     QGraphicsProxyWidget* proxyWidget = qgraphicsitem_cast<QGraphicsProxyWidget*>(item);
     if (proxyWidget) {
         QWidget* widget = proxyWidget->widget();
-        if (widget == m_pauseButton || widget == m_warningButton) {
+        if (widget == m_pauseButton ||
+            widget == m_warningButton||
+            widget == m_scoreLabel ||
+            widget == m_scorePopupLabel) {
             return true;
         }
     }
 
     return false;
+}
+
+void UIManager::showScorePopup(int points, const QString& reason)
+{
+    if (!m_scorePopupLabel) return;
+
+    // 停止现有计时器（如果正在显示）
+    m_popupTimer->stop();
+
+    // 设置文本内容
+    QString text = QString("%1    +%2").arg(reason).arg(points);
+    m_scorePopupLabel->setText(text);
+
+    // 显示标签
+    m_scorePopupLabel->show();
+
+    // 启动计时器，2秒后隐藏
+    m_popupTimer->start(2000);
+
+    // 更新UI确保位置正确
+    updateUI();
 }

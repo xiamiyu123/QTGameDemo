@@ -58,6 +58,10 @@ GameScene::GameScene(QObject *parent)
             { avalanche->applyThreadResults(); });
     m_avalancheThread->start();
 
+    // 初始化得分相关
+    m_lastScoredPositionX = 1200;
+    m_scoreDistance = 100;  // 每100像素得分一次
+
     // // 连接玩家摔倒信号（测试用）
     // connect(Gplayer, &Player::playerFallen, m_uiManager, &UIManager::showScorePopup);
     //
@@ -278,6 +282,8 @@ void GameScene::update()
     {
         m_uiManager->showWarningIndicator(false, dist);
     }
+
+    checkPlayerProgressScore();
 }
 
 // 仅用于初始化时放置玩家
@@ -426,6 +432,9 @@ void GameScene::resetGameState()
     award_speed = 1.0;
     award_score = 1.0;
 
+    // 重置计分位置
+    m_lastScoredPositionX = 1200; // 如果玩家存在，则使用其位置，否则默认1200
+
     // 重置更新计时器和对象列表
     m_avalancheElapsed = 0;
     m_objectsToDeleteThisFrame.clear();
@@ -524,4 +533,24 @@ void GameScene::createSceneItems()
     //     emit getscore(points);
     // });
 
+}
+
+void GameScene::checkPlayerProgressScore() {
+    if (Gplayer) {
+        qreal currentX = Gplayer->pos().x();
+
+        // 只有当玩家向右移动时才计分
+        if (currentX > m_lastScoredPositionX + m_scoreDistance) {
+            // 计算玩家移动了多少个得分距离
+            int scoreUnits = static_cast<int>((currentX - m_lastScoredPositionX) / m_scoreDistance);
+            int points = scoreUnits * 10;  // 每单位距离得10分
+
+            // 更新最后得分位置
+            m_lastScoredPositionX += scoreUnits * m_scoreDistance;
+
+            // 发射得分信号
+            emit getscore(points * award_score); // 应用分数奖励倍数
+
+        }
+    }
 }

@@ -56,7 +56,6 @@ private slots:
 private:
     void createSceneItems();  // 创建场景对象
     void resetGameState();    // 重置游戏状态
-
     // NPC管理方法
     void initializeNPCSystem();      // 初始化NPC系统
     void updateAllNPCs(float deltaTime);  // 更新所有NPC

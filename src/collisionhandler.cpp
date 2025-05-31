@@ -37,14 +37,13 @@ void CollisionHandler::handlePhysicsObjectCollision(IPhysicsObject* obj, QList<I
     // 获取物体速度
     QPointF velocity = obj->velocity();
     qreal horizontalSpeed = qAbs(velocity.x());
-    qreal verticalSpeed = velocity.y();
-
-    // 获取实体对象和实际底部位置
+    qreal verticalSpeed = velocity.y();    // 获取实体对象和实际底部位置 - 统一使用局部坐标
     BasePhysicsEntity* entity = dynamic_cast<BasePhysicsEntity*>(obj);
 
     qreal actualObjBottom;
     if (entity) {
-        actualObjBottom = entity->sceneBoundingRect().bottom() - 5;
+        // 使用局部坐标系统，与 objPos 保持一致
+        actualObjBottom = objPos.y() + objRect.height();
     }
     else {
         actualObjBottom = objPos.y() + objRect.height();
@@ -57,6 +56,11 @@ void CollisionHandler::handlePhysicsObjectCollision(IPhysicsObject* obj, QList<I
     Player* player = dynamic_cast<Player*>(obj); // 注意：这里的 player 变量名可能会与函数参数 obj 混淆，但它是局部变量
 
     bool wasOnGround = obj->isOnGround();
+    //如果是npc且高度低于地形
+    if( entity && entity->getEntityType() == IPhysicsObject::EntityType::NPC &&
+        actualObjBottom >= terrainHeight) {
+        int i = 0;
+    }
 
     // 主要碰撞逻辑 (地面碰撞等)
     if (actualObjBottom >= terrainHeight) {  // 已穿透地面
@@ -121,11 +125,29 @@ void CollisionHandler::handlePhysicsObjectCollision(IPhysicsObject* obj, QList<I
         if (!asPlayer || !asPlayer->isFallen()) {
             updateEntityRotation(entity, obj->isOnGround(), terrainSlope);
         }
-    }
-
-    // 玩家与石头碰撞检测 - 仅当当前 obj 是玩家时执行
+    }    // 玩家与石头碰撞检测 - 仅当当前 obj 是玩家时执行
     if (player) {
         handlePlayerRockCollision(player, objectsToDelete);
+        handlePlayerNPCCollision(player, objectsToDelete);  // 新增：NPC碰撞检测
+    }
+
+    // 在调用 obj->setOnGround(true); 和 obj->setPosition(...) 之后
+    if (obj->isOnGround()) {
+        BasePhysicsEntity* entity = dynamic_cast<BasePhysicsEntity*>(obj);
+        if (entity) { // 确保是我们的实体类型
+            qreal currentCenterX = entity->position().x() + entity->boundingRect().width() / 2;
+            qreal authoritativeTerrainHeight = m_terrainGenerator->getTerrainHeight(currentCenterX); // 获取NPC中心正下方的地形高度
+            qreal expectedTopY = authoritativeTerrainHeight - entity->boundingRect().height();
+            
+            // 如果当前Y坐标与期望Y坐标有明显偏差，则强制校正
+            if (qAbs(entity->position().y() - expectedTopY) > 50) { // 0.1 是一个小的容差值
+                entity->setPosition(QPointF(entity->position().x(), expectedTopY));
+                // 可以添加日志记录这次强制校正
+                // DebugLogger::instance().log(QString("CollisionHandler: NPC ID %1 re-corrected to Y %2 based on center terrain %3")
+                //    .arg(entity->getEntityType() == IPhysicsObject::EntityType::NPC ? static_cast<NPCEntity*>(entity)->class_id() : 0) // 假设有class_id
+                //    .arg(expectedTopY).arg(authoritativeTerrainHeight));
+            }
+        }
     }
 }
 
@@ -318,4 +340,129 @@ void CollisionHandler::updateEntityRotation(BasePhysicsEntity* entity, bool onGr
         entity->setRotation(targetAngle);
     }
     // 空中的旋转逻辑由各实体类自行控制
+}
+
+// 处理玩家与NPC的碰撞
+void CollisionHandler::handlePlayerNPCCollision(Player* player, QList<IPhysicsObject*>& objectsToDelete)
+{
+    // 防御性检查
+    if (!player || !m_terrainGenerator) {
+        return;
+    }
+    
+    // 确保玩家和场景对象都有效
+    if (!player->scene()) {
+        return;
+    }
+    
+    // 检查玩家是否还有库存空间
+    if (player->getInventorySize() >= 10) { // MAX_INVENTORY_SIZE
+        return; // 库存已满，无法拾取更多NPC
+    }      // 获取玩家局部坐标 - 与物理系统保持一致
+    QPointF playerPos = player->position();
+    QRectF playerRect = player->boundingRect();
+    QPointF playerCenter = QPointF(playerPos.x() + playerRect.width()/2, 
+                                   playerPos.y() + playerRect.height()/2);
+      // 遍历所有NPC进行碰撞检测
+    for (int i = m_terrainGenerator->m_npcs.size() - 1; i >= 0; --i) {
+        NPCEntity* npc = m_terrainGenerator->m_npcs.at(i);
+        if (!npc || !npc->scene()) {
+            continue;
+        }
+
+        // 使用局部坐标计算NPC与玩家的距离，与物理系统保持一致
+        QPointF npcPos = npc->position();
+        QRectF npcRect = npc->boundingRect();
+        QPointF npcCenter = QPointF(npcPos.x() + npcRect.width()/2, 
+                                    npcPos.y() + npcRect.height()/2);
+        
+        qreal distance = QLineF(playerCenter, npcCenter).length();        // 如果距离在500以内，输出调试信息（包含坐标系对比）
+        if (distance <= 500.0) {
+            // 获取场景坐标用于对比
+            QRectF npcSceneRect = npc->sceneBoundingRect();
+            QRectF playerSceneRect = player->sceneBoundingRect();
+            QPointF npcSceneCenter = npcSceneRect.center();
+            QPointF playerSceneCenter = playerSceneRect.center();
+            
+            // 计算坐标差异
+            QPointF npcCoordDiff = npcSceneCenter - npcCenter;
+            QPointF playerCoordDiff = playerSceneCenter - playerCenter;
+            // 输出调试信息
+             DEBUG_LOG(QString("NPC Status - ID: %1, Distance: %2")
+                       .arg(npc->class_id())
+                       .arg(distance, 0, 'f', 1));
+            //输出npc是否着地
+            DEBUG_LOG(QString("NPC OnGround: %1").arg(npc->isOnGround() ? "true" : "false"));
+            // 输出NPC的局部坐标
+            DEBUG_LOG(QString("NPC Local Coords - Center: (%1, %2)")
+                      .arg(npcCenter.x(), 0, 'f', 1)
+                      .arg(npcCenter.y(), 0, 'f', 1));
+            //输出该点地面高度
+            DEBUG_LOG(QString("Terrain Height at NPC: %1").arg(m_terrainGenerator->getTerrainHeight(npcCenter.x())));
+            // DEBUG_LOG(QString("  Local Coords - NPC: (%1, %2), Player: (%3, %4)")
+            //           .arg(npcCenter.x(), 0, 'f', 1)
+            //           .arg(npcCenter.y(), 0, 'f', 1)
+            //           .arg(playerCenter.x(), 0, 'f', 1)
+            //           .arg(playerCenter.y(), 0, 'f', 1));
+            // DEBUG_LOG(QString("  Scene Coords - NPC: (%1, %2), Player: (%3, %4)")
+            //           .arg(npcSceneCenter.x(), 0, 'f', 1)
+            //           .arg(npcSceneCenter.y(), 0, 'f', 1)
+            //           .arg(playerSceneCenter.x(), 0, 'f', 1)
+            //           .arg(playerSceneCenter.y(), 0, 'f', 1));
+            // DEBUG_LOG(QString("  Coord Diff - NPC: (%1, %2), Player: (%3, %4)")
+            //           .arg(npcCoordDiff.x(), 0, 'f', 1)
+            //           .arg(npcCoordDiff.y(), 0, 'f', 1)
+            //           .arg(playerCoordDiff.x(), 0, 'f', 1)
+            //           .arg(playerCoordDiff.y(), 0, 'f', 1)
+            //           .arg(playerCoordDiff.y(), 0, 'f', 1));
+            // DEBUG_LOG(QString("  OnGround: NPC=%1, Player=%2")
+            //           .arg(npc->isOnGround() ? "true" : "false")
+            //           .arg(player->isOnGround() ? "true" : "false"));
+        }
+
+        // 检查NPC是否已在本帧中被标记为删除
+        bool npcAlreadyMarkedForDeletion = false;
+        for (IPhysicsObject* deletedObj : objectsToDelete) {
+            if (npc == deletedObj) {
+                npcAlreadyMarkedForDeletion = true;
+                break;
+            }
+        }
+        if (npcAlreadyMarkedForDeletion) {
+            continue;
+        }        // 检测是否应该拾取NPC
+        bool shouldPickup = false;
+        QString collisionMethod = "";
+        
+        if (player->scene() == npc->scene() && player->collidesWithItem(npc)) {
+            shouldPickup = true;
+            collisionMethod = "Qt collision";
+        }
+        
+        if (shouldPickup) {
+            // 玩家拾取NPC
+            player->pickupNPC(npc);
+
+            // 从场景中移除NPC
+            if (npc->scene()) {
+                npc->scene()->removeItem(npc);
+            }
+            
+            // 从物理系统中注销NPC
+            PhysicsSystem::instance().unregisterObject(npc);
+            
+            // 从地形生成器的NPC列表中移除
+            m_terrainGenerator->m_npcs.removeAt(i);
+
+            // 将NPC添加到本帧的待删除列表
+            if (!objectsToDelete.contains(npc)) {
+                objectsToDelete.append(npc);
+            }
+            
+            DEBUG_LOG(QString("Player picked up NPC ID: %1 using %2 (distance: %3)")
+                      .arg(npc->class_id())
+                      .arg(collisionMethod)
+                      .arg(distance, 0, 'f', 1));
+        }
+    }
 }

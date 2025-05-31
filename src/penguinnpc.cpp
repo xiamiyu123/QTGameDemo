@@ -37,30 +37,29 @@ void PenguinNPC::paint(QPainter *painter, const QStyleOptionGraphicsItem *option
 {
     Q_UNUSED(option)
     Q_UNUSED(widget)
-    
+
     // 绘制企鹅外观
     QRectF rect = boundingRect();
-    
-    // 身体（黑色椭圆）
+    //（黑色椭圆）
     painter->setBrush(QBrush(QColor(40, 40, 40)));
     painter->setPen(QPen(Qt::black, 1));
     painter->drawEllipse(rect.adjusted(2, 2, -2, -2));
-    
+
     // 肚子（白色椭圆）
     QRectF belly = rect.adjusted(6, 8, -6, -4);
     painter->setBrush(QBrush(Qt::white));
     painter->drawEllipse(belly);
-    
+
     // 眼睛
     painter->setBrush(QBrush(Qt::white));
     painter->drawEllipse(rect.x() + 8, rect.y() + 6, 4, 4);
     painter->drawEllipse(rect.x() + 18, rect.y() + 6, 4, 4);
-    
+
     // 瞳孔
     painter->setBrush(QBrush(Qt::black));
     painter->drawEllipse(rect.x() + 9, rect.y() + 7, 2, 2);
     painter->drawEllipse(rect.x() + 19, rect.y() + 7, 2, 2);
-    
+
     // 嘴巴（橙色小三角）
     painter->setBrush(QBrush(QColor(255, 165, 0)));
     QPolygonF beak;
@@ -68,4 +67,10 @@ void PenguinNPC::paint(QPainter *painter, const QStyleOptionGraphicsItem *option
          << QPointF(rect.x() + 12, rect.y() + 15)
          << QPointF(rect.x() + 18, rect.y() + 15);
     painter->drawPolygon(beak);
+}
+
+QRectF PenguinNPC::boundingRect() const
+{
+    // 返回企鹅的边界矩形，使用常量定义的尺寸
+    return QRectF(0, 0, PENGUIN_WIDTH, PENGUIN_HEIGHT);
 }

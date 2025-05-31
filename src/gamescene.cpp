@@ -302,11 +302,16 @@ void GameScene::update()
 // 仅用于初始化时放置玩家
 void GameScene::initialPlayerPosition()
 {
-
     qreal terrainHeight = GTerrainGenerator->getTerrainHeight(1200);
+    
+    // 使用局部坐标系统设置位置，与物理系统保持一致
+    Gplayer->setX(1200);
     Gplayer->setY(terrainHeight - Gplayer->rect().height());
-    Gplayer->setX(1200); // 玩家方块偏左一点以更符合滑雪大冒险
     Gplayer->setOnGround(true);
+    
+    DEBUG_LOG(QString("Player initial position set to Local: (%1, %2)")
+              .arg(Gplayer->x(), 0, 'f', 1)
+              .arg(Gplayer->y(), 0, 'f', 1));
 }
 
 void GameScene::centerViewOnPlayer()
@@ -532,15 +537,15 @@ void GameScene::initializeNPCSystem()
     // 暂时禁用随机NPC生成系统
     // 只保留地形生成时创建的企鹅NPC
     
-    // 创建NPC生成定时器但不启动
-    m_npcSpawnTimer = new QTimer(this);
+    // 弃用的创建NPC生成定时器但不启动
+    // m_npcSpawnTimer = new QTimer(this);
     // connect(m_npcSpawnTimer, &QTimer::timeout, this, &GameScene::spawnNPC);
     
     // 不启动定时器
     // m_npcSpawnTimer->setInterval(QRandomGenerator::global()->bounded(3000, 5000));
     // m_npcSpawnTimer->start();
     
-    DEBUG_LOG("NPC系统已初始化（随机生成已禁用）");
+    DEBUG_LOG("NPC系统已初始化");
 }
 
 void GameScene::spawnNPC()
@@ -569,36 +574,7 @@ void GameScene::spawnNPC()
 
 void GameScene::spawnRandomNPC(const QPointF& position)
 {
-    // 暂时禁用随机NPC生成，因为基类现在是抽象的
-    DEBUG_LOG("Random NPC spawning is disabled (base classes are now abstract)");
-    
-    // 如果需要生成具体的NPC，应该使用具体的实现类
-    // 例如：NPCFactory::createPenguinNPC(position)
-    
-    /*
-    // 随机选择NPC类型
-    bool isFlying = QRandomGenerator::global()->bounded(2) == 0;
-    
-    std::unique_ptr<NPCEntity> npc;
-    if (isFlying) {
-        npc = NPCFactory::createFlyingNPC(position);
-    } else {
-        npc = NPCFactory::createGroundNPC(position);
-    }
-    
-    if (npc) {
-        // 添加到场景
-        addItem(npc.get());
-        
-        // 注册到物理系统
-        PhysicsSystem::instance().registerObject(npc.get());
-        
-        // 添加到活跃NPC列表
-        m_activeNPCs.push_back(std::move(npc));
-        
-        DEBUG_LOG(QString("生成了一个%1 NPC").arg(isFlying ? "飞行" : "地面"));
-    }
-    */
+
 }
 
 void GameScene::updateAllNPCs(float deltaTime)
@@ -606,10 +582,9 @@ void GameScene::updateAllNPCs(float deltaTime)
     if (!Gplayer || !GTerrainGenerator || !avalanche) {
         return;
     }
-    
-    qreal playerX = Gplayer->x();
+      qreal playerX = Gplayer->x();
     qreal viewWidth = 1200; // 估计的视图宽度
-    qreal activationDistance = viewWidth; // NPC激活距离
+    qreal activationDistance = viewWidth * 1.5; // 增加NPC激活距离，确保更早激活
     qreal avalancheFrontX = avalanche->getFrontX();
     
     // 遍历地形生成器中的所有NPC

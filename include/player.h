@@ -5,9 +5,11 @@
 #include <QTimer>
 #include <QPixmap>
 #include <QVector>
+#include <queue>  // 添加优先队列支持
 #include "terraingenerator.h"
 
 class RockEntity; // 前向声明
+class NPCEntity;  // 添加NPC前向声明
 
 class Player : public BasePhysicsEntity
 {
@@ -30,7 +32,12 @@ public:
     void checkLanding(qreal terrainAngle);
 
     // 检查玩家是否与石头碰撞并判断是否摔倒
-    void checkHitRock(RockEntity* rock);
+    void checkHitRock(RockEntity* rock);    // 新增：NPC拾取和丢弃方法
+    void pickupNPC(NPCEntity* npc);
+    void dropNPC();
+    void dropNPC(TerrainGenerator* terrainGenerator); // 需要地形生成器来创建NPC
+    bool hasNPCInInventory() const;
+    int getInventorySize() const;
 
     // 记录起跳和离地信息
     void notifyTakeoff();
@@ -89,11 +96,14 @@ private:
     QTimer m_fallRecoveryTimer;    // 动画系统 - 新增部分
     QVector<QPixmap> m_animationFrames;  // 存储png1-png38的动画帧
     int m_currentFrame;                  // 当前播放的帧索引
-    QTimer m_animationTimer;            // 动画播放定时器
+    QTimer m_animationTimer;            // 动画播放定时器    
     bool m_animationLoaded;             // 动画是否成功加载的标志
-    qreal m_imageScaleFactor;           // 图像缩放因子，用于调整显示大小
-
-    // 移除旧的动画相关变量
+    qreal m_imageScaleFactor;           // 图像缩放因子，用于调整显示大小    // NPC库存系统 - 使用优先队列实现堆（降序排列，高ID优先）
+    std::priority_queue<int> m_npcInventory; // 存储NPC ID，自动按ID降序排列
+    static const int MAX_INVENTORY_SIZE = 10; // 最大库存大小
+    
+    // 地形生成器引用，用于NPC丢弃功能
+    TerrainGenerator* m_terrainGenerator;
     /*
     enum AnimationState {
         Standing,

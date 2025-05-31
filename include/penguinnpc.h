@@ -15,11 +15,18 @@ public:
     explicit PenguinNPC(QGraphicsItem *parent = nullptr);
     ~PenguinNPC() override = default;
 
+    static constexpr int ID = 1;
+
+    int class_id() const override {
+        return ID;
+    }
+
     // 重写初始化方法
     void initializeNPC() override;
 
     // 重写绘制方法以显示企鹅外观
     void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget = nullptr) override;
+    QRectF boundingRect() const override; // <<< ADDED THIS LINE
 
 private:
     // 企鹅特有的常量

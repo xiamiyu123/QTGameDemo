@@ -25,6 +25,9 @@ void GroundNPC::initializeNPC()
     setBrush(QBrush(Qt::darkGreen));
     setPen(QPen(Qt::black, 2));
     
+    // 禁用重力 - 地面NPC应该始终贴地移动
+    getPhysicsComponent()->setGravity(0);
+    
     // 重置计时器
     m_animationTimer = 0;
 }

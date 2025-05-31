@@ -269,11 +269,11 @@ void TerrainGenerator::generateChunk(int chunkIndex) {
         // 随机选择生成位置（块内）
         qreal npcX = QRandomGenerator::global()->bounded(CHUNK_WIDTH / 4, CHUNK_WIDTH * 3 / 4);
         qreal globalNpcX = chunkIndex * CHUNK_WIDTH + npcX;
-        
-        // 检查斜率是否适合生成NPC
+          // 检查斜率是否适合生成NPC
         qreal npcSlope = getTerrainSlope(globalNpcX);
         if (qAbs(npcSlope) <= MAX_SLOPE_FOR_ROCK) { // 使用与石头相同的斜率限制
-            qreal npcY = getTerrainHeight(globalNpcX) - 15; // NPC高度的一半
+            // 使用与Player相同的定位逻辑：terrainHeight - 完整高度
+            qreal npcY = getTerrainHeight(globalNpcX) - 30; // 统一使用30像素偏移，与NPC高度一致
             
             // 创建企鹅NPC
             auto penguin = NPCFactory::createPenguinNPC(QPointF(globalNpcX, npcY));

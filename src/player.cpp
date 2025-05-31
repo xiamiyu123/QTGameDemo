@@ -3,6 +3,8 @@
 #include <QPen>
 #include "debuglogger.h"
 #include <qpainter.h>
+#include "npcentity.h"
+#include <vector>
 
 #include "terraingenerator.h"
 
@@ -33,7 +35,8 @@ Player::Player(QGraphicsItem *parent)
       m_flipRotation(0.0),
       m_cumulativeRotation(0.0),
       m_lastFrameRotation(0.0),
-      m_imageScaleFactor(1) { // 添加图像缩放因子
+      m_imageScaleFactor(1), // 添加图像缩放因子
+      m_terrainGenerator(nullptr) { // 初始化地形生成器指针
 
     setZValue(-2);
 
@@ -136,6 +139,15 @@ void Player::keyPressEvent(QKeyEvent *event) {
             DEBUG_LOG("Space key pressed");
         // 处理跳跃
             jump();
+            break;        case Qt::Key_X:
+            // 丢弃库存中优先级最低的NPC
+            if (hasNPCInInventory() && m_terrainGenerator) {
+                dropNPC(m_terrainGenerator);
+            } else if (!hasNPCInInventory()) {
+                DEBUG_LOG("No NPCs in inventory to drop");
+            } else {
+                DEBUG_LOG("TerrainGenerator not available for NPC dropping");
+            }
             break;
     }
 }
@@ -356,9 +368,12 @@ qreal Player::imageScaleFactor() const {
 }
 
 void Player::playerUpdate(TerrainGenerator* GTerrainGenerator) {
+    // 更新地形生成器引用
+    m_terrainGenerator = GTerrainGenerator;
+    
     // 处理旋转
     updateRotate(GTerrainGenerator);
-
+    
 }
 
 
@@ -407,4 +422,115 @@ void Player::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QW
         painter->setPen(greenPen);
         painter->drawLine(r.bottomLeft(), r.bottomRight());
     }
+}
+
+// === NPC库存系统实现 ===
+
+void Player::pickupNPC(NPCEntity* npc) {
+    if (!npc) {
+        DEBUG_LOG("Player::pickupNPC - NPC is null");
+        return;
+    }
+    
+    // 检查库存是否已满
+    if (m_npcInventory.size() >= MAX_INVENTORY_SIZE) {
+        DEBUG_LOG("Player::pickupNPC - Inventory is full");
+        return;
+    }
+    
+    // 获取NPC的ID并添加到库存
+    int npcId = npc->class_id();
+    m_npcInventory.push(npcId);
+    
+    DEBUG_LOG(QString("Player picked up NPC with ID: %1, inventory size: %2")
+              .arg(npcId).arg(m_npcInventory.size()));
+    
+    // 标记NPC为待删除
+    npc->markForDestroy();
+}
+
+void Player::dropNPC() {
+    // 简单版本，只记录日志
+    if (m_npcInventory.empty()) {
+        DEBUG_LOG("Player::dropNPC - No NPCs in inventory");
+        return;
+    }
+    
+    DEBUG_LOG("Player::dropNPC - Please use dropNPC(TerrainGenerator*) to actually spawn NPCs");
+}
+
+void Player::dropNPC(TerrainGenerator* terrainGenerator) {
+    if (m_npcInventory.empty()) {
+        DEBUG_LOG("Player::dropNPC - No NPCs in inventory");
+        return;
+    }
+    
+    if (!terrainGenerator) {
+        DEBUG_LOG("Player::dropNPC - TerrainGenerator is null");
+        return;
+    }
+    
+    // 获取优先级最低的NPC（堆顶是最高优先级，我们需要最低的）
+    // 由于priority_queue是最大堆，我们需要遍历找到最小值
+    std::priority_queue<int> tempQueue = m_npcInventory;
+    int lowestPriorityId = tempQueue.top();
+    
+    // 找到最小ID（最低优先级）
+    std::vector<int> allIds;
+    while (!tempQueue.empty()) {
+        int id = tempQueue.top();
+        allIds.push_back(id);
+        if (id < lowestPriorityId) {
+            lowestPriorityId = id;
+        }
+        tempQueue.pop();
+    }
+    
+    // 重建队列，排除被丢弃的NPC
+    m_npcInventory = std::priority_queue<int>();
+    for (int id : allIds) {
+        if (id != lowestPriorityId) {
+            m_npcInventory.push(id);
+        }
+    }
+    
+    DEBUG_LOG(QString("Player dropped NPC with ID: %1, remaining inventory size: %2")
+              .arg(lowestPriorityId).arg(m_npcInventory.size()));
+    
+    // 在玩家位置生成对应ID的NPC
+    QPointF spawnPosition = pos();
+    spawnPosition.setY(spawnPosition.y() - 50); // 在玩家上方生成，避免立即重新碰撞
+    
+    // 根据ID创建对应的NPC
+    std::unique_ptr<NPCEntity> newNPC = nullptr;
+    if (lowestPriorityId == 1) { // PenguinNPC::ID
+        newNPC = NPCFactory::createPenguinNPC(spawnPosition);
+    }
+    // 可以在这里添加其他NPC类型的创建逻辑
+    
+    if (newNPC) {
+        // 将NPC添加到场景和地形生成器
+        if (scene()) {
+            scene()->addItem(newNPC.get());
+        }
+        
+        // 注册到物理系统
+        PhysicsSystem::instance().registerObject(newNPC.get());
+        
+        // 添加到地形生成器的NPC列表
+        terrainGenerator->m_npcs.append(newNPC.release());
+        
+        DEBUG_LOG(QString("Successfully spawned NPC with ID %1 at position (%2, %3)")
+                  .arg(lowestPriorityId).arg(spawnPosition.x()).arg(spawnPosition.y()));
+    } else {
+        DEBUG_LOG(QString("Failed to create NPC with ID %1").arg(lowestPriorityId));
+    }
+}
+
+bool Player::hasNPCInInventory() const {
+    return !m_npcInventory.empty();
+}
+
+int Player::getInventorySize() const {
+    return static_cast<int>(m_npcInventory.size());
 }

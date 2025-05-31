@@ -32,6 +32,8 @@ public:
     void setMovementSpeed(qreal speed) { m_movementSpeed = speed; }
     qreal getMovementSpeed() const { return m_movementSpeed; }
 
+    virtual int class_id() const = 0;
+
     // === NPC生命周期管理 ===
     bool isActive() const { return m_isActive; }
     void setActive(bool active) { m_isActive = active; }

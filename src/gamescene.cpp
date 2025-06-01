@@ -58,13 +58,6 @@ GameScene::GameScene(QObject *parent)
             { avalanche->applyThreadResults(); });
     m_avalancheThread->start();
 
-    // 初始化得分相关
-    m_lastScoredPositionX = 1200;
-    m_scoreDistance = 100;  // 每水平跑100像素得分一次
-
-    // 连接玩家空翻信号
-    connect(Gplayer, &Player::playerFlipped, this, &GameScene::onPlayerFlipped);
-
     // // 连接玩家摔倒信号（测试用）
     // connect(Gplayer, &Player::playerFallen, m_uiManager, &UIManager::showScorePopup);
     //
@@ -159,12 +152,6 @@ void GameScene::update()
                           .arg(this->sceneRect().toRect().height()));
         }
     }
-
-    // 更新玩家速度倍数
-    if (Gplayer) {
-        Gplayer->setSpeedMultiplier(award_speed);
-    }
-
     // 时间增量16ms
     qreal deltaTime = 16.0f / 1000.0f;
     // 更新玩家状态
@@ -291,12 +278,6 @@ void GameScene::update()
     {
         m_uiManager->showWarningIndicator(false, dist);
     }
-
-    checkPlayerProgressScore();
-
-    // 更新玩家状态
-    Gplayer->setSpeedMultiplier(award_speed); // 应用速度倍数
-    Gplayer->playerUpdate(GTerrainGenerator);
 }
 
 // 仅用于初始化时放置玩家
@@ -406,9 +387,6 @@ void GameScene::showGameOverDialog()
                 m_collisionHandler->updateTerrainGenerator(GTerrainGenerator);
             }
 
-        // 连接玩家空翻信号
-        connect(Gplayer, &Player::playerFlipped, this, &GameScene::onPlayerFlipped);
-
         // // 重新连接玩家摔倒信号（测试用）
         // connect(Gplayer, &Player::playerFallen, m_uiManager, &UIManager::showScorePopup);
         // connect(Gplayer, &Player::playerFallen, this, [this](int points, const QString&) {
@@ -447,13 +425,6 @@ void GameScene::resetGameState()
     score = 0;
     award_speed = 1.0;
     award_score = 1.0;
-
-    if (Gplayer) {
-        Gplayer->setSpeedMultiplier(award_speed);
-    }
-
-    // 重置计分初始位置
-    m_lastScoredPositionX = 1200;
 
     // 重置更新计时器和对象列表
     m_avalancheElapsed = 0;
@@ -547,54 +518,10 @@ void GameScene::createSceneItems()
             { avalanche->applyThreadResults(); });
     m_avalancheThread->start();
 
-
-    // 连接玩家空翻信号
-    connect(Gplayer, &Player::playerFlipped, this, &GameScene::onPlayerFlipped);
-
     // 连接玩家摔倒信号（测试用）
     // connect(Gplayer, &Player::playerFallen, m_uiManager, &UIManager::showScorePopup);
     // connect(Gplayer, &Player::playerFallen, this, [this](int points, const QString&) {
     //     emit getscore(points);
     // });
 
-}
-
-void GameScene::checkPlayerProgressScore() {
-    if (Gplayer) {
-        qreal currentX = Gplayer->pos().x();
-
-        // 只有当玩家向右移动时才计分
-        if (currentX > m_lastScoredPositionX + m_scoreDistance) {
-            // 计算玩家移动了多少个得分距离
-            int scoreUnits = static_cast<int>((currentX - m_lastScoredPositionX) / m_scoreDistance);
-            int points = scoreUnits * 10;  // 每单位距离得10分
-
-            // 更新最后得分位置
-            m_lastScoredPositionX += scoreUnits * m_scoreDistance;
-
-            // 发射得分信号
-            emit getscore(points * award_score); // 应用分数奖励倍数
-
-        }
-    }
-}
-
-void GameScene::onPlayerFlipped(int points, const QString& reason) {
-    // 翻倍速度奖励倍数（限制最大3倍）
-    award_speed = qMin(award_speed * 2.0, 3.0);
-    Gplayer->setSpeedMultiplier(award_speed); // 应用到玩家速度
-
-    // 翻倍分数奖励倍数（限制最大3倍）
-    award_score = qMin(award_score * 2.0, 3.0);
-
-    // 计算奖励后的分数并转为整数
-    int adjustedPoints = static_cast<int>(points * award_score);
-
-    // 显示得分弹幕
-    if (m_uiManager) {
-        m_uiManager->showScorePopup(adjustedPoints, reason);
-    }
-
-    // 发射得分信号
-    emit getscore(adjustedPoints);
 }

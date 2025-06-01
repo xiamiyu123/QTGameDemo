@@ -443,11 +443,11 @@ void Player::pickupNPC(NPCEntity* npc) {
         DEBUG_LOG("Player::pickupNPC - Pickup on cooldown");
         return;
     }
-    
-    // 检查库存是否已满
+      // 检查库存是否已满，如果满了就扔出旧的NPC
     if (m_npcInventory.size() >= MAX_INVENTORY_SIZE) {
-        DEBUG_LOG("Player::pickupNPC - Inventory is full");
-        return;
+        DEBUG_LOG("Player::pickupNPC - Inventory is full, dropping old NPC");
+        // 扔出优先级最低的NPC来腾出空间
+        dropNPC(m_terrainGenerator);
     }
       // 获取NPC的ID并添加到库存
     int npcId = npc->class_id();

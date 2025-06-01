@@ -108,7 +108,7 @@ private:
     bool m_animationLoaded;             // 动画是否成功加载的标志
     qreal m_imageScaleFactor;           // 图像缩放因子，用于调整显示大小    // NPC库存系统 - 使用优先队列实现堆（降序排列，高ID优先）
     std::priority_queue<int> m_npcInventory; // 存储NPC ID，自动按ID降序排列
-    static const int MAX_INVENTORY_SIZE = 10; // 最大库存大小
+    static const int MAX_INVENTORY_SIZE = 1; // 最大库存大小
     
     // NPC拾取冷却系统
     QTimer m_npcPickupCooldownTimer; // NPC拾取冷却计时器

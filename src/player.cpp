@@ -33,7 +33,8 @@ Player::Player(QGraphicsItem *parent)
       m_flipRotation(0.0),
       m_cumulativeRotation(0.0),
       m_lastFrameRotation(0.0),
-      m_imageScaleFactor(1) { // 添加图像缩放因子
+      m_imageScaleFactor(1),
+      m_speedMultiplier(1.0){
 
     setZValue(-2);
 
@@ -233,19 +234,16 @@ void Player::checkHitRock(RockEntity* rock) {
 
 // 覆盖getTargetVelocityX来禁止摔倒时移动
 qreal Player::getTargetVelocityX() const {
-    if (is_fallen) {
-        return 0; // 摔倒时不移动
-    }
+    // 如果已经摔倒，不能移动
+    if (is_fallen) return 0;
 
-    // 原有代码
+    // 应用方向键和速度倍数
     qreal targetVelocity = 0;
-    if (keyLeft) {
-        targetVelocity -= m_moveSpeed;
-    }
-    if (keyRight) {
-        targetVelocity += m_moveSpeed;
-    }
-    return targetVelocity;
+    if (keyLeft) targetVelocity -= m_moveSpeed;
+    if (keyRight) targetVelocity += m_moveSpeed;
+
+    // 应用速度倍数
+    return targetVelocity * m_speedMultiplier;
 }
 
 // 修改updateRotate处理摔倒姿势
@@ -410,4 +408,17 @@ void Player::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QW
         painter->setPen(greenPen);
         painter->drawLine(r.bottomLeft(), r.bottomRight());
     }
+}
+
+// 实现设置和获取速度倍数的方法
+void Player::setSpeedMultiplier(qreal multiplier)
+{
+    // 限制倍数在合理范围内
+    m_speedMultiplier = qBound(0.5, multiplier, 3.0);
+    DEBUG_LOG(QString("玩家速度倍数已更新: %1").arg(QString::number(m_speedMultiplier)));
+}
+
+qreal Player::getSpeedMultiplier() const
+{
+    return m_speedMultiplier;
 }

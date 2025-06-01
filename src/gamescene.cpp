@@ -60,7 +60,7 @@ GameScene::GameScene(QObject *parent)
 
     // 初始化得分相关
     m_lastScoredPositionX = 1200;
-    m_scoreDistance = 100;  // 每100像素得分一次
+    m_scoreDistance = 100;  // 每水平跑100像素得分一次
 
     // // 连接玩家摔倒信号（测试用）
     // connect(Gplayer, &Player::playerFallen, m_uiManager, &UIManager::showScorePopup);
@@ -156,6 +156,12 @@ void GameScene::update()
                           .arg(this->sceneRect().toRect().height()));
         }
     }
+
+    // 更新玩家速度倍数
+    if (Gplayer) {
+        Gplayer->setSpeedMultiplier(award_speed);
+    }
+
     // 时间增量16ms
     qreal deltaTime = 16.0f / 1000.0f;
     // 更新玩家状态
@@ -432,8 +438,12 @@ void GameScene::resetGameState()
     award_speed = 1.0;
     award_score = 1.0;
 
-    // 重置计分位置
-    m_lastScoredPositionX = 1200; // 如果玩家存在，则使用其位置，否则默认1200
+    if (Gplayer) {
+        Gplayer->setSpeedMultiplier(award_speed);
+    }
+
+    // 重置计分初始位置
+    m_lastScoredPositionX = 1200;
 
     // 重置更新计时器和对象列表
     m_avalancheElapsed = 0;

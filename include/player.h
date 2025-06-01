@@ -38,6 +38,10 @@ public:
     void dropNPC(TerrainGenerator* terrainGenerator); // 需要地形生成器来创建NPC
     bool hasNPCInInventory() const;
     int getInventorySize() const;
+    
+    // NPC拾取冷却相关方法
+    bool canPickupNPC() const;        // 检查是否可以拾取NPC（冷却状态）
+    void startNPCPickupCooldown();    // 启动拾取冷却
 
     // 记录起跳和离地信息
     void notifyTakeoff();
@@ -75,6 +79,7 @@ private:
 private slots:
     void onFallRecoveryTimeout(); // 摔倒恢复计时器回调
     void updateAnimation(); // 动画更新槽
+    void onNPCPickupCooldownTimeout(); // NPC拾取冷却计时器回调
 
 private:
     // 基本状态
@@ -101,6 +106,11 @@ private:
     qreal m_imageScaleFactor;           // 图像缩放因子，用于调整显示大小    // NPC库存系统 - 使用优先队列实现堆（降序排列，高ID优先）
     std::priority_queue<int> m_npcInventory; // 存储NPC ID，自动按ID降序排列
     static const int MAX_INVENTORY_SIZE = 10; // 最大库存大小
+    
+    // NPC拾取冷却系统
+    QTimer m_npcPickupCooldownTimer; // NPC拾取冷却计时器
+    bool m_npcPickupCooldownActive;  // 拾取冷却是否激活
+    static const int NPC_PICKUP_COOLDOWN_MS = 3000; // 3秒冷却时间
     
     // 地形生成器引用，用于NPC丢弃功能
     TerrainGenerator* m_terrainGenerator;

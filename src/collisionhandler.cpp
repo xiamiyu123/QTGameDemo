@@ -352,13 +352,19 @@ void CollisionHandler::handlePlayerNPCCollision(Player* player, QList<IPhysicsOb
     
     // 确保玩家和场景对象都有效
     if (!player->scene()) {
-        return;
-    }
+        return;    }
     
     // 检查玩家是否还有库存空间
     if (player->getInventorySize() >= 10) { // MAX_INVENTORY_SIZE
         return; // 库存已满，无法拾取更多NPC
-    }      // 获取玩家局部坐标 - 与物理系统保持一致
+    }
+    
+    // 检查拾取冷却状态
+    if (!player->canPickupNPC()) {
+        return; // 拾取冷却中，不能拾取NPC
+    }
+    
+    // 获取玩家局部坐标 - 与物理系统保持一致
     QPointF playerPos = player->position();
     QRectF playerRect = player->boundingRect();
     QPointF playerCenter = QPointF(playerPos.x() + playerRect.width()/2, 

@@ -49,11 +49,15 @@ Player::Player(QGraphicsItem *parent)
 
     // 允许接收键盘焦点
     setFlag(QGraphicsItem::ItemIsFocusable);
-    setFocus();
-
-    // 初始化摔倒恢复计时器
+    setFocus();    // 初始化摔倒恢复计时器
     connect(&m_fallRecoveryTimer, &QTimer::timeout, this, &Player::onFallRecoveryTimeout);
     m_fallRecoveryTimer.setSingleShot(true);
+    
+    // 初始化NPC拾取冷却系统
+    m_npcPickupCooldownActive = false;
+    connect(&m_npcPickupCooldownTimer, &QTimer::timeout, this, &Player::onNPCPickupCooldownTimeout);
+    m_npcPickupCooldownTimer.setSingleShot(true);
+    
     loadAnimationFrames();
 
     // 设置动画定时器
@@ -432,6 +436,12 @@ void Player::pickupNPC(NPCEntity* npc) {
         return;
     }
     
+    // 检查拾取冷却状态
+    if (!canPickupNPC()) {
+        DEBUG_LOG("Player::pickupNPC - Pickup on cooldown");
+        return;
+    }
+    
     // 检查库存是否已满
     if (m_npcInventory.size() >= MAX_INVENTORY_SIZE) {
         DEBUG_LOG("Player::pickupNPC - Inventory is full");
@@ -486,20 +496,30 @@ void Player::dropNPC(TerrainGenerator* terrainGenerator) {
         tempQueue.pop();
     }
     
-    // 重建队列，排除被丢弃的NPC
+    // 重建队列，只移除一个最低优先级的NPC
     m_npcInventory = std::priority_queue<int>();
+    bool removedOne = false;
     for (int id : allIds) {
-        if (id != lowestPriorityId) {
+        if (id == lowestPriorityId && !removedOne) {
+            // 跳过第一个遇到的最低优先级NPC（将其丢弃）
+            removedOne = true;
+        } else {
+            // 保留其他所有NPC
             m_npcInventory.push(id);
         }
     }
     
     DEBUG_LOG(QString("Player dropped NPC with ID: %1, remaining inventory size: %2")
               .arg(lowestPriorityId).arg(m_npcInventory.size()));
-    
-    // 在玩家位置生成对应ID的NPC
+      // 在玩家位置生成对应ID的NPC
     QPointF spawnPosition = pos();
-    spawnPosition.setY(spawnPosition.y() - 50); // 在玩家上方生成，避免立即重新碰撞
+    
+    // 计算生成位置的地面高度
+    qreal terrainHeight = terrainGenerator->getTerrainHeight(spawnPosition.x());
+    
+    
+    spawnPosition.setY(terrainHeight);
+    
     
     // 根据ID创建对应的NPC
     std::unique_ptr<NPCEntity> newNPC = nullptr;
@@ -519,9 +539,11 @@ void Player::dropNPC(TerrainGenerator* terrainGenerator) {
         
         // 添加到地形生成器的NPC列表
         terrainGenerator->m_npcs.append(newNPC.release());
-        
-        DEBUG_LOG(QString("Successfully spawned NPC with ID %1 at position (%2, %3)")
+          DEBUG_LOG(QString("Successfully spawned NPC with ID %1 at position (%2, %3)")
                   .arg(lowestPriorityId).arg(spawnPosition.x()).arg(spawnPosition.y()));
+        
+        // 启动拾取冷却 - 玩家失去NPC后3秒内不能再拾起NPC
+        startNPCPickupCooldown();
     } else {
         DEBUG_LOG(QString("Failed to create NPC with ID %1").arg(lowestPriorityId));
     }
@@ -533,4 +555,23 @@ bool Player::hasNPCInInventory() const {
 
 int Player::getInventorySize() const {
     return static_cast<int>(m_npcInventory.size());
+}
+
+// === NPC拾取冷却系统实现 ===
+
+bool Player::canPickupNPC() const {
+    return !m_npcPickupCooldownActive;
+}
+
+void Player::startNPCPickupCooldown() {
+    if (!m_npcPickupCooldownActive) {
+        m_npcPickupCooldownActive = true;
+        m_npcPickupCooldownTimer.start(NPC_PICKUP_COOLDOWN_MS);
+        DEBUG_LOG(QString("NPC pickup cooldown started - 3 seconds"));
+    }
+}
+
+void Player::onNPCPickupCooldownTimeout() {
+    m_npcPickupCooldownActive = false;
+    DEBUG_LOG("NPC pickup cooldown ended - can pickup NPCs again");
 }

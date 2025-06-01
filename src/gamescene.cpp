@@ -293,6 +293,10 @@ void GameScene::update()
     }
 
     checkPlayerProgressScore();
+
+    // 更新玩家状态
+    Gplayer->setSpeedMultiplier(award_speed); // 应用速度倍数
+    Gplayer->playerUpdate(GTerrainGenerator);
 }
 
 // 仅用于初始化时放置玩家

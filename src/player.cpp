@@ -203,9 +203,6 @@ void Player::checkLanding(qreal terrainAngle) {
     DEBUG_LOG(QString("Landing! Total flip rotation: %1 (%2 flips)")
       .arg(QString::number(m_flipRotation)).arg(QString::number(m_flipRotation/360.0)));
 
-    // 检查是否成功完成空翻(大于200度且未摔倒)
-    bool isFlipSuccessful = (m_flipRotation >= 200.0);
-
     // 检查是否需要摔倒
     if (!is_fallen) { // 确保不重复判断
         // 计算与地面的角度偏差
@@ -223,14 +220,7 @@ void Player::checkLanding(qreal terrainAngle) {
         // 如果偏差过大且无法抵抗，则摔倒
         if (angleDeviation > MAX_LANDING_ANGLE_DEVIATION && !canResistFall(angleDeviation)) {
             fall();
-            isFlipSuccessful = false;
         }
-    }
-
-    // 如果成功空翻并且没有摔倒，发送空翻成功信号
-    if (isFlipSuccessful && !is_fallen) {
-        int flipPoints = 100; // 空翻奖励100分
-        emit playerFlipped(flipPoints, "FLIP!");
     }
 }
 
@@ -244,16 +234,19 @@ void Player::checkHitRock(RockEntity* rock) {
 
 // 覆盖getTargetVelocityX来禁止摔倒时移动
 qreal Player::getTargetVelocityX() const {
-    // 如果已经摔倒，不能移动
-    if (is_fallen) return 0;
+    if (is_fallen) {
+        return 0; // 摔倒时不移动
+    }
 
-    // 应用方向键和速度倍数
+    // 原有代码
     qreal targetVelocity = 0;
-    if (keyLeft) targetVelocity -= m_moveSpeed;
-    if (keyRight) targetVelocity += m_moveSpeed;
-
-    // 应用速度倍数
-    return targetVelocity * m_speedMultiplier;
+    if (keyLeft) {
+        targetVelocity -= m_moveSpeed * m_speedMultiplier;
+    }
+    if (keyRight) {
+        targetVelocity += m_moveSpeed * m_speedMultiplier;
+    }
+    return targetVelocity;
 }
 
 // 修改updateRotate处理摔倒姿势
@@ -418,17 +411,4 @@ void Player::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QW
         painter->setPen(greenPen);
         painter->drawLine(r.bottomLeft(), r.bottomRight());
     }
-}
-
-// 实现设置和获取速度倍数的方法
-void Player::setSpeedMultiplier(qreal multiplier)
-{
-    // 限制倍数在合理范围内
-    m_speedMultiplier = qBound(0.5, multiplier, 3.0);
-    DEBUG_LOG(QString("玩家速度倍数已更新: %1").arg(QString::number(m_speedMultiplier)));
-}
-
-qreal Player::getSpeedMultiplier() const
-{
-    return m_speedMultiplier;
 }

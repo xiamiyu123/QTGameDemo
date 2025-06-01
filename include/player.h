@@ -50,15 +50,12 @@ public:
     // 常量
     static const qreal MAX_LANDING_ANGLE_DEVIATION; // 最大允许着陆角度偏差
 
-    // 设置速度倍数（用于奖励加速）
-    void setSpeedMultiplier(qreal multiplier);
-    qreal getSpeedMultiplier() const;
+    void setSpeedMultiplier(qreal multiplier) { m_speedMultiplier = multiplier; }
+    qreal getSpeedMultiplier() const { return m_speedMultiplier; }
 
 signals:
     // // 玩家摔倒信号（测试用）
     // void playerFallen(int points, const QString& reason);
-    // 成功空翻信号
-    void playerFlipped(int points, const QString& reason);
 
 protected:
     // 根据输入计算目标速度
@@ -88,7 +85,7 @@ private:
     qreal rotateSpeed;
     qreal m_moveSpeed;
     qreal m_jumpForce;
-    qreal m_speedMultiplier;// 速度倍数（用于奖励加速）
+    qreal m_speedMultiplier; // 速度倍数
 
     // 空翻角度记录
     qreal m_takeoffRotation;   // 离地时的角度

@@ -62,6 +62,9 @@ GameScene::GameScene(QObject *parent)
     m_lastScoredPositionX = 1200;
     m_scoreDistance = 100;  // 每水平跑100像素得分一次
 
+    // 连接玩家空翻信号
+    connect(Gplayer, &Player::playerFlipped, this, &GameScene::onPlayerFlipped);
+
     // // 连接玩家摔倒信号（测试用）
     // connect(Gplayer, &Player::playerFallen, m_uiManager, &UIManager::showScorePopup);
     //
@@ -399,6 +402,9 @@ void GameScene::showGameOverDialog()
                 m_collisionHandler->updateTerrainGenerator(GTerrainGenerator);
             }
 
+        // 连接玩家空翻信号
+        connect(Gplayer, &Player::playerFlipped, this, &GameScene::onPlayerFlipped);
+
         // // 重新连接玩家摔倒信号（测试用）
         // connect(Gplayer, &Player::playerFallen, m_uiManager, &UIManager::showScorePopup);
         // connect(Gplayer, &Player::playerFallen, this, [this](int points, const QString&) {
@@ -537,6 +543,10 @@ void GameScene::createSceneItems()
             { avalanche->applyThreadResults(); });
     m_avalancheThread->start();
 
+
+    // 连接玩家空翻信号
+    connect(Gplayer, &Player::playerFlipped, this, &GameScene::onPlayerFlipped);
+
     // 连接玩家摔倒信号（测试用）
     // connect(Gplayer, &Player::playerFallen, m_uiManager, &UIManager::showScorePopup);
     // connect(Gplayer, &Player::playerFallen, this, [this](int points, const QString&) {
@@ -563,4 +573,24 @@ void GameScene::checkPlayerProgressScore() {
 
         }
     }
+}
+
+void GameScene::onPlayerFlipped(int points, const QString& reason) {
+    // 翻倍速度奖励倍数（限制最大3倍）
+    award_speed = qMin(award_speed * 2.0, 3.0);
+    Gplayer->setSpeedMultiplier(award_speed); // 应用到玩家速度
+
+    // 翻倍分数奖励倍数（限制最大3倍）
+    award_score = qMin(award_score * 2.0, 3.0);
+
+    // 计算奖励后的分数并转为整数
+    int adjustedPoints = static_cast<int>(points * award_score);
+
+    // 显示得分弹幕
+    if (m_uiManager) {
+        m_uiManager->showScorePopup(adjustedPoints, reason);
+    }
+
+    // 发射得分信号
+    emit getscore(adjustedPoints);
 }

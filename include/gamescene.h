@@ -41,8 +41,9 @@ private slots:
 
     void initialPlayerPosition();
 
-    // 新增处理得分的槽函数
+    // 处理得分的槽函数
     void onGetScore(int points);
+    void onPlayerFlipped(int points, const QString& reason);
     
     // 暂停/继续游戏
     void togglePause();

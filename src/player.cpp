@@ -203,6 +203,9 @@ void Player::checkLanding(qreal terrainAngle) {
     DEBUG_LOG(QString("Landing! Total flip rotation: %1 (%2 flips)")
       .arg(QString::number(m_flipRotation)).arg(QString::number(m_flipRotation/360.0)));
 
+    // 检查是否成功完成空翻(大于200度且未摔倒)
+    bool isFlipSuccessful = (m_flipRotation >= 200.0);
+
     // 检查是否需要摔倒
     if (!is_fallen) { // 确保不重复判断
         // 计算与地面的角度偏差
@@ -220,7 +223,14 @@ void Player::checkLanding(qreal terrainAngle) {
         // 如果偏差过大且无法抵抗，则摔倒
         if (angleDeviation > MAX_LANDING_ANGLE_DEVIATION && !canResistFall(angleDeviation)) {
             fall();
+            isFlipSuccessful = false;
         }
+    }
+
+    // 如果成功空翻并且没有摔倒，发送空翻成功信号
+    if (isFlipSuccessful && !is_fallen) {
+        int flipPoints = 100; // 空翻奖励100分
+        emit playerFlipped(flipPoints, "FLIP!");
     }
 }
 

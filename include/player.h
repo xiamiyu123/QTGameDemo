@@ -57,6 +57,8 @@ public:
 signals:
     // // 玩家摔倒信号（测试用）
     // void playerFallen(int points, const QString& reason);
+    // 成功空翻信号
+    void playerFlipped(int points, const QString& reason);
 
 protected:
     // 根据输入计算目标速度

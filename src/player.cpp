@@ -33,7 +33,8 @@ Player::Player(QGraphicsItem *parent)
       m_flipRotation(0.0),
       m_cumulativeRotation(0.0),
       m_lastFrameRotation(0.0),
-      m_imageScaleFactor(1) { // 添加图像缩放因子
+      m_imageScaleFactor(1),
+      m_speedMultiplier(1.0){
 
     setZValue(-2);
 
@@ -240,10 +241,10 @@ qreal Player::getTargetVelocityX() const {
     // 原有代码
     qreal targetVelocity = 0;
     if (keyLeft) {
-        targetVelocity -= m_moveSpeed;
+        targetVelocity -= m_moveSpeed * m_speedMultiplier;
     }
     if (keyRight) {
-        targetVelocity += m_moveSpeed;
+        targetVelocity += m_moveSpeed * m_speedMultiplier;
     }
     return targetVelocity;
 }

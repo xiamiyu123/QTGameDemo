@@ -25,7 +25,7 @@ public:
     
     void initialize();
     void showGameOverDialog();
-
+    void checkPlayerProgressScore();
 
 signals:
     // 新增获得分数的信号
@@ -41,8 +41,9 @@ private slots:
 
     void initialPlayerPosition();
 
-    // 新增处理得分的槽函数
+    // 处理得分的槽函数
     void onGetScore(int points);
+    void onPlayerFlipped(int points, const QString& reason);
     
     // 暂停/继续游戏
     void togglePause();
@@ -61,6 +62,9 @@ private:
     int score;                // 玩家当前得分
     double award_speed;       // 速度奖励倍数
     double award_score;       // 分数奖励倍数
+
+    qreal m_lastScoredPositionX;  // 上次得分时玩家的X位置
+    qreal m_scoreDistance;        // 每多少距离得分一次
 
     qreal m_avalancheElapsed = 0;
     const qreal m_avalancheInterval = 0.02; // 雪崩每0.1秒刷新一次

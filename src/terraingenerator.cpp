@@ -263,35 +263,60 @@ void TerrainGenerator::generateChunk(int chunkIndex) {
         rockXs.append(x); // 记录本次石头x        // 注册到物理系统
         PhysicsSystem::instance().registerObject(rock);
     }
-    
-    // 生成一个企鹅NPC
+      // 生成NPC (企鹅:雪怪 = 4:1比例)
     if (chunkIndex > 0) { // 跳过第一个地形块
         // 随机选择生成位置（块内）
         qreal npcX = QRandomGenerator::global()->bounded(CHUNK_WIDTH / 4, CHUNK_WIDTH * 3 / 4);
         qreal globalNpcX = chunkIndex * CHUNK_WIDTH + npcX;
-          // 检查斜率是否适合生成NPC
+        
+        // 检查斜率是否适合生成NPC
         qreal npcSlope = getTerrainSlope(globalNpcX);
         if (qAbs(npcSlope) <= MAX_SLOPE_FOR_ROCK) { // 使用与石头相同的斜率限制
             // 使用与Player相同的定位逻辑：terrainHeight - 完整高度
             qreal npcY = getTerrainHeight(globalNpcX) - 30; // 统一使用30像素偏移，与NPC高度一致
             
-            // 创建企鹅NPC
-            auto penguin = NPCFactory::createPenguinNPC(QPointF(globalNpcX, npcY));
-            NPCEntity* penguinPtr = penguin.release(); // 释放unique_ptr的所有权
+            // 决定生成企鹅还是雪怪 (4:1比例)
+            // 每5个chunk为一个周期，其中4个生成企鹅，1个生成雪怪
+            int cyclePosition = chunkIndex % 5;
+            bool shouldGenerateYeti = (cyclePosition == 0); // 每5个chunk的第1个生成雪怪
             
-            // 设置NPC初始状态
-            penguinPtr->setOnGround(true);
-            penguinPtr->setActive(false); // 初始状态不激活
-            
-            // 添加到场景和存储列表
-            m_scene->addItem(penguinPtr);
-            m_npcs.append(penguinPtr);
-            
-            // 注册到物理系统
-            PhysicsSystem::instance().registerObject(penguinPtr);
-            
-            DEBUG_LOG(QString("Generated penguin NPC at chunk %1, position (%2, %3)")
-                      .arg(chunkIndex).arg(globalNpcX).arg(npcY));
+            if (shouldGenerateYeti) {
+                // 创建雪怪NPC
+                auto yeti = NPCFactory::createYetiNPC(QPointF(globalNpcX, npcY));
+                NPCEntity* yetiPtr = yeti.release();
+                
+                // 设置NPC初始状态
+                yetiPtr->setOnGround(true);
+                yetiPtr->setActive(false);
+                
+                // 添加到场景和存储列表
+                m_scene->addItem(yetiPtr);
+                m_npcs.append(yetiPtr);
+                
+                // 注册到物理系统
+                PhysicsSystem::instance().registerObject(yetiPtr);
+                
+                DEBUG_LOG(QString("Generated yeti NPC at chunk %1, position (%2, %3)")
+                          .arg(chunkIndex).arg(globalNpcX).arg(npcY));
+            } else {
+                // 创建企鹅NPC
+                auto penguin = NPCFactory::createPenguinNPC(QPointF(globalNpcX, npcY));
+                NPCEntity* penguinPtr = penguin.release(); // 释放unique_ptr的所有权
+                
+                // 设置NPC初始状态
+                penguinPtr->setOnGround(true);
+                penguinPtr->setActive(false); // 初始状态不激活
+                
+                // 添加到场景和存储列表
+                m_scene->addItem(penguinPtr);
+                m_npcs.append(penguinPtr);
+                
+                // 注册到物理系统
+                PhysicsSystem::instance().registerObject(penguinPtr);
+                
+                DEBUG_LOG(QString("Generated penguin NPC at chunk %1, position (%2, %3)")
+                          .arg(chunkIndex).arg(globalNpcX).arg(npcY));
+            }
         }
     }
 }

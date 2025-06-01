@@ -15,7 +15,23 @@ class Player : public BasePhysicsEntity
 {
     Q_OBJECT
 
-public:
+public:    // NPC形态枚举
+    enum class NPCForm {
+        Normal,        // 普通形态（无NPC）
+        Penguin,       // 企鹅形态
+        YetiForm1,     // 雪怪形态1（初始骑乘）
+        YetiForm2,     // 雪怪形态2（被撞击后）
+        // 可以继续添加其他形态
+    };    // 属性加成配置结构
+    struct NPCFormModifiers {
+        qreal moveSpeedMultiplier = 1.0;    // 移动速度倍率
+        qreal jumpForceMultiplier = 1.0;    // 跳跃力倍率  
+        qreal flipSpeedMultiplier = 1.0;    // 空翻速度倍率
+        int inventoryCapacityBonus = 0;     // 库存容量加成
+        bool canFlip = true;                // 是否可以空翻
+        int penguinCarryCapacity = 0;       // 额外的企鹅携带容量（仅携带企鹅，不提供属性加成）
+    };
+
     Player(QGraphicsItem *parent = nullptr);
     ~Player() override;
 
@@ -52,11 +68,28 @@ public:
 
     // 获取最后一次空翻角度
     qreal getFlipRotation() const;    // 判断玩家是否处于摔倒状态
-    bool isFallen() const;
-
-    // 设置图像缩放因子
+    bool isFallen() const;    // 设置图像缩放因子
     void setImageScaleFactor(qreal factor);
     qreal imageScaleFactor() const;
+
+    // 新增：NPC形态系统
+    NPCForm getCurrentForm() const;
+    void applyNPCForm(NPCForm form);
+    void updatePlayerAttributes();
+    qreal getCurrentMoveSpeed() const;
+    qreal getCurrentJumpForce() const;    qreal getCurrentFlipSpeed() const;
+    int getCurrentInventoryCapacity() const;
+    
+    // 雪怪形态管理
+    bool isRidingYeti() const;
+    NPCForm getYetiForm() const;
+    void transformYetiForm(); // 雪怪形态1转为形态2
+    bool canFlip() const; // 检查当前是否可以空翻
+    
+    // 企鹅携带系统
+    void addPenguinToCarry(int penguinId); // 添加企鹅到携带库存
+    bool consumePenguinForDamageResistance(); // 消耗携带的企鹅抵抗伤害
+    int getCarriedPenguinCount() const; // 获取携带的企鹅数量
 
     // 常量
     static const qreal MAX_LANDING_ANGLE_DEVIATION; // 最大允许着陆角度偏差
@@ -123,6 +156,35 @@ private:
     
     // 地形生成器引用，用于NPC丢弃功能
     TerrainGenerator* m_terrainGenerator;
+
+    // NPC形态系统
+    NPCForm m_currentForm;
+    
+    // 基础属性值（原始值）
+    qreal m_baseMoveSpeed;
+    qreal m_baseJumpForce;
+    qreal m_baseFlipSpeed;
+    int m_baseInventoryCapacity;
+    
+    // 当前生效的属性值（包含加成）
+    qreal m_currentMoveSpeed;    qreal m_currentJumpForce; 
+    qreal m_currentFlipSpeed;
+    int m_currentInventoryCapacity;
+    
+    // 雪怪形态管理
+    bool m_isRidingYeti;                // 是否正在骑乘雪怪
+    NPCForm m_yetiForm;                 // 当前雪怪形态
+    std::priority_queue<int> m_penguinCarryInventory; // 额外的企鹅携带库存（仅抵抗伤害用）
+      // 各种形态的属性配置
+    static const NPCFormModifiers PENGUIN_MODIFIERS;
+    static const NPCFormModifiers YETI_FORM1_MODIFIERS;
+    static const NPCFormModifiers YETI_FORM2_MODIFIERS;
+    
+    // NPC形态相关私有方法
+    void resetToNormalForm();
+    NPCFormModifiers getFormModifiers(NPCForm form) const;
+    void applyFormModifiers(const NPCFormModifiers& modifiers);
+    void updatePlayerFormBasedOnInventory();
     /*
     enum AnimationState {
         Standing,

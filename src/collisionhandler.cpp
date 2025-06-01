@@ -16,7 +16,10 @@ void CollisionHandler::updateTerrainGenerator(TerrainGenerator* terrainGenerator
 // 处理物理对象与地形的碰撞
 void CollisionHandler::handlePhysicsObjectCollision(IPhysicsObject* obj, QList<IPhysicsObject*>& objectsToDelete)
 {
-    if (!obj || !m_terrainGenerator) return;
+    if (!obj || !m_terrainGenerator) {
+        DEBUG_LOG("CollisionHandler::handlePhysicsObjectCollision - null pointer detected");
+        return;
+    }
 
     // 获取物体信息
     QRectF objRect = obj->boundingRect();

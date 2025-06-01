@@ -89,9 +89,11 @@ public:
     
     // 创建飞鸟NPC
     static std::unique_ptr<NPCEntity> createFlyingNPC(const QPointF& position = QPointF(0, 0));
-    
-    // 创建企鹅NPC
+      // 创建企鹅NPC
     static std::unique_ptr<NPCEntity> createPenguinNPC(const QPointF& position = QPointF(0, 0));
+    
+    // 创建雪怪NPC
+    static std::unique_ptr<NPCEntity> createYetiNPC(const QPointF& position = QPointF(0, 0));
 
     // === 对象池管理（为后续扩展预留） ===
     // 设置对象池大小

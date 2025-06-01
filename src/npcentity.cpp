@@ -6,6 +6,7 @@
 #include "groundnpc.h"
 #include "flyingnpc.h"
 #include "penguinnpc.h"
+#include "yetimnpc.h"
 #include "debuglogger.h"
 #include <QBrush>
 #include <QPen>
@@ -118,6 +119,14 @@ std::unique_ptr<NPCEntity> NPCFactory::createFlyingNPC(const QPointF& position)
 std::unique_ptr<NPCEntity> NPCFactory::createPenguinNPC(const QPointF& position)
 {
     auto npc = std::make_unique<PenguinNPC>();
+    npc->setPosition(position);
+    npc->initializeNPC();
+    return npc;
+}
+
+std::unique_ptr<NPCEntity> NPCFactory::createYetiNPC(const QPointF& position)
+{
+    auto npc = std::make_unique<YetiNPC>();
     npc->setPosition(position);
     npc->initializeNPC();
     return npc;

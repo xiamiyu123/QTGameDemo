@@ -47,10 +47,15 @@ GameScene::GameScene(QObject *parent)
     m_uiManager->initialize();
 
     // 创建碰撞处理器
-    m_collisionHandler = new CollisionHandler(GTerrainGenerator, this);
-
-    // 连接UI事件
+    m_collisionHandler = new CollisionHandler(GTerrainGenerator, this);    // 连接UI事件
     connect(m_uiManager, &UIManager::pauseToggled, this, &GameScene::togglePause);
+      // 连接玩家NPC拾取冷却进度条信号
+    connect(Gplayer, &Player::npcPickupCooldownChanged, 
+            m_uiManager, &UIManager::showNPCPickupCooldown);
+    
+    // 连接玩家坠落恢复进度条信号
+    connect(Gplayer, &Player::fallRecoveryChanged,
+            m_uiManager, &UIManager::showFallRecovery);
 
     // 初始化调试日志器
     DebugLogger::instance()->initialize(this);

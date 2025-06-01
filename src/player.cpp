@@ -52,10 +52,17 @@ Player::Player(QGraphicsItem *parent)
     setFocus();    // 初始化摔倒恢复计时器
     connect(&m_fallRecoveryTimer, &QTimer::timeout, this, &Player::onFallRecoveryTimeout);
     m_fallRecoveryTimer.setSingleShot(true);
-      // 初始化NPC拾取冷却系统
+    
+    // 初始化摔倒恢复进度更新定时器
+    connect(&m_fallRecoveryProgressTimer, &QTimer::timeout, this, &Player::updateFallRecoveryProgress);
+    m_fallRecoveryProgressTimer.setSingleShot(false); // 重复触发// 初始化NPC拾取冷却系统
     m_npcPickupCooldownActive = false;
     connect(&m_npcPickupCooldownTimer, &QTimer::timeout, this, &Player::onNPCPickupCooldownTimeout);
     m_npcPickupCooldownTimer.setSingleShot(true);
+    
+    // 初始化NPC冷却进度更新定时器
+    connect(&m_npcCooldownProgressTimer, &QTimer::timeout, this, &Player::updateNPCCooldownProgress);
+    m_npcCooldownProgressTimer.setSingleShot(false); // 重复触发
     
     // 连接NPC状态更新信号和槽
     connect(this, &Player::updatePlayerNPC, this, &Player::onUpdate);
@@ -343,6 +350,12 @@ void Player::fall() {
 
     // 启动恢复计时器
     m_fallRecoveryTimer.start(3000); // 3秒后恢复
+    
+    // 启动摔倒恢复进度更新定时器
+    m_fallRecoveryProgressTimer.start(50); // 每50毫秒更新一次进度
+    
+    // 发出摔倒恢复开始信号
+    emit fallRecoveryChanged(true, 0.0);
 }
 
 void Player::recoverFromFall() {
@@ -353,6 +366,12 @@ void Player::recoverFromFall() {
 }
 
 void Player::onFallRecoveryTimeout() {
+    // 停止摔倒恢复进度更新定时器
+    m_fallRecoveryProgressTimer.stop();
+    
+    // 发出摔倒恢复结束信号
+    emit fallRecoveryChanged(false, 0.0);
+    
     recoverFromFall();
 }
 
@@ -590,12 +609,26 @@ void Player::startNPCPickupCooldown() {
     if (!m_npcPickupCooldownActive) {
         m_npcPickupCooldownActive = true;
         m_npcPickupCooldownTimer.start(NPC_PICKUP_COOLDOWN_MS);
+        
+        // 启动进度更新定时器
+        m_npcCooldownProgressTimer.start(NPC_COOLDOWN_PROGRESS_UPDATE_MS);
+        
+        // 发出冷却开始信号
+        emit npcPickupCooldownChanged(true, 0.0);
+        
         DEBUG_LOG(QString("NPC pickup cooldown started - 3 seconds"));
     }
 }
 
 void Player::onNPCPickupCooldownTimeout() {
     m_npcPickupCooldownActive = false;
+    
+    // 停止进度更新定时器
+    m_npcCooldownProgressTimer.stop();
+    
+    // 发出冷却结束信号
+    emit npcPickupCooldownChanged(false, 0.0);
+    
     DEBUG_LOG("NPC pickup cooldown ended - can pickup NPCs again");
 }
 
@@ -624,6 +657,40 @@ bool Player::consumeNPCForDamageResistance() {
     // 复用dropNPC方法来丢弃最低优先级的NPC
     DEBUG_LOG("Player using NPC for damage resistance - dropping NPC");
     dropNPC(m_terrainGenerator);
+}
+  void Player::updateFallRecoveryProgress() {
+    if (!is_fallen) {
+        return; // 如果没有摔倒，不需要更新进度
+    }
     
-    return true;
+    // 计算剩余时间
+    int remainingTime = m_fallRecoveryTimer.remainingTime();
+    
+    // 计算进度（0.0 表示刚开始，1.0 表示即将结束）
+    const int FALL_RECOVERY_TIME_MS = 3000; // 摔倒恢复时间
+    qreal progress = 1.0 - (static_cast<qreal>(remainingTime) / static_cast<qreal>(FALL_RECOVERY_TIME_MS));
+    
+    // 确保进度在有效范围内
+    progress = qBound(0.0, progress, 1.0);
+    
+    // 发出进度更新信号
+    emit fallRecoveryChanged(true, progress);
+}
+
+void Player::updateNPCCooldownProgress() {
+    if (!m_npcPickupCooldownActive) {
+        return; // 如果冷却不活跃，不需要更新进度
+    }
+    
+    // 计算剩余时间
+    int remainingTime = m_npcPickupCooldownTimer.remainingTime();
+    
+    // 计算进度（0.0 表示刚开始，1.0 表示结束）
+    qreal progress = 1.0 - (static_cast<qreal>(remainingTime) / static_cast<qreal>(NPC_PICKUP_COOLDOWN_MS));
+    
+    // 确保进度在有效范围内
+    progress = qBound(0.0, progress, 1.0);
+    
+    // 发出进度更新信号
+    emit npcPickupCooldownChanged(true, progress);
 }

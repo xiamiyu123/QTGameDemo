@@ -38,10 +38,10 @@ public:
     void dropNPC(TerrainGenerator* terrainGenerator); // 需要地形生成器来创建NPC
     bool hasNPCInInventory() const;
     int getInventorySize() const;
-    
-    // NPC拾取冷却相关方法
+      // NPC拾取冷却相关方法
     bool canPickupNPC() const;        // 检查是否可以拾取NPC（冷却状态）
     void startNPCPickupCooldown();    // 启动拾取冷却
+    qreal getNPCPickupCooldownProgress() const; // 获取冷却进度(0.0-1.0)
 
     // 记录起跳和离地信息
     void notifyTakeoff();
@@ -77,11 +77,15 @@ private:
 
 signals:
     void updatePlayerNPC(); // NPC增减操作时发出的信号
+    void npcPickupCooldownChanged(bool active, qreal progress); // NPC拾取冷却状态变化信号
+    void fallRecoveryChanged(bool active, qreal progress); // 摔倒恢复进度信号
 
 private slots:
     void onFallRecoveryTimeout(); // 摔倒恢复计时器回调
     void updateAnimation(); // 动画更新槽
     void onNPCPickupCooldownTimeout(); // NPC拾取冷却计时器回调
+    void updateNPCCooldownProgress(); // 更新NPC拾取冷却进度
+    void updateFallRecoveryProgress(); // 更新摔倒恢复进度
     void onUpdate(); // 更新玩家状态的槽函数
 
 private:
@@ -100,10 +104,9 @@ private:
     qreal m_takeoffRotation;   // 离地时的角度
     qreal m_flipRotation;      // 计算出的空翻总角度
     qreal m_cumulativeRotation; // 累计旋转角度
-    qreal m_lastFrameRotation;  // 上一帧的角度
-
-    // 摔倒恢复计时器
-    QTimer m_fallRecoveryTimer;    // 动画系统 - 新增部分
+    qreal m_lastFrameRotation;  // 上一帧的角度    // 摔倒恢复计时器
+    QTimer m_fallRecoveryTimer;
+    QTimer m_fallRecoveryProgressTimer; // 摔倒恢复进度更新定时器// 动画系统 - 新增部分
     QVector<QPixmap> m_animationFrames;  // 存储png1-png38的动画帧
     int m_currentFrame;                  // 当前播放的帧索引
     QTimer m_animationTimer;            // 动画播放定时器    
@@ -111,11 +114,12 @@ private:
     qreal m_imageScaleFactor;           // 图像缩放因子，用于调整显示大小    // NPC库存系统 - 使用优先队列实现堆（降序排列，高ID优先）
     std::priority_queue<int> m_npcInventory; // 存储NPC ID，自动按ID降序排列
     static const int MAX_INVENTORY_SIZE = 1; // 最大库存大小
-    
-    // NPC拾取冷却系统
+      // NPC拾取冷却系统
     QTimer m_npcPickupCooldownTimer; // NPC拾取冷却计时器
+    QTimer m_npcCooldownProgressTimer; // 冷却进度更新计时器
     bool m_npcPickupCooldownActive;  // 拾取冷却是否激活
     static const int NPC_PICKUP_COOLDOWN_MS = 3000; // 3秒冷却时间
+    static const int NPC_COOLDOWN_PROGRESS_UPDATE_MS = 50; // 进度更新间隔（20FPS）
     
     // 地形生成器引用，用于NPC丢弃功能
     TerrainGenerator* m_terrainGenerator;

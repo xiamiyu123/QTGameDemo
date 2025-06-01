@@ -52,11 +52,13 @@ Player::Player(QGraphicsItem *parent)
     setFocus();    // 初始化摔倒恢复计时器
     connect(&m_fallRecoveryTimer, &QTimer::timeout, this, &Player::onFallRecoveryTimeout);
     m_fallRecoveryTimer.setSingleShot(true);
-    
-    // 初始化NPC拾取冷却系统
+      // 初始化NPC拾取冷却系统
     m_npcPickupCooldownActive = false;
     connect(&m_npcPickupCooldownTimer, &QTimer::timeout, this, &Player::onNPCPickupCooldownTimeout);
     m_npcPickupCooldownTimer.setSingleShot(true);
+    
+    // 连接NPC状态更新信号和槽
+    connect(this, &Player::updatePlayerNPC, this, &Player::onUpdate);
     
     loadAnimationFrames();
 
@@ -447,8 +449,7 @@ void Player::pickupNPC(NPCEntity* npc) {
         DEBUG_LOG("Player::pickupNPC - Inventory is full");
         return;
     }
-    
-    // 获取NPC的ID并添加到库存
+      // 获取NPC的ID并添加到库存
     int npcId = npc->class_id();
     m_npcInventory.push(npcId);
     
@@ -457,6 +458,9 @@ void Player::pickupNPC(NPCEntity* npc) {
     
     // 标记NPC为待删除
     npc->markForDestroy();
+    
+    // 触发玩家NPC状态更新信号
+    emit updatePlayerNPC();
 }
 
 void Player::dropNPC() {
@@ -541,9 +545,11 @@ void Player::dropNPC(TerrainGenerator* terrainGenerator) {
         terrainGenerator->m_npcs.append(newNPC.release());
           DEBUG_LOG(QString("Successfully spawned NPC with ID %1 at position (%2, %3)")
                   .arg(lowestPriorityId).arg(spawnPosition.x()).arg(spawnPosition.y()));
-        
-        // 启动拾取冷却 - 玩家失去NPC后3秒内不能再拾起NPC
+          // 启动拾取冷却 - 玩家失去NPC后3秒内不能再拾起NPC
         startNPCPickupCooldown();
+        
+        // 触发玩家NPC状态更新信号
+        emit updatePlayerNPC();
     } else {
         DEBUG_LOG(QString("Failed to create NPC with ID %1").arg(lowestPriorityId));
     }
@@ -574,4 +580,13 @@ void Player::startNPCPickupCooldown() {
 void Player::onNPCPickupCooldownTimeout() {
     m_npcPickupCooldownActive = false;
     DEBUG_LOG("NPC pickup cooldown ended - can pickup NPCs again");
+}
+
+void Player::onUpdate() {
+    // TODO: 在这里实现玩家状态更新逻辑
+    // 当NPC库存发生变化时，可以在这里处理相关的状态更新
+    // 例如：更新UI显示、改变玩家属性、触发特殊效果等
+    
+    DEBUG_LOG(QString("Player NPC status updated - Current inventory size: %1")
+              .arg(getInventorySize()));
 }

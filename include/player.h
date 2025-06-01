@@ -71,15 +71,18 @@ private:
     // 摔倒相关方法
     void fall();  // 进入摔倒状态
     void recoverFromFall(); // 从摔倒中恢复
-    bool canResistFall(qreal angleDeviation) const; // 是否能抵抗摔倒
-
-    // 动画相关方法
+    bool canResistFall(qreal angleDeviation) const; // 是否能抵抗摔倒    // 动画相关方法
     void loadAnimationFrames(); // 加载动画帧
     int getCurrentAnimationRange() const; // 根据当前状态返回应该显示的帧索引
+
+signals:
+    void updatePlayerNPC(); // NPC增减操作时发出的信号
+
 private slots:
     void onFallRecoveryTimeout(); // 摔倒恢复计时器回调
     void updateAnimation(); // 动画更新槽
     void onNPCPickupCooldownTimeout(); // NPC拾取冷却计时器回调
+    void onUpdate(); // 更新玩家状态的槽函数
 
 private:
     // 基本状态

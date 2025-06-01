@@ -37,6 +37,7 @@ public:
     // 设置旋转角度
     void setRotation(qreal angle);    // 获取物理组件
     PhysicsComponent* getPhysicsComponent() { return m_physicsComponent; }
+    qreal getRotation() const { return rotation; }
 
 protected:
     qreal rotation; // 旋转角度(角度制)

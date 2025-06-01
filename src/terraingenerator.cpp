@@ -272,13 +272,14 @@ void TerrainGenerator::generateChunk(int chunkIndex) {
         // 检查斜率是否适合生成NPC
         qreal npcSlope = getTerrainSlope(globalNpcX);
         if (qAbs(npcSlope) <= MAX_SLOPE_FOR_ROCK) { // 使用与石头相同的斜率限制
-            // 使用与Player相同的定位逻辑：terrainHeight - 完整高度
-            qreal npcY = getTerrainHeight(globalNpcX) - 30; // 统一使用30像素偏移，与NPC高度一致
-            
             // 决定生成企鹅还是雪怪 (4:1比例)
             // 每5个chunk为一个周期，其中4个生成企鹅，1个生成雪怪
             int cyclePosition = chunkIndex % 5;
             bool shouldGenerateYeti = (cyclePosition == 0); // 每5个chunk的第1个生成雪怪
+            
+            // 根据NPC类型调整Y坐标（雪怪更高，需要更大的偏移）
+            qreal npcHeight = shouldGenerateYeti ? 60.0 : 30.0; // 雪怪高度60，企鹅高度30
+            qreal npcY = getTerrainHeight(globalNpcX) - npcHeight; // 将NPC底部对齐地面
             
             if (shouldGenerateYeti) {
                 // 创建雪怪NPC
@@ -492,8 +493,7 @@ void TerrainGenerator::generateChunkThreadSafe(int chunkIndex)
         rockData.angle = angle;        rockDataList.append(rockData);
         rockXs.append(x); // 记录本次石头x
     }
-    
-    // 生成企鹅NPC的位置数据（不创建实体）
+      // 生成NPC的位置数据（不创建实体）- 支持企鹅和雪人4:1比例
     QVector<NPCGenerationData> npcDataList;
     if (chunkIndex > 0) { // 跳过第一个地形块
         // 随机选择生成位置（块内）
@@ -519,15 +519,23 @@ void TerrainGenerator::generateChunkThreadSafe(int chunkIndex)
             if (qAbs(slope) <= MAX_SLOPE_FOR_ROCK) {
                 // 计算高度（线性插值）
                 qreal height = y1 + slope * (npcX - x1);
-                qreal npcY = height - 15; // NPC高度的一半
                 qreal globalNpcX = chunkIndex * CHUNK_WIDTH + npcX;
+                
+                // 决定生成企鹅还是雪怪 (4:1比例)
+                // 每5个chunk为一个周期，其中4个生成企鹅，1个生成雪怪
+                int cyclePosition = chunkIndex % 5;
+                bool shouldGenerateYeti = (cyclePosition == 0); // 每5个chunk的第1个生成雪怪
+                
+                // 根据NPC类型调整Y坐标（雪怪更高，需要更大的偏移）
+                qreal npcHeight = shouldGenerateYeti ? 60.0 : 30.0; // 雪怪高度60，企鹅高度30
+                qreal npcY = height - npcHeight; // 将NPC底部对齐地面
                 
                 // 保存NPC数据
                 NPCGenerationData npcData;
                 npcData.localX = npcX;
                 npcData.globalX = globalNpcX;
                 npcData.y = npcY;
-                npcData.type = NPCEntity::NPCType::Ground; // 企鹅是地面类型
+                npcData.npcId = shouldGenerateYeti ? 2 : 1; // 2=雪人，1=企鹅
                 npcDataList.append(npcData);
             }
         }
@@ -602,28 +610,37 @@ void TerrainGenerator::addChunkToScene(int chunkIndex)
           // 处理完后移除石头数据
         m_generatedRocks.remove(chunkIndex);
     }
-    
-    // 根据预先计算的数据创建NPC实体
+      // 根据预先计算的数据创建NPC实体
     if (m_generatedNPCs.contains(chunkIndex)) {
         const QVector<NPCGenerationData>& npcDataList = m_generatedNPCs[chunkIndex];
         for (const NPCGenerationData& npcData : npcDataList) {
-            // 目前只创建企鹅NPC
-            auto penguin = NPCFactory::createPenguinNPC(QPointF(npcData.globalX, npcData.y));
-            NPCEntity* penguinPtr = penguin.release(); // 释放unique_ptr的所有权
+            NPCEntity* npcPtr = nullptr;            // 根据NPC ID创建对应的NPC
+            if (npcData.npcId == 2) {
+                // 创建雪人NPC（ID=2）
+                auto yeti = NPCFactory::createYetiNPC(QPointF(npcData.globalX, npcData.y));
+                npcPtr = yeti.release();
+                DEBUG_LOG(QString("Created yeti NPC at chunk %1, position (%2, %3)")
+                          .arg(chunkIndex).arg(npcData.globalX).arg(npcData.y));
+            } else {
+                // 创建企鹅NPC（ID=1或其他默认情况）
+                auto penguin = NPCFactory::createPenguinNPC(QPointF(npcData.globalX, npcData.y));
+                npcPtr = penguin.release();
+                DEBUG_LOG(QString("Created penguin NPC at chunk %1, position (%2, %3)")
+                          .arg(chunkIndex).arg(npcData.globalX).arg(npcData.y));
+            }
             
-            // 设置NPC初始状态
-            penguinPtr->setOnGround(true);
-            penguinPtr->setActive(false); // 初始状态不激活，等待进入画面
-            
-            // 添加到场景和存储列表
-            m_scene->addItem(penguinPtr);
-            m_npcs.append(penguinPtr);
-            
-            // 注册到物理系统
-            PhysicsSystem::instance().registerObject(penguinPtr);
-            
-            DEBUG_LOG(QString("Created penguin NPC at chunk %1, position (%2, %3)")
-                      .arg(chunkIndex).arg(npcData.globalX).arg(npcData.y));
+            if (npcPtr) {
+                // 设置NPC初始状态
+                npcPtr->setOnGround(true);
+                npcPtr->setActive(false); // 初始状态不激活，等待进入画面
+                
+                // 添加到场景和存储列表
+                m_scene->addItem(npcPtr);
+                m_npcs.append(npcPtr);
+                
+                // 注册到物理系统
+                PhysicsSystem::instance().registerObject(npcPtr);
+            }
         }
         
         // 处理完后移除NPC数据
@@ -707,15 +724,19 @@ qreal TerrainGenerator::getTerrainSlope(qreal x) const {
 
     if (i <= 0 || i >= points.size()) {
         return 0;
-    }
-
-    // 计算斜率
+    }    // 计算斜率
     qreal x1 = points[i - 1].x();
     qreal y1 = points[i - 1].y();
     qreal x2 = points[i].x();
     qreal y2 = points[i].y();
 
-    return (y2 - y1) / (x2 - x1);
+    // 避免除以零错误
+    qreal dx = x2 - x1;
+    if (qAbs(dx) < 1e-9) {  // 使用小的epsilon值检查除以零
+        return 0.0;  // 如果两点x坐标几乎相同，返回水平斜率
+    }
+
+    return (y2 - y1) / dx;
 }
 
 // 在析构函数中停止线程

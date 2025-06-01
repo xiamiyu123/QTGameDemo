@@ -30,6 +30,9 @@ void YetiNPC::initializeNPC()
     setMovementSpeed(YETI_SPEED);
     setActive(false); // 初始状态不激活，等待进入画面
     
+    // 确保重力为0，防止漂浮在空中
+    getPhysicsComponent()->setGravity(0);
+    
     DEBUG_LOG("YetiNPC initialized");
 }
 

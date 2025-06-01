@@ -26,7 +26,7 @@ struct NPCGenerationData {
     qreal localX;      // 块内的X坐标
     qreal globalX;     // 全局X坐标
     qreal y;           // Y坐标
-    NPCEntity::NPCType type; // NPC类型
+    int npcId;         // NPC类型ID（1=企鹅，2=雪人）
 };
 
 class TerrainGenerator : public QObject

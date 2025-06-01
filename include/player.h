@@ -71,7 +71,7 @@ private:
     // 摔倒相关方法
     void fall();  // 进入摔倒状态
     void recoverFromFall(); // 从摔倒中恢复
-    bool canResistFall(qreal angleDeviation) const; // 是否能抵抗摔倒    // 动画相关方法
+    bool canResistFall(qreal angleDeviation); // 是否能抵抗摔倒（可消耗NPC进行抗性）    // 动画相关方法
     void loadAnimationFrames(); // 加载动画帧
     int getCurrentAnimationRange() const; // 根据当前状态返回应该显示的帧索引
 
@@ -93,6 +93,8 @@ private:
     qreal rotateSpeed;
     qreal m_moveSpeed;
     qreal m_jumpForce;
+
+    bool consumeNPCForDamageResistance(); // 消耗NPC进行伤害抵抗
 
     // 空翻角度记录
     qreal m_takeoffRotation;   // 离地时的角度

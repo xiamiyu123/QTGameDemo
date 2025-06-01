@@ -332,6 +332,12 @@ void Player::updateRotate(TerrainGenerator* GTerrainGenerator) {
 void Player::fall() {
     if (is_fallen) return;
 
+    // 检查是否可以通过消耗NPC来抵抗摔倒
+    if (canResistFall(0.0)) { // 传入0作为角度偏差参数
+        DEBUG_LOG("Player successfully resisted fall");
+        return; // 成功抵抗，不摔倒
+    }
+
     is_fallen = true;
     DEBUG_LOG(QString("Player has fallen! Flip rotation was: %1").arg(QString::number(m_flipRotation)));
 
@@ -350,8 +356,19 @@ void Player::onFallRecoveryTimeout() {
     recoverFromFall();
 }
 
-bool Player::canResistFall(qreal angleDeviation) const {
-    // 未来可扩展为返回true的条件
+bool Player::canResistFall(qreal angleDeviation) {
+    Q_UNUSED(angleDeviation); // 暂时不使用角度偏差参数
+    
+    // 检查是否有NPC库存可以用来抵抗摔倒
+    if (hasNPCInInventory()) {
+        // 消耗最低优先级的NPC来抵抗摔倒
+        if (consumeNPCForDamageResistance()) {
+            DEBUG_LOG("Player resisted fall by consuming an NPC");
+            return true;
+        }
+    }
+    
+    // 未来可扩展为其他抵抗条件
     return false;
 }
 
@@ -589,4 +606,24 @@ void Player::onUpdate() {
     
     DEBUG_LOG(QString("Player NPC status updated - Current inventory size: %1")
               .arg(getInventorySize()));
+}
+
+// === NPC伤害抵抗系统实现 ===
+
+bool Player::consumeNPCForDamageResistance() {
+    if (m_npcInventory.empty()) {
+        DEBUG_LOG("Player::consumeNPCForDamageResistance - No NPCs in inventory");
+        return false;
+    }
+    
+    if (!m_terrainGenerator) {
+        DEBUG_LOG("Player::consumeNPCForDamageResistance - TerrainGenerator not available");
+        return false;
+    }
+    
+    // 复用dropNPC方法来丢弃最低优先级的NPC
+    DEBUG_LOG("Player using NPC for damage resistance - dropping NPC");
+    dropNPC(m_terrainGenerator);
+    
+    return true;
 }

@@ -108,6 +108,9 @@ signals:
     // // 新增空翻成功信号
     void backFlipSuccess(int points, const QString& message);
 
+    // 摔倒时重置得分倍率的信号
+    void resetAwardMultipliers();
+
 protected:
     // 根据输入计算目标速度
     qreal getTargetVelocityX() const override;

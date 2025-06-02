@@ -77,6 +77,8 @@ private:
     int score;                // 玩家当前得分
     double award_speed;       // 速度奖励倍数
     double award_score;       // 分数奖励倍数
+    // 重置奖励倍率
+    void resetAwardMultipliers();
 
     qreal m_lastScoredPositionX;  // 上次得分时玩家的X位置
     qreal m_scoreDistance;        // 每多少距离得分一次

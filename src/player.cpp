@@ -436,6 +436,9 @@ void Player::fall() {
 
     // 发出摔倒恢复开始信号
     emit fallRecoveryChanged(true, 0.0);
+
+    // 触发重置倍率信号
+    emit resetAwardMultipliers();
 }
 
 void Player::recoverFromFall() {

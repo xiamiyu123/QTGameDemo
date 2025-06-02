@@ -551,16 +551,12 @@ bool UIManager::isUIManagerObject(QGraphicsItem* item) const
     // 检查是否为暂停文本
     if (item == m_pauseText) {
         return true;
-    }
-      // 检查是否为按钮的代理项 (QGraphicsProxyWidget)
+    }      // 检查是否为按钮的代理项 (QGraphicsProxyWidget)
     QGraphicsProxyWidget* proxyWidget = qgraphicsitem_cast<QGraphicsProxyWidget*>(item);
     if (proxyWidget) {
         QWidget* widget = proxyWidget->widget();
-        if (widget == m_pauseButton || widget == m_warningButton || widget == m_npcCooldownContainer) {
-        if (widget == m_pauseButton ||
-            widget == m_warningButton||
-            widget == m_scoreLabel ||
-            widget == m_scorePopupLabel) {
+        if (widget == m_pauseButton || widget == m_warningButton || widget == m_npcCooldownContainer || 
+            widget == m_scoreLabel || widget == m_scorePopupLabel) {
             return true;
         }
     }

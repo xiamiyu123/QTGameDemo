@@ -6,6 +6,7 @@
 #include "npcentity.h"
 #include <vector>
 
+#include "gamescene.h"
 #include "terraingenerator.h"
 
 // 定义静态常量
@@ -302,10 +303,8 @@ void Player::checkLanding(qreal terrainAngle) {
             // 检查成功空翻条件: 旋转超过200度并且没有摔倒
             if (m_flipRotation >= 200.0) {
                 // 发送空翻成功信号
-                emit backflipSuccess(200, "FLIP!");
+                emit backFlipSuccess(200, "FLIP!");
                 DEBUG_LOG("空翻成功! 奖励 +200 分");
-                // 启动加速效果
-                startFlipBoost();
 
                 // 重置累计旋转角度，避免再次触发
                 m_cumulativeRotation = 0.0;
@@ -576,7 +575,7 @@ void Player::startFlipBoost()
     m_isFlipBoosting = true;
 
     // 启动计时器，2秒后关闭加速
-    m_flipBoostTimer->start(2000); // 2000毫秒 = 2秒
+    m_flipBoostTimer->start(1000);
 
     DEBUG_LOG("空翻加速激活，持续2秒");
 }

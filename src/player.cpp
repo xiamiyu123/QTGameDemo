@@ -115,15 +115,30 @@ Player::Player(QGraphicsItem *parent)
 
     // 设置动画定时器
     connect(&m_animationTimer, &QTimer::timeout, this, &Player::updateAnimation);
-    m_animationTimer.start(100); // 每100毫秒更新一帧，约10FPS
-
-    // 初始化空翻加速计时器
+    m_animationTimer.start(100); // 每100毫秒更新一帧，约10FPS    // 初始化空翻加速计时器
     m_flipBoostTimer = new QTimer(this);
     m_flipBoostTimer->setSingleShot(true);
     connect(m_flipBoostTimer, &QTimer::timeout, this, &Player::onFlipBoostTimerTimeout);
+    
+    // 初始化空翻加速进度更新计时器
+    m_flipBoostProgressTimer = new QTimer(this);
+    m_flipBoostProgressTimer->setSingleShot(false); // 重复触发
+    connect(m_flipBoostProgressTimer, &QTimer::timeout, this, &Player::updateFlipBoostProgress);
 }
 
 Player::~Player() {
+    // 释放空翻加速计时器
+    if (m_flipBoostTimer) {
+        delete m_flipBoostTimer;
+        m_flipBoostTimer = nullptr;
+    }
+    
+    // 释放空翻加速进度更新计时器
+    if (m_flipBoostProgressTimer) {
+        delete m_flipBoostProgressTimer;
+        m_flipBoostProgressTimer = nullptr;
+    }
+    
     // 父类析构函数会处理注销和组件删除
 }
 void Player::loadAnimationFrames() {
@@ -576,7 +591,13 @@ void Player::startFlipBoost()
     m_isFlipBoosting = true;
 
     // 启动计时器，2秒后关闭加速
-    m_flipBoostTimer->start(2000); // 2000毫秒 = 2秒
+    m_flipBoostTimer->start(FLIP_BOOST_TIME_MS); // 2000毫秒 = 2秒
+
+    // 启动进度更新计时器
+    m_flipBoostProgressTimer->start(FLIP_BOOST_PROGRESS_UPDATE_MS);
+    
+    // 发出空翻加速开始信号，初始进度为0
+    emit flipBoostChanged(true, 0.0);
 
     DEBUG_LOG("空翻加速激活，持续2秒");
 }
@@ -584,6 +605,13 @@ void Player::startFlipBoost()
 void Player::onFlipBoostTimerTimeout()
 {
     m_isFlipBoosting = false;
+    
+    // 停止进度更新计时器
+    m_flipBoostProgressTimer->stop();
+    
+    // 发出空翻加速结束信号
+    emit flipBoostChanged(false, 0.0);
+    
     DEBUG_LOG("空翻加速效果结束");
 }
 
@@ -1112,4 +1140,23 @@ void Player::dropCarriedPenguin() {
 
 int Player::getCarriedPenguinCount() const {
     return static_cast<int>(m_penguinCarryInventory.size());
+}
+
+// 空翻加速进度条更新函数
+void Player::updateFlipBoostProgress() {
+    if (!m_isFlipBoosting) {
+        return; // 如果没有空翻加速，不需要更新进度
+    }
+
+    // 计算剩余时间
+    int remainingTime = m_flipBoostTimer->remainingTime();
+
+    // 计算进度（0.0 表示刚开始，1.0 表示即将结束）
+    qreal progress = 1.0 - (static_cast<qreal>(remainingTime) / static_cast<qreal>(FLIP_BOOST_TIME_MS));
+
+    // 确保进度在有效范围内
+    progress = qBound(0.0, progress, 1.0);
+
+    // 发出进度更新信号
+    emit flipBoostChanged(true, progress);
 }

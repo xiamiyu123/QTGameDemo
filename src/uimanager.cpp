@@ -20,11 +20,12 @@ UIManager::UIManager(QGraphicsScene* scene, QObject* parent)
     , m_scene(scene)
     , m_pauseText(nullptr)
     , m_pauseButton(nullptr)
-    , m_pauseOverlay(nullptr)    , m_warningButton(nullptr)
-    , m_npcCooldownContainer(nullptr)
+    , m_pauseOverlay(nullptr)    , m_warningButton(nullptr)    , m_npcCooldownContainer(nullptr)
     , m_npcCooldownProgress(nullptr)
     , m_fallRecoveryContainer(nullptr)
     , m_fallRecoveryProgress(nullptr)
+    , m_flipBoostContainer(nullptr)
+    , m_flipBoostProgress(nullptr)
     , m_scoreLabel(nullptr)
     , m_scorePopupLabel(nullptr)
     , m_popupTimer(nullptr)
@@ -53,6 +54,9 @@ void UIManager::initialize()
     // 创建摔倒恢复进度条
     createFallRecoveryElements();
 
+    // 创建空翻加速进度条
+    createFlipBoostElements();
+
     // 更新初始UI位置
     updateUI();
 }
@@ -74,17 +78,24 @@ void UIManager::cleanup()
         m_npcCooldownContainer->setParent(nullptr);
         delete m_npcCooldownContainer;
         m_npcCooldownContainer = nullptr;
-    }
-
-    if (m_fallRecoveryContainer) {
+    }    if (m_fallRecoveryContainer) {
         m_fallRecoveryContainer->setParent(nullptr);
         delete m_fallRecoveryContainer;
         m_fallRecoveryContainer = nullptr;
-    }      // 场景会自动处理其中的项目
+    }
+
+    if (m_flipBoostContainer) {
+        m_flipBoostContainer->setParent(nullptr);
+        delete m_flipBoostContainer;
+        m_flipBoostContainer = nullptr;
+    }
+        
+    // 场景会自动处理其中的项目
     m_pauseText = nullptr;
     m_pauseOverlay = nullptr;
     m_npcCooldownProgress = nullptr;
     m_fallRecoveryProgress = nullptr;
+    m_flipBoostProgress = nullptr;
 }
 
 void UIManager::createPauseElements()
@@ -161,6 +172,29 @@ void UIManager::createFallRecoveryElements()
     );
     m_fallRecoveryProgress->setGeometry(1, 1, 198, 6); // 留出边框空间
     m_fallRecoveryProgress->hide();
+}
+
+void UIManager::createFlipBoostElements()
+{
+    // 创建空翻加速进度条容器（背景）
+    m_flipBoostContainer = new QWidget();
+    m_flipBoostContainer->setFixedSize(200, 8);
+    m_flipBoostContainer->setStyleSheet(
+        "background-color: rgba(50, 50, 50, 150);"
+        "border: 1px solid white;"
+        "border-radius: 4px;"
+    );
+    m_flipBoostContainer->hide();
+
+    // 创建空翻加速进度条（前景）- 蓝色
+    m_flipBoostProgress = new QWidget(m_flipBoostContainer);
+    m_flipBoostProgress->setStyleSheet(
+        "background-color: rgb(13, 110, 253);"  // 蓝色进度条
+        "border: none;"
+        "border-radius: 3px;"
+    );
+    m_flipBoostProgress->setGeometry(1, 1, 198, 6); // 留出边框空间
+    m_flipBoostProgress->hide();
 }
 
 void UIManager::createScoreLabel()
@@ -257,9 +291,7 @@ void UIManager::updateUI()
             barWidth,
             barHeight
         );
-    }
-
-    // 更新摔倒恢复进度条位置（在NPC进度条上方）
+    }    // 更新摔倒恢复进度条位置（在NPC进度条上方）
     if (m_fallRecoveryContainer) {
         m_fallRecoveryContainer->setParent(view->viewport());
         QRect vp = view->viewport()->rect();
@@ -267,6 +299,21 @@ void UIManager::updateUI()
         int barHeight = 8;
         int bottomMargin = 80; // 距离底部的距离，在NPC进度条原位置
         m_fallRecoveryContainer->setGeometry(
+            (vp.width() - barWidth) / 2,  // 水平居中
+            vp.height() - bottomMargin,   // 距离底部
+            barWidth,
+            barHeight
+        );
+    }
+    
+    // 更新空翻加速进度条位置（在摔倒恢复进度条上方）
+    if (m_flipBoostContainer) {
+        m_flipBoostContainer->setParent(view->viewport());
+        QRect vp = view->viewport()->rect();
+        int barWidth = 200;
+        int barHeight = 8;
+        int bottomMargin = 120; // 距离底部的距离，在摔倒恢复进度条上方
+        m_flipBoostContainer->setGeometry(
             (vp.width() - barWidth) / 2,  // 水平居中
             vp.height() - bottomMargin,   // 距离底部
             barWidth,
@@ -408,6 +455,31 @@ void UIManager::showFallRecovery(bool show, qreal progress)
     }
 }
 
+void UIManager::showFlipBoost(bool show, qreal progress)
+{
+    if (!m_flipBoostContainer || !m_flipBoostProgress) return;
+
+    if (show) {
+        // 确保进度条已经添加到视口
+        QGraphicsView* view = getView();
+        if (view) {
+            m_flipBoostContainer->setParent(view->viewport());
+            updateUI(); // 更新位置
+        }
+
+        // 显示容器
+        m_flipBoostContainer->show();
+
+        // 计算进度条宽度（剩余时间）
+        qreal progressWidth = 198 * (1.0 - progress); // progress是0-1之间的值，表示已经过的时间比例
+        m_flipBoostProgress->setFixedWidth(qMax(0.0, progressWidth));
+        m_flipBoostProgress->show();
+    }
+    else {
+        m_flipBoostContainer->hide();
+        m_flipBoostProgress->hide();
+    }
+}
 
 void UIManager::showGameOverDialog(int score, const std::function<void()>& onRetry, const std::function<void()>& onExit)
 {

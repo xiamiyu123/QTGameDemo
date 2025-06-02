@@ -475,6 +475,13 @@ bool Player::canResistFall(qreal angleDeviation) {
         }
     }
 
+    //检查是否处于空翻后的加速状态
+    if (m_isFlipBoosting) {
+        // 如果正在空翻加速中，允许抵抗摔倒
+        DEBUG_LOG("Player resisted fall by being in flip boosting state");
+        return true;
+    }
+
     // 未来可扩展为其他抵抗条件
     return false;
 }

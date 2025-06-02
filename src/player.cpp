@@ -3,11 +3,43 @@
 #include <QPen>
 #include "debuglogger.h"
 #include <qpainter.h>
+#include "npcentity.h"
+#include <vector>
 
 #include "terraingenerator.h"
 
 // 定义静态常量
 const qreal Player::MAX_LANDING_ANGLE_DEVIATION = 45.0; // 45度最大偏差
+
+// 企鹅形态的属性加成配置
+const Player::NPCFormModifiers Player::PENGUIN_MODIFIERS = {
+    1.2,    // 移动速度 x1.2
+    1.1,    // 跳跃速度 x1.1
+    1.2,    // 空翻速度 x1.2
+    0,      // 库存容量加成为0（保持基础值）
+    true,   // 可以空翻
+    0       // 企鹅携带容量为0
+};
+
+// 雪怪形态1的属性加成配置（初始骑乘）
+const Player::NPCFormModifiers Player::YETI_FORM1_MODIFIERS = {
+    1.5,    // 移动速度 x1.5 (+50%)
+    1.2,    // 跳跃速度 x1.2
+    1.0,    // 空翻速度 x1.0（不变，但被禁用）
+    0,      // 库存容量加成为0
+    false,  // 不可以空翻
+    0       // 不可以携带企鹅（雪怪形态1没有额外企鹅存储位）
+};
+
+// 雪怪形态2的属性加成配置（被撞击后）
+const Player::NPCFormModifiers Player::YETI_FORM2_MODIFIERS = {
+    1.3,    // 移动速度 x1.3 (+30%)
+    1.1,    // 跳跃速度 x1.1
+    1.0,    // 空翻速度 x1.0（正常）
+    0,      // 库存容量加成为0
+    true,   // 可以空翻
+    1       // 可以携带1只企鹅
+};
 
 // 辅助函数：将角度归一化到[-180, 180]范围
 static qreal normalizeAngle(qreal angle) {
@@ -32,9 +64,20 @@ Player::Player(QGraphicsItem *parent)
       m_takeoffRotation(0.0),
       m_flipRotation(0.0),
       m_cumulativeRotation(0.0),
-      m_lastFrameRotation(0.0),
-      m_imageScaleFactor(1) { // 添加图像缩放因子
-
+      m_lastFrameRotation(0.0),      m_imageScaleFactor(1), // 添加图像缩放因子
+      m_terrainGenerator(nullptr), // 初始化地形生成器指针
+      m_currentForm(NPCForm::Normal), // 初始化为普通形态
+      m_baseMoveSpeed(500),
+      m_baseJumpForce(-300),
+      m_baseFlipSpeed(3),
+      m_baseInventoryCapacity(1),
+      m_currentMoveSpeed(500),
+      m_currentJumpForce(-300),
+      m_currentFlipSpeed(3),
+      m_currentInventoryCapacity(1),
+      m_isRidingYeti(false), // 初始化为未骑乘雪怪
+      m_yetiForm(NPCForm::Normal) // 初始化雪怪形态为普通
+{
     setZValue(-2);
 
     // 设置玩家外观
@@ -42,15 +85,29 @@ Player::Player(QGraphicsItem *parent)
     setPen(QPen(Qt::black, 2));
 
     // 设置实体类型
-    setEntityType(EntityType::Player);
-
-    // 允许接收键盘焦点
+    setEntityType(EntityType::Player);    // 允许接收键盘焦点
     setFlag(QGraphicsItem::ItemIsFocusable);
     setFocus();
 
     // 初始化摔倒恢复计时器
     connect(&m_fallRecoveryTimer, &QTimer::timeout, this, &Player::onFallRecoveryTimeout);
     m_fallRecoveryTimer.setSingleShot(true);
+      // 初始化摔倒恢复进度更新定时器
+    connect(&m_fallRecoveryProgressTimer, &QTimer::timeout, this, &Player::updateFallRecoveryProgress);
+    m_fallRecoveryProgressTimer.setSingleShot(false); // 重复触发
+
+    // 初始化NPC拾取冷却系统
+    m_npcPickupCooldownActive = false;
+    connect(&m_npcPickupCooldownTimer, &QTimer::timeout, this, &Player::onNPCPickupCooldownTimeout);
+    m_npcPickupCooldownTimer.setSingleShot(true);
+
+    // 初始化NPC冷却进度更新定时器
+    connect(&m_npcCooldownProgressTimer, &QTimer::timeout, this, &Player::updateNPCCooldownProgress);
+    m_npcCooldownProgressTimer.setSingleShot(false); // 重复触发
+
+    // 连接NPC状态更新信号和槽
+    connect(this, &Player::updatePlayerNPC, this, &Player::onUpdate);
+
     loadAnimationFrames();
 
     // 设置动画定时器
@@ -136,6 +193,20 @@ void Player::keyPressEvent(QKeyEvent *event) {
             DEBUG_LOG("Space key pressed");
         // 处理跳跃
             jump();
+            break;        case Qt::Key_X:
+            // 智能丢弃NPC：优先丢弃携带的企鹅，然后丢弃主库存中的低优先级NPC
+            if (m_isRidingYeti && !m_penguinCarryInventory.empty()) {
+                // 骑乘雪怪时，优先丢弃携带的企鹅
+                dropCarriedPenguin();
+                DEBUG_LOG("Dropped carried penguin while riding Yeti");
+            } else if (hasNPCInInventory() && m_terrainGenerator) {
+                // 丢弃主库存中的NPC
+                dropNPC(m_terrainGenerator);
+            } else if (!hasNPCInInventory() && m_penguinCarryInventory.empty()) {
+                DEBUG_LOG("No NPCs in inventory to drop");
+            } else {
+                DEBUG_LOG("TerrainGenerator not available for NPC dropping");
+            }
             break;
     }
 }
@@ -225,7 +296,15 @@ void Player::checkLanding(qreal terrainAngle) {
 
 void Player::checkHitRock(RockEntity* rock) {
     if (!rock) return;
-    // 玩家摔倒
+
+    // 如果玩家正在骑乘雪怪形态1，先转换为形态2
+    if (m_isRidingYeti && m_yetiForm == NPCForm::YetiForm1) {
+        transformYetiForm();
+        DEBUG_LOG("Yeti transformed from Form1 to Form2 due to rock collision");
+        return; // 雪怪形态1遇到碰撞时只转换形态，不摔倒
+    }
+
+    // 其他情况下正常处理摔倒
     fall();
     // 从场景移除石头、从物理系统注销和删除石头对象的操作
     // 现在由 GameScene::handlePhysicsObjectCollision 处理，以支持延迟删除。
@@ -256,15 +335,13 @@ void Player::updateRotate(TerrainGenerator* GTerrainGenerator) {
         return;
     }
 
-    qreal oldRotation = rotation;
-
-    // 当在空中且按下Space键时，旋转,若没按下，则缓慢回到地形角度
+    qreal oldRotation = rotation;    // 当在空中且按下Space键时，旋转,若没按下，则缓慢回到地形角度
     if (isOnGround() || !keySpace) {
         // 计算当前角度归一化值（角度/360）
         qreal normalizedAngle = rotation / 360.0;
 
-        // 目标角度固定为60度
-        qreal targetAngle = 60.0;
+        // 目标角度：骑乘雪怪时为0度，其他情况为60度
+        qreal targetAngle = m_isRidingYeti ? 0.0 : 60.0;
 
         // 以0.5度的角速度平滑过渡到目标角度
         qreal rotateSpeed = 0.5;
@@ -284,10 +361,16 @@ void Player::updateRotate(TerrainGenerator* GTerrainGenerator) {
 
         setRotation(angle);
     } else {
-        //如果在空中且按下Space键，则以成员变量的角速度顺时针旋转
-        qreal angle = rotation;
-        angle -= rotateSpeed; // 改为减法，实现顺时针旋转
-        setRotation(angle);
+        // 如果在空中且按下Space键，检查是否可以空翻
+        if (canFlip()) {
+            // 以成员变量的角速度顺时针旋转
+            qreal angle = rotation;
+            angle -= rotateSpeed; // 改为减法，实现顺时针旋转
+            setRotation(angle);
+        } else {
+            // 雪怪形态1等不能空翻的状态，保持当前角度
+            // DEBUG_LOG("Flip is disabled in current form");
+        }
     }
 
     // 在空中时累加旋转角度变化
@@ -314,6 +397,12 @@ void Player::updateRotate(TerrainGenerator* GTerrainGenerator) {
 void Player::fall() {
     if (is_fallen) return;
 
+    // 检查是否可以通过消耗NPC来抵抗摔倒
+    if (canResistFall(0.0)) { // 传入0作为角度偏差参数
+        DEBUG_LOG("Player successfully resisted fall");
+        return; // 成功抵抗，不摔倒
+    }
+
     is_fallen = true;
     DEBUG_LOG(QString("Player has fallen! Flip rotation was: %1").arg(QString::number(m_flipRotation)));
 
@@ -322,6 +411,12 @@ void Player::fall() {
 
     // // 发射摔倒信号（测试用）
     // emit playerFallen(100, "FALL！");
+
+    // 启动摔倒恢复进度更新定时器
+    m_fallRecoveryProgressTimer.start(50); // 每50毫秒更新一次进度
+
+    // 发出摔倒恢复开始信号
+    emit fallRecoveryChanged(true, 0.0);
 }
 
 void Player::recoverFromFall() {
@@ -332,11 +427,36 @@ void Player::recoverFromFall() {
 }
 
 void Player::onFallRecoveryTimeout() {
+    // 停止摔倒恢复进度更新定时器
+    m_fallRecoveryProgressTimer.stop();
+
+    // 发出摔倒恢复结束信号
+    emit fallRecoveryChanged(false, 0.0);
+
     recoverFromFall();
 }
 
-bool Player::canResistFall(qreal angleDeviation) const {
-    // 未来可扩展为返回true的条件
+bool Player::canResistFall(qreal angleDeviation) {
+    Q_UNUSED(angleDeviation); // 暂时不使用角度偏差参数
+
+    // 优先检查是否有携带的企鹅可以用来抵抗摔倒
+    if (!m_penguinCarryInventory.empty()) {
+        if (consumePenguinForDamageResistance()) {
+            DEBUG_LOG("Player resisted fall by consuming a carried penguin");
+            return true;
+        }
+    }
+
+    // 检查是否有主库存NPC可以用来抵抗摔倒
+    if (hasNPCInInventory()) {
+        // 消耗最低优先级的NPC来抵抗摔倒
+        if (consumeNPCForDamageResistance()) {
+            DEBUG_LOG("Player resisted fall by consuming an NPC from main inventory");
+            return true;
+        }
+    }
+
+    // 未来可扩展为其他抵抗条件
     return false;
 }
 
@@ -359,6 +479,9 @@ qreal Player::imageScaleFactor() const {
 }
 
 void Player::playerUpdate(TerrainGenerator* GTerrainGenerator) {
+    // 更新地形生成器引用
+    m_terrainGenerator = GTerrainGenerator;
+
     // 处理旋转
     updateRotate(GTerrainGenerator);
 
@@ -368,12 +491,14 @@ void Player::playerUpdate(TerrainGenerator* GTerrainGenerator) {
 void Player::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget)
 {
     Q_UNUSED(option)
-    Q_UNUSED(widget)
-
-    // 如果动画已加载且有帧数据，绘制当前动画帧
+    Q_UNUSED(widget)    // 如果动画已加载且有帧数据，绘制当前动画帧
     if (m_animationLoaded && !m_animationFrames.isEmpty() &&
-        m_currentFrame >= 0 && m_currentFrame < m_animationFrames.size()) {        QRectF r = rect();
-        const QPixmap& currentPixmap = m_animationFrames[m_currentFrame];        // 保存当前绘图设置
+        m_currentFrame >= 0 && m_currentFrame < m_animationFrames.size()) {
+
+        QRectF r = rect();
+        const QPixmap& currentPixmap = m_animationFrames[m_currentFrame];
+
+        // 保存当前绘图设置
         painter->save();
 
         // 设置高质量渲染选项
@@ -410,4 +535,530 @@ void Player::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QW
         painter->setPen(greenPen);
         painter->drawLine(r.bottomLeft(), r.bottomRight());
     }
+}
+
+// === NPC库存系统实现 ===
+
+bool Player::pickupNPC(NPCEntity* npc) {
+    if (!npc) {
+        DEBUG_LOG("Player::pickupNPC - NPC is null");
+        return false;
+    }
+      // 检查拾取冷却状态
+    if (!canPickupNPC()) {
+        DEBUG_LOG("Player::pickupNPC - Pickup on cooldown");
+        return false;
+    }
+
+    // 获取NPC的ID
+    int npcId = npc->class_id();    // 特殊处理企鹅：如果正在骑乘雪怪，直接添加到携带库存，不占用主库存
+    if (npcId == 1 && m_isRidingYeti) { // PenguinNPC::ID
+        NPCFormModifiers currentModifiers = getFormModifiers(m_currentForm);
+        if (m_penguinCarryInventory.size() < currentModifiers.penguinCarryCapacity) {
+            addPenguinToCarry(npcId);
+            DEBUG_LOG("Added penguin to carry inventory while riding Yeti");
+
+            // 标记NPC为待删除
+            npc->markForDestroy();
+
+            // 触发玩家NPC状态更新信号
+            emit updatePlayerNPC();
+            return true;
+        } else {
+            DEBUG_LOG("Cannot carry more penguins - carry capacity reached");
+            return false; // 携带位满时返回false，不删除企鹅
+        }
+    }
+
+    // 检查库存是否已满
+    if (m_npcInventory.size() >= getCurrentInventoryCapacity()) {
+        DEBUG_LOG("Player::pickupNPC - Inventory is full");
+
+        // 检查新NPC的优先级是否高于库存中的最低优先级NPC
+        std::priority_queue<int> tempQueue = m_npcInventory;
+        int lowestPriorityId = tempQueue.top();
+
+        // 找到最小ID（最低优先级）
+        while (!tempQueue.empty()) {
+            int id = tempQueue.top();
+            if (id < lowestPriorityId) {
+                lowestPriorityId = id;
+            }
+            tempQueue.pop();
+        }        // 如果新NPC优先级不高于现有最低优先级，拒绝拾取
+        // 注意：ID值越大优先级越高，所以使用小于等于比较
+        if (npcId <= lowestPriorityId) {
+            DEBUG_LOG(QString("Rejecting NPC pickup - new NPC priority (%1) not higher than lowest existing (%2)")
+                      .arg(npcId).arg(lowestPriorityId));
+            return false;
+        }
+
+        // 新NPC优先级更高，扔出最低优先级的NPC
+        DEBUG_LOG("Player::pickupNPC - Dropping lower priority NPC to make space");
+        dropNPC(m_terrainGenerator);
+    }
+
+    // 添加NPC到库存
+    m_npcInventory.push(npcId);
+
+    // 根据拾取的NPC类型应用对应的形态
+    if (npcId == 1) { // PenguinNPC::ID
+        applyNPCForm(NPCForm::Penguin);
+        DEBUG_LOG("Player transformed into Penguin form");
+    } else if (npcId == 2) { // YetiNPC::ID
+        m_isRidingYeti = true;
+        m_yetiForm = NPCForm::YetiForm1; // 初始为形态1
+        applyNPCForm(NPCForm::YetiForm1);
+        DEBUG_LOG("Player mounted Yeti in Form1");
+    }
+
+    DEBUG_LOG(QString("Player picked up NPC with ID: %1, inventory size: %2")
+              .arg(npcId).arg(m_npcInventory.size()));
+
+    // 标记NPC为待删除
+    npc->markForDestroy();
+      // 触发玩家NPC状态更新信号
+    emit updatePlayerNPC();
+
+    return true; // 成功拾取
+}
+
+void Player::dropNPC() {
+    // 简单版本，只记录日志
+    if (m_npcInventory.empty()) {
+        DEBUG_LOG("Player::dropNPC - No NPCs in inventory");
+        return;
+    }
+
+    DEBUG_LOG("Player::dropNPC - Please use dropNPC(TerrainGenerator*) to actually spawn NPCs");
+}
+
+void Player::dropNPC(TerrainGenerator* terrainGenerator) {
+    if (m_npcInventory.empty()) {
+        DEBUG_LOG("Player::dropNPC - No NPCs in inventory");
+        return;
+    }
+
+    if (!terrainGenerator) {
+        DEBUG_LOG("Player::dropNPC - TerrainGenerator is null");
+        return;
+    }
+
+    // 获取优先级最低的NPC（堆顶是最高优先级，我们需要最低的）
+    // 由于priority_queue是最大堆，我们需要遍历找到最小值
+    std::priority_queue<int> tempQueue = m_npcInventory;
+    int lowestPriorityId = tempQueue.top();
+
+    // 找到最小ID（最低优先级）
+    std::vector<int> allIds;
+    while (!tempQueue.empty()) {
+        int id = tempQueue.top();
+        allIds.push_back(id);
+        if (id < lowestPriorityId) {
+            lowestPriorityId = id;
+        }
+        tempQueue.pop();
+    }
+
+    // 重建队列，只移除一个最低优先级的NPC
+    m_npcInventory = std::priority_queue<int>();
+    bool removedOne = false;
+    for (int id : allIds) {
+        if (id == lowestPriorityId && !removedOne) {
+            // 跳过第一个遇到的最低优先级NPC（将其丢弃）
+            removedOne = true;
+        } else {
+            // 保留其他所有NPC
+            m_npcInventory.push(id);
+        }
+    }
+
+    DEBUG_LOG(QString("Player dropped NPC with ID: %1, remaining inventory size: %2")
+              .arg(lowestPriorityId).arg(m_npcInventory.size()));
+      // 在玩家位置生成对应ID的NPC
+    QPointF spawnPosition = pos();
+
+    // 计算生成位置的地面高度
+    qreal terrainHeight = terrainGenerator->getTerrainHeight(spawnPosition.x());
+
+
+    spawnPosition.setY(terrainHeight);
+
+      // 根据ID创建对应的NPC
+    std::unique_ptr<NPCEntity> newNPC = nullptr;
+    if (lowestPriorityId == 1) { // PenguinNPC::ID
+        newNPC = NPCFactory::createPenguinNPC(spawnPosition);
+    } else if (lowestPriorityId == 2) { // YetiNPC::ID
+        newNPC = NPCFactory::createYetiNPC(spawnPosition);
+        // 如果丢弃雪怪，玩家停止骑乘状态
+        m_isRidingYeti = false;
+        m_yetiForm = NPCForm::Normal;
+    }
+    // 可以在这里添加其他NPC类型的创建逻辑
+
+    if (newNPC) {
+        // 将NPC添加到场景和地形生成器
+        if (scene()) {
+            scene()->addItem(newNPC.get());
+        }
+
+        // 注册到物理系统
+        PhysicsSystem::instance().registerObject(newNPC.get());
+
+        // 添加到地形生成器的NPC列表
+        terrainGenerator->m_npcs.append(newNPC.release());        DEBUG_LOG(QString("Successfully spawned NPC with ID %1 at position (%2, %3)")
+                  .arg(lowestPriorityId).arg(spawnPosition.x()).arg(spawnPosition.y()));
+
+        // 启动拾取冷却 - 玩家失去NPC后1秒内不能再拾起NPC
+        startNPCPickupCooldown();
+
+        // 检查是否需要更新玩家形态
+        updatePlayerFormBasedOnInventory();
+
+        // 触发玩家NPC状态更新信号
+        emit updatePlayerNPC();
+    } else {
+        DEBUG_LOG(QString("Failed to create NPC with ID %1").arg(lowestPriorityId));
+    }
+}
+
+bool Player::hasNPCInInventory() const {
+    return !m_npcInventory.empty();
+}
+
+int Player::getInventorySize() const {
+    return static_cast<int>(m_npcInventory.size());
+}
+
+// === NPC拾取冷却系统实现 ===
+
+bool Player::canPickupNPC() const {
+    return !m_npcPickupCooldownActive;
+}
+
+void Player::startNPCPickupCooldown() {
+    if (!m_npcPickupCooldownActive) {
+        m_npcPickupCooldownActive = true;
+        m_npcPickupCooldownTimer.start(NPC_PICKUP_COOLDOWN_MS);
+
+        // 启动进度更新定时器
+        m_npcCooldownProgressTimer.start(NPC_COOLDOWN_PROGRESS_UPDATE_MS);
+
+        // 发出冷却开始信号
+        emit npcPickupCooldownChanged(true, 0.0);
+
+        DEBUG_LOG(QString("NPC pickup cooldown started - 3 seconds"));
+    }
+}
+
+void Player::onNPCPickupCooldownTimeout() {
+    m_npcPickupCooldownActive = false;
+
+    // 停止进度更新定时器
+    m_npcCooldownProgressTimer.stop();
+
+    // 发出冷却结束信号
+    emit npcPickupCooldownChanged(false, 0.0);
+
+    DEBUG_LOG("NPC pickup cooldown ended - can pickup NPCs again");
+}
+
+void Player::updateNPCCooldownProgress() {
+    if (!m_npcPickupCooldownActive) {
+        return; // 如果没有冷却，不需要更新进度
+    }
+
+    // 计算剩余时间
+    int remainingTime = m_npcPickupCooldownTimer.remainingTime();
+
+    // 计算进度（0.0 表示刚开始，1.0 表示即将结束）
+    qreal progress = 1.0 - (static_cast<qreal>(remainingTime) / static_cast<qreal>(NPC_PICKUP_COOLDOWN_MS));
+
+    // 确保进度在有效范围内
+    progress = qBound(0.0, progress, 1.0);
+
+    // 发出进度更新信号
+    emit npcPickupCooldownChanged(true, progress);
+}
+
+void Player::onUpdate() {
+    // TODO: 在这里实现玩家状态更新逻辑
+    // 当NPC库存发生变化时，可以在这里处理相关的状态更新
+    // 例如：更新UI显示、改变玩家属性、触发特殊效果等
+
+    DEBUG_LOG(QString("Player NPC status updated - Current inventory size: %1")
+              .arg(getInventorySize()));
+}
+
+// === NPC伤害抵抗系统实现 ===
+
+bool Player::consumeNPCForDamageResistance() {
+    if (m_npcInventory.empty()) {
+        DEBUG_LOG("Player::consumeNPCForDamageResistance - No NPCs in inventory");
+        return false;
+    }
+
+    if (!m_terrainGenerator) {
+        DEBUG_LOG("Player::consumeNPCForDamageResistance - TerrainGenerator not available");
+        return false;
+    }
+
+    // 复用dropNPC方法来丢弃最低优先级的NPC
+    DEBUG_LOG("Player using NPC for damage resistance - dropping NPC");
+    dropNPC(m_terrainGenerator);
+
+    return true; // 成功消耗了NPC
+}
+  void Player::updateFallRecoveryProgress() {
+    if (!is_fallen) {
+        return; // 如果没有摔倒，不需要更新进度
+    }
+
+    // 计算剩余时间
+    int remainingTime = m_fallRecoveryTimer.remainingTime();
+
+    // 计算进度（0.0 表示刚开始，1.0 表示即将结束）
+    const int FALL_RECOVERY_TIME_MS = 3000; // 摔倒恢复时间
+    qreal progress = 1.0 - (static_cast<qreal>(remainingTime) / static_cast<qreal>(FALL_RECOVERY_TIME_MS));
+
+    // 确保进度在有效范围内
+    progress = qBound(0.0, progress, 1.0);
+
+    // 发出进度更新信号
+    emit fallRecoveryChanged(true, progress);
+}
+
+// === NPC形态系统实现 ===
+
+Player::NPCForm Player::getCurrentForm() const {
+    return m_currentForm;
+}
+
+void Player::applyNPCForm(NPCForm form) {
+    if (m_currentForm == form) {
+        return; // 形态未改变
+    }
+
+    m_currentForm = form;
+    updatePlayerAttributes();
+
+    DEBUG_LOG(QString("Player form changed to: %1").arg(static_cast<int>(form)));
+}
+
+void Player::updatePlayerAttributes() {
+    if (m_currentForm == NPCForm::Normal) {
+        // 恢复到基础属性
+        m_currentMoveSpeed = m_baseMoveSpeed;
+        m_currentJumpForce = m_baseJumpForce;
+        m_currentFlipSpeed = m_baseFlipSpeed;
+        m_currentInventoryCapacity = m_baseInventoryCapacity;
+    } else {
+        // 应用对应形态的属性加成
+        NPCFormModifiers modifiers = getFormModifiers(m_currentForm);
+        applyFormModifiers(modifiers);
+    }
+
+    // 更新实际使用的属性值
+    m_moveSpeed = m_currentMoveSpeed;
+    m_jumpForce = m_currentJumpForce;
+    rotateSpeed = m_currentFlipSpeed;
+
+    DEBUG_LOG(QString("Player attributes updated - Speed: %1, Jump: %2, Flip: %3, Inventory: %4")
+              .arg(m_currentMoveSpeed)
+              .arg(m_currentJumpForce)
+              .arg(m_currentFlipSpeed)
+              .arg(m_currentInventoryCapacity));
+}
+
+qreal Player::getCurrentMoveSpeed() const {
+    return m_currentMoveSpeed;
+}
+
+qreal Player::getCurrentJumpForce() const {
+    return m_currentJumpForce;
+}
+
+qreal Player::getCurrentFlipSpeed() const {
+    return m_currentFlipSpeed;
+}
+
+int Player::getCurrentInventoryCapacity() const {
+    return m_currentInventoryCapacity;
+}
+
+void Player::resetToNormalForm() {
+    applyNPCForm(NPCForm::Normal);
+}
+
+Player::NPCFormModifiers Player::getFormModifiers(NPCForm form) const {
+    switch (form) {
+        case NPCForm::Penguin:
+            return PENGUIN_MODIFIERS;
+        case NPCForm::YetiForm1:
+            return YETI_FORM1_MODIFIERS;
+        case NPCForm::YetiForm2:
+            return YETI_FORM2_MODIFIERS;        case NPCForm::Normal:
+        default:
+            return NPCFormModifiers(); // 默认无加成
+    }
+}
+
+void Player::applyFormModifiers(const NPCFormModifiers& modifiers) {
+    m_currentMoveSpeed = m_baseMoveSpeed * modifiers.moveSpeedMultiplier;
+    m_currentJumpForce = m_baseJumpForce * modifiers.jumpForceMultiplier;
+    m_currentFlipSpeed = m_baseFlipSpeed * modifiers.flipSpeedMultiplier;
+    m_currentInventoryCapacity = m_baseInventoryCapacity + modifiers.inventoryCapacityBonus;
+}
+
+void Player::updatePlayerFormBasedOnInventory() {
+    if (m_npcInventory.empty()) {
+        // 库存为空，恢复到普通形态
+        resetToNormalForm();
+        DEBUG_LOG("Player inventory empty, reverting to normal form");
+        return;
+    }
+      // 根据库存中的NPC确定应该使用的形态
+    // 优先级：雪怪 > 企鹅 > 普通
+    std::priority_queue<int> tempQueue = m_npcInventory;
+    bool hasYeti = false;
+    bool hasPenguin = false;
+
+    while (!tempQueue.empty()) {
+        int npcId = tempQueue.top();
+        tempQueue.pop();
+
+        if (npcId == 2) { // YetiNPC::ID
+            hasYeti = true;
+            break;
+        } else if (npcId == 1) { // PenguinNPC::ID
+            hasPenguin = true;
+        }
+    }
+
+    if (hasYeti) {
+        m_isRidingYeti = true;
+        if (m_yetiForm == NPCForm::Normal) {
+            m_yetiForm = NPCForm::YetiForm1; // 默认为形态1
+        }
+        applyNPCForm(m_yetiForm);
+        DEBUG_LOG("Player maintaining Yeti form due to inventory");
+    } else if (hasPenguin) {
+        m_isRidingYeti = false;
+        m_yetiForm = NPCForm::Normal;
+        applyNPCForm(NPCForm::Penguin);
+        DEBUG_LOG("Player maintaining Penguin form due to inventory");
+    } else {
+        m_isRidingYeti = false;
+        m_yetiForm = NPCForm::Normal;
+        resetToNormalForm();
+        DEBUG_LOG("Player reverting to normal form - no supported NPCs in inventory");
+    }
+}
+
+// === 雪怪形态管理实现 ===
+
+bool Player::isRidingYeti() const {
+    return m_isRidingYeti;
+}
+
+Player::NPCForm Player::getYetiForm() const {
+    return m_yetiForm;
+}
+
+void Player::transformYetiForm() {
+    if (m_isRidingYeti && m_yetiForm == NPCForm::YetiForm1) {
+        m_yetiForm = NPCForm::YetiForm2;
+        applyNPCForm(NPCForm::YetiForm2);
+        DEBUG_LOG("Yeti transformed from Form1 to Form2 due to collision");
+    }
+}
+
+bool Player::canFlip() const {
+    if (m_currentForm == NPCForm::Normal || m_currentForm == NPCForm::Penguin) {
+        return true;
+    } else if (m_currentForm == NPCForm::YetiForm1) {
+        return false; // 雪怪形态1不能空翻
+    } else if (m_currentForm == NPCForm::YetiForm2) {
+        return true;  // 雪怪形态2可以空翻
+    }
+    return true;
+}
+
+// === 企鹅携带系统实现 ===
+
+void Player::addPenguinToCarry(int penguinId) {
+    NPCFormModifiers currentModifiers = getFormModifiers(m_currentForm);
+    if (m_penguinCarryInventory.size() < currentModifiers.penguinCarryCapacity) {
+        m_penguinCarryInventory.push(penguinId);
+        DEBUG_LOG(QString("Added penguin to carry inventory: %1, total carried: %2")
+                  .arg(penguinId).arg(m_penguinCarryInventory.size()));
+    } else {
+        DEBUG_LOG("Cannot carry more penguins - capacity reached");
+    }
+}
+
+bool Player::consumePenguinForDamageResistance() {
+    if (m_penguinCarryInventory.empty()) {
+        DEBUG_LOG("No carried penguins available for damage resistance");
+        return false;
+    }
+
+    // 丢弃一只企鹅到地面
+    dropCarriedPenguin();
+
+    // 触发拾取冷却，防止立即重新拾取丢弃的企鹅
+    startNPCPickupCooldown();
+
+    DEBUG_LOG(QString("Consumed carried penguin for damage resistance, remaining: %1, pickup cooldown activated")
+              .arg(m_penguinCarryInventory.size()));
+    return true;
+}
+
+void Player::dropCarriedPenguin() {
+    if (m_penguinCarryInventory.empty()) {
+        DEBUG_LOG("No carried penguins to drop");
+        return;
+    }
+
+    if (!m_terrainGenerator) {
+        DEBUG_LOG("TerrainGenerator not available for dropping carried penguin");
+        return;
+    }
+
+    // 移除一只携带的企鹅
+    m_penguinCarryInventory.pop();
+
+    // 在玩家位置生成企鹅
+    QPointF spawnPosition = pos();
+    qreal terrainHeight = m_terrainGenerator->getTerrainHeight(spawnPosition.x());
+    spawnPosition.setY(terrainHeight);
+
+    std::unique_ptr<NPCEntity> newPenguin = NPCFactory::createPenguinNPC(spawnPosition);
+    if (newPenguin) {
+        // 将企鹅添加到场景和地形生成器
+        if (scene()) {
+            scene()->addItem(newPenguin.get());
+        }
+
+        // 注册到物理系统
+        PhysicsSystem::instance().registerObject(newPenguin.get());
+
+        // 添加到地形生成器的NPC列表
+        m_terrainGenerator->m_npcs.append(newPenguin.release());
+
+        DEBUG_LOG(QString("Dropped carried penguin at position (%1, %2), remaining carried: %3")
+                  .arg(spawnPosition.x()).arg(spawnPosition.y()).arg(m_penguinCarryInventory.size()));
+
+        // 启动拾取冷却
+        startNPCPickupCooldown();
+
+        // 触发玩家NPC状态更新信号
+        emit updatePlayerNPC();
+    } else {
+        DEBUG_LOG("Failed to create penguin NPC for dropping");
+    }
+}
+
+int Player::getCarriedPenguinCount() const {
+    return static_cast<int>(m_penguinCarryInventory.size());
 }

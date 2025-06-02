@@ -20,8 +20,11 @@ UIManager::UIManager(QGraphicsScene* scene, QObject* parent)
     , m_scene(scene)
     , m_pauseText(nullptr)
     , m_pauseButton(nullptr)
-    , m_pauseOverlay(nullptr)
-    , m_warningButton(nullptr)
+    , m_pauseOverlay(nullptr)    , m_warningButton(nullptr)
+    , m_npcCooldownContainer(nullptr)
+    , m_npcCooldownProgress(nullptr)
+    , m_fallRecoveryContainer(nullptr)
+    , m_fallRecoveryProgress(nullptr)
     , m_scoreLabel(nullptr)
     , m_scorePopupLabel(nullptr)
     , m_popupTimer(nullptr)
@@ -43,7 +46,13 @@ void UIManager::initialize()
 
     // 创建得分标签
     createScoreLabel();
-    
+
+    // 创建NPC拾取冷却进度条
+    createNPCCooldownElements();
+
+    // 创建摔倒恢复进度条
+    createFallRecoveryElements();
+
     // 更新初始UI位置
     updateUI();
 }
@@ -56,16 +65,26 @@ void UIManager::cleanup()
         delete m_pauseButton;
         m_pauseButton = nullptr;
     }
-    
-    if (m_warningButton) {
+      if (m_warningButton) {
         m_warningButton->setParent(nullptr);
         delete m_warningButton;
         m_warningButton = nullptr;
     }
-    
-    // 场景会自动处理其中的项目
+      if (m_npcCooldownContainer) {
+        m_npcCooldownContainer->setParent(nullptr);
+        delete m_npcCooldownContainer;
+        m_npcCooldownContainer = nullptr;
+    }
+
+    if (m_fallRecoveryContainer) {
+        m_fallRecoveryContainer->setParent(nullptr);
+        delete m_fallRecoveryContainer;
+        m_fallRecoveryContainer = nullptr;
+    }      // 场景会自动处理其中的项目
     m_pauseText = nullptr;
     m_pauseOverlay = nullptr;
+    m_npcCooldownProgress = nullptr;
+    m_fallRecoveryProgress = nullptr;
 }
 
 void UIManager::createPauseElements()
@@ -96,6 +115,52 @@ void UIManager::createWarningElements()
     setupButtonStyle(m_warningButton, ":/resource/images/icons/warning.png");
     m_warningButton->setIconSize(QSize(50, 50));
     m_warningButton->hide();
+}
+
+void UIManager::createNPCCooldownElements()
+{
+    // 创建进度条容器（背景）
+    m_npcCooldownContainer = new QWidget();
+    m_npcCooldownContainer->setFixedSize(200, 8);
+    m_npcCooldownContainer->setStyleSheet(
+        "background-color: rgba(50, 50, 50, 150);"
+        "border: 1px solid white;"
+        "border-radius: 4px;"
+    );
+    m_npcCooldownContainer->hide();
+
+    // 创建进度条（前景）- 黄色
+    m_npcCooldownProgress = new QWidget(m_npcCooldownContainer);
+    m_npcCooldownProgress->setStyleSheet(
+        "background-color: rgb(255, 193, 7);"  // 黄色进度条
+        "border: none;"
+        "border-radius: 3px;"
+    );
+    m_npcCooldownProgress->setGeometry(1, 1, 198, 6); // 留出边框空间
+    m_npcCooldownProgress->hide();
+}
+
+void UIManager::createFallRecoveryElements()
+{
+    // 创建摔倒恢复进度条容器（背景）
+    m_fallRecoveryContainer = new QWidget();
+    m_fallRecoveryContainer->setFixedSize(200, 8);
+    m_fallRecoveryContainer->setStyleSheet(
+        "background-color: rgba(50, 50, 50, 150);"
+        "border: 1px solid white;"
+        "border-radius: 4px;"
+    );
+    m_fallRecoveryContainer->hide();
+
+    // 创建摔倒恢复进度条（前景）- 红色
+    m_fallRecoveryProgress = new QWidget(m_fallRecoveryContainer);
+    m_fallRecoveryProgress->setStyleSheet(
+        "background-color: rgb(220, 53, 69);"  // 红色进度条
+        "border: none;"
+        "border-radius: 3px;"
+    );
+    m_fallRecoveryProgress->setGeometry(1, 1, 198, 6); // 留出边框空间
+    m_fallRecoveryProgress->hide();
 }
 
 void UIManager::createScoreLabel()
@@ -172,13 +237,41 @@ void UIManager::updateUI()
             viewSceneRect.center().y() - textRect.height() / 2
         );
     }
-    
-    // 更新警告按钮位置
+      // 更新警告按钮位置
     if (m_warningButton) {
         m_warningButton->setParent(view->viewport());
         m_warningButton->setGeometry(10, 10, 
                                      m_warningButton->iconSize().width(), 
                                      m_warningButton->iconSize().height());
+    }
+      // 更新NPC冷却进度条位置（下移）
+    if (m_npcCooldownContainer) {
+        m_npcCooldownContainer->setParent(view->viewport());
+        QRect vp = view->viewport()->rect();
+        int barWidth = 200;
+        int barHeight = 8;
+        int bottomMargin = 100; // 距离底部的距离，下移了
+        m_npcCooldownContainer->setGeometry(
+            (vp.width() - barWidth) / 2,  // 水平居中
+            vp.height() - bottomMargin,   // 距离底部
+            barWidth,
+            barHeight
+        );
+    }
+
+    // 更新摔倒恢复进度条位置（在NPC进度条上方）
+    if (m_fallRecoveryContainer) {
+        m_fallRecoveryContainer->setParent(view->viewport());
+        QRect vp = view->viewport()->rect();
+        int barWidth = 200;
+        int barHeight = 8;
+        int bottomMargin = 80; // 距离底部的距离，在NPC进度条原位置
+        m_fallRecoveryContainer->setGeometry(
+            (vp.width() - barWidth) / 2,  // 水平居中
+            vp.height() - bottomMargin,   // 距离底部
+            barWidth,
+            barHeight
+        );
     }
 
     // 更新分数标签位置
@@ -260,6 +353,58 @@ void UIManager::showWarningIndicator(bool show, qreal distance)
     }
     else {
         m_warningButton->hide();
+    }
+}
+
+void UIManager::showNPCPickupCooldown(bool show, qreal progress)
+{
+    if (!m_npcCooldownContainer || !m_npcCooldownProgress) return;
+
+    if (show) {
+        // 确保进度条已经添加到视口
+        QGraphicsView* view = getView();
+        if (view) {
+            m_npcCooldownContainer->setParent(view->viewport());
+            updateUI(); // 更新位置
+        }
+
+        // 显示容器
+        m_npcCooldownContainer->show();
+
+        // 计算进度条宽度（剩余时间）
+        qreal progressWidth = 198 * (1.0 - progress); // progress是0-1之间的值，表示已经过的时间比例
+        m_npcCooldownProgress->setFixedWidth(qMax(0.0, progressWidth));
+        m_npcCooldownProgress->show();
+    }
+    else {
+        m_npcCooldownContainer->hide();
+        m_npcCooldownProgress->hide();
+    }
+}
+
+void UIManager::showFallRecovery(bool show, qreal progress)
+{
+    if (!m_fallRecoveryContainer || !m_fallRecoveryProgress) return;
+
+    if (show) {
+        // 确保进度条已经添加到视口
+        QGraphicsView* view = getView();
+        if (view) {
+            m_fallRecoveryContainer->setParent(view->viewport());
+            updateUI(); // 更新位置
+        }
+
+        // 显示容器
+        m_fallRecoveryContainer->show();
+
+        // 计算进度条宽度（剩余时间）
+        qreal progressWidth = 198 * (1.0 - progress); // progress是0-1之间的值，表示已经过的时间比例
+        m_fallRecoveryProgress->setFixedWidth(qMax(0.0, progressWidth));
+        m_fallRecoveryProgress->show();
+    }
+    else {
+        m_fallRecoveryContainer->hide();
+        m_fallRecoveryProgress->hide();
     }
 }
 
@@ -407,11 +552,11 @@ bool UIManager::isUIManagerObject(QGraphicsItem* item) const
     if (item == m_pauseText) {
         return true;
     }
-
-    // 检查是否为按钮的代理项 (QGraphicsProxyWidget)
+      // 检查是否为按钮的代理项 (QGraphicsProxyWidget)
     QGraphicsProxyWidget* proxyWidget = qgraphicsitem_cast<QGraphicsProxyWidget*>(item);
     if (proxyWidget) {
         QWidget* widget = proxyWidget->widget();
+        if (widget == m_pauseButton || widget == m_warningButton || widget == m_npcCooldownContainer) {
         if (widget == m_pauseButton ||
             widget == m_warningButton||
             widget == m_scoreLabel ||

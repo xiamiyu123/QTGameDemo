@@ -618,6 +618,9 @@ void Player::onFlipBoostTimerTimeout()
 {
     m_isFlipBoosting = false;
 
+    // 恢复初速度
+    setMoveSpeed(getInitialMoveSpeed());
+
     // 停止进度更新计时器
     m_flipBoostProgressTimer->stop();
 

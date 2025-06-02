@@ -10,16 +10,11 @@
 #include "npcentity.h"
 
 #include <QDialog>
-#include <QVBoxLayout>
-#include <QLabel>
-#include <QPushButton>
 #include "rockentity.h"
-#include <QSettings>
-#include <QScreen>
-#include <QGraphicsProxyWidget>
+
 GameScene::GameScene(QObject *parent)
-    : QGraphicsScene(parent), 
-      m_uiManager(nullptr), 
+    : QGraphicsScene(parent),
+      m_uiManager(nullptr),
       m_collisionHandler(nullptr),
       m_npcSpawnTimer(nullptr),
       m_npcSpawnDistance(800.0),
@@ -50,9 +45,9 @@ GameScene::GameScene(QObject *parent)
     m_collisionHandler = new CollisionHandler(GTerrainGenerator, this);    // 连接UI事件
     connect(m_uiManager, &UIManager::pauseToggled, this, &GameScene::togglePause);
       // 连接玩家NPC拾取冷却进度条信号
-    connect(Gplayer, &Player::npcPickupCooldownChanged, 
+    connect(Gplayer, &Player::npcPickupCooldownChanged,
             m_uiManager, &UIManager::showNPCPickupCooldown);
-    
+
     // 连接玩家坠落恢复进度条信号
     connect(Gplayer, &Player::fallRecoveryChanged,
             m_uiManager, &UIManager::showFallRecovery);
@@ -72,6 +67,19 @@ GameScene::GameScene(QObject *parent)
     connect(m_avalancheThread, &AvalancheUpdateThread::updateCompleted,
             this, [this]()
             { avalanche->applyThreadResults(); });
+    m_avalancheThread->start();
+
+    // 初始化得分相关
+    m_lastScoredPositionX = 1200;
+    m_scoreDistance = 100;  // 每100像素得分一次
+
+    // // 连接玩家摔倒信号（测试用）
+    // connect(Gplayer, &Player::playerFallen, m_uiManager, &UIManager::showScorePopup);
+    //
+    // // 同时连接到加分系统
+    // connect(Gplayer, &Player::playerFallen, this, [this](int points, const QString&) {
+    //     emit getscore(points);
+    // });
     m_avalancheThread->start();    // 运行测试构造代码
     test();
 
@@ -94,7 +102,7 @@ GameScene::~GameScene()
         m_npcSpawnTimer->stop();
         delete m_npcSpawnTimer;
     }
-    
+
     // 清理所有NPC（unique_ptr会自动删除）
     for (auto& npc : m_activeNPCs) {
         if (npc) {
@@ -302,18 +310,20 @@ void GameScene::update()
 
     // === NPC系统更新 ===
     updateAllNPCs(deltaTime);
+
+    checkPlayerProgressScore();
 }
 
 // 仅用于初始化时放置玩家
 void GameScene::initialPlayerPosition()
 {
     qreal terrainHeight = GTerrainGenerator->getTerrainHeight(1200);
-    
+
     // 使用局部坐标系统设置位置，与物理系统保持一致
     Gplayer->setX(1200);
     Gplayer->setY(terrainHeight - Gplayer->rect().height());
     Gplayer->setOnGround(true);
-    
+
     DEBUG_LOG(QString("Player initial position set to Local: (%1, %2)")
               .arg(Gplayer->x(), 0, 'f', 1)
               .arg(Gplayer->y(), 0, 'f', 1));
@@ -382,6 +392,10 @@ void GameScene::onGetScore(int points)
     score += adjustedPoints;
 
     DEBUG_LOG(QString("玩家得分: %1 (奖励倍数: %2)").arg(score).arg(award_score));
+
+    if (m_uiManager) {
+        m_uiManager->setScore(score);
+    }
 }
 
 // 显示游戏结束对话框
@@ -394,7 +408,6 @@ void GameScene::showGameOverDialog()
             // 重试逻辑
             // 临时断开UI信号连接，防止在重建过程中触发暂停
             disconnect(m_uiManager, &UIManager::pauseToggled, this, &GameScene::togglePause);
-            
             // 停止定时器和线程
             GTimer.stop();
             if (m_avalancheThread) {
@@ -413,10 +426,21 @@ void GameScene::showGameOverDialog()
                 m_collisionHandler->updateTerrainGenerator(GTerrainGenerator);
             }
 
-            initialize(); 
-            
+        // // 重新连接玩家摔倒信号（测试用）
+        // connect(Gplayer, &Player::playerFallen, m_uiManager, &UIManager::showScorePopup);
+        // connect(Gplayer, &Player::playerFallen, this, [this](int points, const QString&) {
+        //     emit getscore(points);
+        //      });
+
+        // 重置UI状态
+        if (m_uiManager) {
+            m_uiManager->resetUI();
+        }
+
+            initialize();
+
             // 重新连接UI信号
-            connect(m_uiManager, &UIManager::pauseToggled, this, &GameScene::togglePause);
+        connect(m_uiManager, &UIManager::pauseToggled, this, &GameScene::togglePause);
             }, [this]()
                                     {
             // 退出逻辑
@@ -440,6 +464,10 @@ void GameScene::resetGameState()
     score = 0;
     award_speed = 1.0;
     award_score = 1.0;
+
+    // 重置计分位置
+    m_lastScoredPositionX = 1200;
+
 
     // 重置更新计时器和对象列表
     m_avalancheElapsed = 0;
@@ -533,6 +561,32 @@ void GameScene::createSceneItems()
             { avalanche->applyThreadResults(); });
     m_avalancheThread->start();
 
+    // 连接玩家摔倒信号（测试用）
+    // connect(Gplayer, &Player::playerFallen, m_uiManager, &UIManager::showScorePopup);
+    // connect(Gplayer, &Player::playerFallen, this, [this](int points, const QString&) {
+    //     emit getscore(points);
+    // });
+
+}
+
+void GameScene::checkPlayerProgressScore() {
+    if (Gplayer) {
+        qreal currentX = Gplayer->pos().x();
+
+        // 只有当玩家向右移动时才计分
+        if (currentX > m_lastScoredPositionX + m_scoreDistance) {
+            // 计算玩家移动了多少个得分距离
+            int scoreUnits = static_cast<int>((currentX - m_lastScoredPositionX) / m_scoreDistance);
+            int points = scoreUnits * 10;  // 每单位距离得10分
+
+            // 更新最后得分位置
+            m_lastScoredPositionX += scoreUnits * m_scoreDistance;
+
+            // 发射得分信号
+            emit getscore(points * award_score); // 应用分数奖励倍数
+
+        }
+    }
 }
 
 // === NPC管理系统实现 ===
@@ -541,15 +595,15 @@ void GameScene::initializeNPCSystem()
 {
     // 暂时禁用随机NPC生成系统
     // 只保留地形生成时创建的企鹅NPC
-    
+
     // 弃用的创建NPC生成定时器但不启动
     // m_npcSpawnTimer = new QTimer(this);
     // connect(m_npcSpawnTimer, &QTimer::timeout, this, &GameScene::spawnNPC);
-    
+
     // 不启动定时器
     // m_npcSpawnTimer->setInterval(QRandomGenerator::global()->bounded(3000, 5000));
     // m_npcSpawnTimer->start();
-    
+
     DEBUG_LOG("NPC系统已初始化");
 }
 
@@ -558,21 +612,21 @@ void GameScene::spawnNPC()
     if (!Gplayer) {
         return;
     }
-    
+
     // 检查是否超过最大NPC数量
     if (m_activeNPCs.size() >= m_maxNPCCount) {
         return;
     }
-    
+
     // 清理过期的NPC
     cleanupNPCs();
-    
+
     // 获取生成位置
     QPointF spawnPos = getNPCSpawnPosition();
-    
+
     // 随机选择NPC类型
     spawnRandomNPC(spawnPos);
-    
+
     // 重置定时器间隔
     m_npcSpawnTimer->setInterval(QRandomGenerator::global()->bounded(3000, 5000));
 }
@@ -591,22 +645,22 @@ void GameScene::updateAllNPCs(float deltaTime)
     qreal viewWidth = 1200; // 估计的视图宽度
     qreal activationDistance = viewWidth * 1.5; // 增加NPC激活距离，确保更早激活
     qreal avalancheFrontX = avalanche->getFrontX();
-    
+
     // 遍历地形生成器中的所有NPC
     auto& npcs = GTerrainGenerator->m_npcs;
     auto it = npcs.begin();
-    
+
     while (it != npcs.end()) {
         NPCEntity* npc = *it;
-        
+
         if (!npc) {
             it = npcs.erase(it);
             continue;
         }
-        
+
         qreal npcX = npc->x();
         bool shouldRemove = false;
-        
+
         // 检查是否被雪崩追上
         if (npcX <= avalancheFrontX) {
             DEBUG_LOG(QString("NPC被雪崩追上，位置: %1, 雪崩前沿: %2").arg(npcX).arg(avalancheFrontX));
@@ -616,27 +670,27 @@ void GameScene::updateAllNPCs(float deltaTime)
         else {
             int currentChunk = static_cast<int>(std::floor(npcX / 3600)); // CHUNK_WIDTH = 3600
             int playerChunk = static_cast<int>(std::floor(playerX / 3600));
-            
+
             // 如果NPC在玩家前方超过2个地形块，说明该地形块可能还没生成
             if (currentChunk > playerChunk + 2) {
                 DEBUG_LOG(QString("NPC到达未生成地块，NPC地块: %1, 玩家地块: %2").arg(currentChunk).arg(playerChunk));
                 shouldRemove = true;
             }
         }
-        
+
         if (shouldRemove) {
             // 从场景移除
             removeItem(npc);
-            
+
             // 从物理系统注销
             PhysicsSystem::instance().unregisterObject(npc);
-            
+
             // 删除NPC对象
             delete npc;
-            
+
             // 从列表移除
             it = npcs.erase(it);
-            
+
             DEBUG_LOG("回收了一个NPC");
         } else {
             // 检查是否需要激活NPC
@@ -647,7 +701,7 @@ void GameScene::updateAllNPCs(float deltaTime)
                     DEBUG_LOG(QString("激活NPC，位置: %1, 玩家位置: %2").arg(npcX).arg(playerX));
                 }
             }
-            
+
             ++it;
         }
     }
@@ -658,18 +712,18 @@ void GameScene::cleanupNPCs()
     auto it = m_activeNPCs.begin();
     while (it != m_activeNPCs.end()) {
         NPCEntity* npc = it->get();
-        
+
         // 检查是否应该销毁
         if (npc && npc->shouldDestroy()) {
             // 从场景移除
             removeItem(npc);
-            
+
             // 从物理系统注销
             PhysicsSystem::instance().unregisterObject(npc);
-            
+
             // 从列表移除（unique_ptr会自动删除对象）
             it = m_activeNPCs.erase(it);
-            
+
             DEBUG_LOG("清理了一个NPC");
         } else {
             ++it;
@@ -682,20 +736,20 @@ void GameScene::removeOffscreenNPCs()
     if (!Gplayer) {
         return;
     }
-    
+
     qreal playerX = Gplayer->x();
-    
+
     auto it = m_activeNPCs.begin();
     while (it != m_activeNPCs.end()) {
         NPCEntity* npc = it->get();
-        
+
         // 检查NPC是否离玩家太远（在左边或右边）
         if (npc && (npc->x() < playerX - m_npcCleanupDistance)) {
             // NPC在玩家左边太远，移除
             removeItem(npc);
             PhysicsSystem::instance().unregisterObject(npc);
             it = m_activeNPCs.erase(it);
-            
+
             DEBUG_LOG("移除了离屏幕太远的NPC");
         } else {
             ++it;
@@ -708,19 +762,19 @@ QPointF GameScene::getNPCSpawnPosition()
     if (!Gplayer) {
         return QPointF(0, 0);
     }
-    
+
     qreal playerX = Gplayer->x();
     qreal spawnX = playerX + m_npcSpawnDistance;
-    
+
     // 获取地形高度
     qreal groundHeight = 0;
     if (GTerrainGenerator) {
         groundHeight = GTerrainGenerator->getTerrainHeight(spawnX);
     }
-    
+
     // 随机决定是在地面还是空中生成
     bool spawnInAir = QRandomGenerator::global()->bounded(3) == 0; // 1/3概率在空中
-    
+
     qreal spawnY;
     if (spawnInAir) {
         // 在空中生成（地面上方100-300像素）
@@ -729,6 +783,6 @@ QPointF GameScene::getNPCSpawnPosition()
         // 在地面生成
         spawnY = groundHeight - 25; // NPC高度的一半
     }
-    
+
     return QPointF(spawnX, spawnY);
 }

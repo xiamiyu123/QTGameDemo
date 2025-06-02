@@ -9,9 +9,11 @@
 #include <QPushButton>
 #include <QSettings>
 #include <QCoreApplication>
+#include <qfontdatabase.h>
 #include <QRadialGradient>
 #include <QStyleOptionGraphicsItem>
 #include <QGraphicsProxyWidget>
+#include <QTimer>
 
 UIManager::UIManager(QGraphicsScene* scene, QObject* parent)
     : QObject(parent)
@@ -23,6 +25,9 @@ UIManager::UIManager(QGraphicsScene* scene, QObject* parent)
     , m_npcCooldownProgress(nullptr)
     , m_fallRecoveryContainer(nullptr)
     , m_fallRecoveryProgress(nullptr)
+    , m_scoreLabel(nullptr)
+    , m_scorePopupLabel(nullptr)
+    , m_popupTimer(nullptr)
 {
 }
 
@@ -38,13 +43,16 @@ void UIManager::initialize()
     
     // 创建警告UI元素
     createWarningElements();
-    
+
+    // 创建得分标签
+    createScoreLabel();
+
     // 创建NPC拾取冷却进度条
     createNPCCooldownElements();
-    
+
     // 创建摔倒恢复进度条
     createFallRecoveryElements();
-    
+
     // 更新初始UI位置
     updateUI();
 }
@@ -67,7 +75,7 @@ void UIManager::cleanup()
         delete m_npcCooldownContainer;
         m_npcCooldownContainer = nullptr;
     }
-    
+
     if (m_fallRecoveryContainer) {
         m_fallRecoveryContainer->setParent(nullptr);
         delete m_fallRecoveryContainer;
@@ -120,7 +128,7 @@ void UIManager::createNPCCooldownElements()
         "border-radius: 4px;"
     );
     m_npcCooldownContainer->hide();
-    
+
     // 创建进度条（前景）- 黄色
     m_npcCooldownProgress = new QWidget(m_npcCooldownContainer);
     m_npcCooldownProgress->setStyleSheet(
@@ -143,7 +151,7 @@ void UIManager::createFallRecoveryElements()
         "border-radius: 4px;"
     );
     m_fallRecoveryContainer->hide();
-    
+
     // 创建摔倒恢复进度条（前景）- 红色
     m_fallRecoveryProgress = new QWidget(m_fallRecoveryContainer);
     m_fallRecoveryProgress->setStyleSheet(
@@ -153,6 +161,44 @@ void UIManager::createFallRecoveryElements()
     );
     m_fallRecoveryProgress->setGeometry(1, 1, 198, 6); // 留出边框空间
     m_fallRecoveryProgress->hide();
+}
+
+void UIManager::createScoreLabel()
+{
+
+    // 引入新字体
+    int id = QFontDatabase::addApplicationFont(":/resource/fonts/Kalmansk-Regular.otf");
+    QString family = QFontDatabase::applicationFontFamilies(id).at(0);
+
+    // 创建分数标签
+    QFont scoreFont(family, 52, QFont::Bold);
+    m_scoreLabel = new QLabel("0");
+    m_scoreLabel->setFont(scoreFont);
+    m_scoreLabel->setStyleSheet("color: yellow; "
+                                "border: none; "
+                                "background: transparent; "
+                                "padding: 6px 18px;");
+    m_scoreLabel->setAlignment(Qt::AlignRight);
+
+    // 添加临时得分提示标签
+    QFont popupFont(family, 30, QFont::Bold);
+    m_scorePopupLabel = new QLabel();
+    m_scorePopupLabel->setFont(popupFont);
+    m_scorePopupLabel->setStyleSheet("color: yellow; "
+                                      "background: transparent; "
+                                      "border: none;"
+                                      "padding: 5px 10px;");
+    m_scorePopupLabel->setAlignment(Qt::AlignRight);
+    m_scorePopupLabel->hide();
+
+    // 初始化计时器
+    m_popupTimer = new QTimer(this);
+    m_popupTimer->setSingleShot(true);
+    connect(m_popupTimer, &QTimer::timeout, this, [this]() {
+        if (m_scorePopupLabel) {
+            m_scorePopupLabel->hide();
+        }
+    });
 }
 
 void UIManager::setupButtonStyle(QPushButton* button, const QString& iconPath, bool transparent)
@@ -212,7 +258,7 @@ void UIManager::updateUI()
             barHeight
         );
     }
-    
+
     // 更新摔倒恢复进度条位置（在NPC进度条上方）
     if (m_fallRecoveryContainer) {
         m_fallRecoveryContainer->setParent(view->viewport());
@@ -226,6 +272,20 @@ void UIManager::updateUI()
             barWidth,
             barHeight
         );
+    }
+
+    // 更新分数标签位置
+    if (m_scoreLabel) {
+        m_scoreLabel->setParent(view->viewport());
+        QRect vp = view->viewport()->rect();
+        m_scoreLabel->setGeometry(vp.width() - 250, -23, 200, 82);
+        m_scoreLabel->show();
+    }
+}
+
+void UIManager::setScore(int score) {
+    if (m_scoreLabel) {
+        m_scoreLabel->setText(QString("%1").arg(score));
     }
 }
 
@@ -299,7 +359,7 @@ void UIManager::showWarningIndicator(bool show, qreal distance)
 void UIManager::showNPCPickupCooldown(bool show, qreal progress)
 {
     if (!m_npcCooldownContainer || !m_npcCooldownProgress) return;
-    
+
     if (show) {
         // 确保进度条已经添加到视口
         QGraphicsView* view = getView();
@@ -307,10 +367,10 @@ void UIManager::showNPCPickupCooldown(bool show, qreal progress)
             m_npcCooldownContainer->setParent(view->viewport());
             updateUI(); // 更新位置
         }
-        
+
         // 显示容器
         m_npcCooldownContainer->show();
-        
+
         // 计算进度条宽度（剩余时间）
         qreal progressWidth = 198 * (1.0 - progress); // progress是0-1之间的值，表示已经过的时间比例
         m_npcCooldownProgress->setFixedWidth(qMax(0.0, progressWidth));
@@ -325,7 +385,7 @@ void UIManager::showNPCPickupCooldown(bool show, qreal progress)
 void UIManager::showFallRecovery(bool show, qreal progress)
 {
     if (!m_fallRecoveryContainer || !m_fallRecoveryProgress) return;
-    
+
     if (show) {
         // 确保进度条已经添加到视口
         QGraphicsView* view = getView();
@@ -333,10 +393,10 @@ void UIManager::showFallRecovery(bool show, qreal progress)
             m_fallRecoveryContainer->setParent(view->viewport());
             updateUI(); // 更新位置
         }
-        
+
         // 显示容器
         m_fallRecoveryContainer->show();
-        
+
         // 计算进度条宽度（剩余时间）
         qreal progressWidth = 198 * (1.0 - progress); // progress是0-1之间的值，表示已经过的时间比例
         m_fallRecoveryProgress->setFixedWidth(qMax(0.0, progressWidth));
@@ -497,9 +557,68 @@ bool UIManager::isUIManagerObject(QGraphicsItem* item) const
     if (proxyWidget) {
         QWidget* widget = proxyWidget->widget();
         if (widget == m_pauseButton || widget == m_warningButton || widget == m_npcCooldownContainer) {
+        if (widget == m_pauseButton ||
+            widget == m_warningButton||
+            widget == m_scoreLabel ||
+            widget == m_scorePopupLabel) {
             return true;
         }
     }
 
     return false;
+}
+
+void UIManager::showScorePopup(int points, const QString& reason)
+{
+    if (!m_scorePopupLabel) return;
+
+    // 停止现有计时器（如果正在显示）
+    m_popupTimer->stop();
+
+    // 设置文本内容
+    QString text = QString("%1    +%2").arg(reason).arg(points);
+    m_scorePopupLabel->setText(text);
+
+    // 显示标签
+    m_scorePopupLabel->show();
+
+    QGraphicsView* view = getView();
+    if (!view) return;
+    QRect vp = view->viewport()->rect();
+
+
+    // 更新临时得分提示标签位置
+    if (m_scorePopupLabel) {
+        m_scorePopupLabel->setParent(view->viewport());
+        // 放在分数标签下方居中位置
+        m_scorePopupLabel->setGeometry(vp.width() - 350, 60, 300, 50);
+    }
+
+
+    // 启动计时器，2秒后隐藏
+    m_popupTimer->start(2000);
+
+    // 更新UI确保位置正确
+    updateUI();
+}
+
+void UIManager::resetUI()
+{
+    // 重置得分标签
+    if (m_scoreLabel) {
+        m_scoreLabel->setText("0");
+    }
+
+    // 隐藏弹出标签
+    if (m_scorePopupLabel) {
+        m_scorePopupLabel->hide();
+    }
+
+    // 停止计时器
+    if (m_popupTimer) {
+        m_popupTimer->stop();
+    }
+
+    // 更新UI确保位置正确
+    updateUI();
 }

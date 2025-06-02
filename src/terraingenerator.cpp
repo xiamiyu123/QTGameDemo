@@ -251,7 +251,7 @@ void TerrainGenerator::generateChunk(int chunkIndex) {
         qreal slope = getTerrainSlope(globalX);
         if (qAbs(slope) > MAX_SLOPE_FOR_ROCK || chunkIndex == 0) continue;
 
-        qreal y = getTerrainHeight(globalX) - 30; // 石头底部贴地
+        qreal y = getTerrainHeight(globalX) - 5 ; // 石头底部贴地
 
         RockEntity* rock = new RockEntity(30, 30);
         rock->setPosition(QPointF(globalX, y));
@@ -480,7 +480,7 @@ void TerrainGenerator::generateChunkThreadSafe(int chunkIndex)
         
         // 计算高度（线性插值）
         qreal height = y1 + slope * (x - x1);
-        qreal y = height - 30; // 石头底部贴地
+        qreal y = height - 5; // 石头底部贴地
         
         qreal globalX = chunkIndex * CHUNK_WIDTH + x;
         qreal angle = qAtan(slope) * 180.0 / M_PI;

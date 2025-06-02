@@ -28,7 +28,7 @@ public:
     
     void initialize();
     void showGameOverDialog();
-    void checkPlayerProgressScore();
+    void checkPlayerProgressScore();// 检查玩家进度得分
 
 
 signals:
@@ -47,6 +47,7 @@ private slots:
 
     // 新增处理得分的槽函数
     void onGetScore(int points);
+    // 处理玩家成功空翻的槽函数
     void onBackFlipSuccess(int points, const QString& message);
 
       // 暂停/继续游戏

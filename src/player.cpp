@@ -33,7 +33,9 @@ Player::Player(QGraphicsItem *parent)
       m_flipRotation(0.0),
       m_cumulativeRotation(0.0),
       m_lastFrameRotation(0.0),
-      m_imageScaleFactor(1) { // 添加图像缩放因子
+      m_imageScaleFactor(1),
+      m_flipBoostTimer(nullptr),
+      m_isFlipBoosting(false) {
 
     setZValue(-2);
 
@@ -56,6 +58,11 @@ Player::Player(QGraphicsItem *parent)
     // 设置动画定时器
     connect(&m_animationTimer, &QTimer::timeout, this, &Player::updateAnimation);
     m_animationTimer.start(100); // 每100毫秒更新一帧，约10FPS
+
+    // 初始化空翻加速计时器
+    m_flipBoostTimer = new QTimer(this);
+    m_flipBoostTimer->setSingleShot(true);
+    connect(m_flipBoostTimer, &QTimer::timeout, this, &Player::onFlipBoostTimerTimeout);
 }
 
 Player::~Player() {
@@ -225,6 +232,8 @@ void Player::checkLanding(qreal terrainAngle) {
                 // 发送空翻成功信号
                 emit backflipSuccess(200, "FLIP!");
                 DEBUG_LOG("空翻成功! 奖励 +200 分");
+                // 启动加速效果
+                startFlipBoost();
 
                 // 重置累计旋转角度，避免再次触发
                 m_cumulativeRotation = 0.0;
@@ -429,4 +438,25 @@ void Player::setMoveSpeed(qreal speed) {
 
 qreal Player::moveSpeed() const {
     return m_moveSpeed;
+}
+
+bool Player::isFlipBoosting() const {
+    return m_isFlipBoosting;
+}
+
+void Player::startFlipBoost()
+{
+    // 激活空翻加速状态
+    m_isFlipBoosting = true;
+
+    // 启动计时器，2秒后关闭加速
+    m_flipBoostTimer->start(2000); // 2000毫秒 = 2秒
+
+    DEBUG_LOG("空翻加速激活，持续2秒");
+}
+
+void Player::onFlipBoostTimerTimeout()
+{
+    m_isFlipBoosting = false;
+    DEBUG_LOG("空翻加速效果结束");
 }

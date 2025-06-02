@@ -53,6 +53,12 @@ public:
     void setMoveSpeed(qreal speed);
     qreal moveSpeed() const;
 
+    // 开始空翻加速效果
+    void startFlipBoost();
+
+    // 检查是否处于空翻加速状态
+    bool isFlipBoosting() const;
+
 signals:
     // // 玩家摔倒信号（测试用）
     // void playerFallen(int points, const QString& reason);
@@ -77,6 +83,7 @@ private:
 private slots:
     void onFallRecoveryTimeout(); // 摔倒恢复计时器回调
     void updateAnimation(); // 动画更新槽
+    void onFlipBoostTimerTimeout(); // 空翻加速计时器回调
 
 private:
     // 基本状态
@@ -93,6 +100,10 @@ private:
     qreal m_flipRotation;      // 计算出的空翻总角度
     qreal m_cumulativeRotation; // 累计旋转角度
     qreal m_lastFrameRotation;  // 上一帧的角度
+
+    // 空翻加速相关
+    QTimer* m_flipBoostTimer;  // 空翻加速计时器
+    bool m_isFlipBoosting;     // 当前是否处于空翻加速状态
 
     // 摔倒恢复计时器
     QTimer m_fallRecoveryTimer;    // 动画系统 - 新增部分

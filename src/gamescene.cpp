@@ -566,7 +566,7 @@ void GameScene::onBackflipSuccess(int points, const QString& message) {
 
     // 增加奖励倍数（限制最大值以避免游戏过于简单）
     award_score = qMin(award_score * 1.2, 2.5);  // 增加20%的得分倍率，最大2.5倍
-    award_speed = qMin(award_speed * 1.1, 1.5);  // 增加10%的速度倍率，最大1.5倍
+    award_speed = qMin(award_speed * 1.2, 1.2);  // 增加10%的速度倍率，最大1.2倍
 
     // 更新UI显示
     if (m_uiManager) {
@@ -578,7 +578,7 @@ void GameScene::onBackflipSuccess(int points, const QString& message) {
         .arg(adjustedPoints).arg(award_score).arg(award_speed));
 
     // 将速度倍数应用到玩家
-    if (Gplayer) {
+    if (Gplayer->isFlipBoosting()) {
         Gplayer->setMoveSpeed(Gplayer->moveSpeed() * award_speed);  // 基础速度 * 速度倍率
     }
 }

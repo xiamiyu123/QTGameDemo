@@ -556,7 +556,6 @@ bool UIManager::isUIManagerObject(QGraphicsItem* item) const
     QGraphicsProxyWidget* proxyWidget = qgraphicsitem_cast<QGraphicsProxyWidget*>(item);
     if (proxyWidget) {
         QWidget* widget = proxyWidget->widget();
-        if (widget == m_pauseButton || widget == m_warningButton || widget == m_npcCooldownContainer) {
         if (widget == m_pauseButton ||
             widget == m_warningButton||
             widget == m_scoreLabel ||

@@ -67,9 +67,7 @@ Player::Player(QGraphicsItem *parent)
       m_lastFrameRotation(0.0),
       m_imageScaleFactor(1),
       m_flipBoostTimer(nullptr),
-      m_isFlipBoosting(false) {
-
-      m_lastFrameRotation(0.0),      m_imageScaleFactor(1), // 添加图像缩放因子
+      m_isFlipBoosting(false),
       m_terrainGenerator(nullptr), // 初始化地形生成器指针
       m_currentForm(NPCForm::Normal), // 初始化为普通形态
       m_baseMoveSpeed(500),

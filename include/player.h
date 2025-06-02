@@ -161,8 +161,6 @@ private:
 
     // 摔倒恢复计时器
     QTimer m_fallRecoveryTimer;    // 动画系统 - 新增部分
-    qreal m_lastFrameRotation;  // 上一帧的角度    // 摔倒恢复计时器
-    QTimer m_fallRecoveryTimer;
     QTimer m_fallRecoveryProgressTimer; // 摔倒恢复进度更新定时器// 动画系统 - 新增部分
     QVector<QPixmap> m_animationFrames;  // 存储png1-png38的动画帧
     int m_currentFrame;                  // 当前播放的帧索引

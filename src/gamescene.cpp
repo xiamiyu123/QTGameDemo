@@ -564,7 +564,7 @@ void GameScene::createSceneItems()
             this, [this]()
             { avalanche->applyThreadResults(); });
     m_avalancheThread->start();    // 连接玩家空翻成功信号
-    connect(Gplayer, &Player::backflipSuccess, this, &GameScene::onBackflipSuccess);
+    connect(Gplayer, &Player::backFlipSuccess, this, &GameScene::onBackFlipSuccess);
 
     // 连接玩家空翻加速进度条信号
     connect(Gplayer, &Player::flipBoostChanged, m_uiManager, &UIManager::showFlipBoost);

@@ -44,14 +44,17 @@ GameScene::GameScene(QObject *parent)
 
     // 创建碰撞处理器
     m_collisionHandler = new CollisionHandler(GTerrainGenerator, this);    // 连接UI事件
-    connect(m_uiManager, &UIManager::pauseToggled, this, &GameScene::togglePause);
-      // 连接玩家NPC拾取冷却进度条信号
+    connect(m_uiManager, &UIManager::pauseToggled, this, &GameScene::togglePause);    // 连接玩家NPC拾取冷却进度条信号
     connect(Gplayer, &Player::npcPickupCooldownChanged,
             m_uiManager, &UIManager::showNPCPickupCooldown);
 
     // 连接玩家坠落恢复进度条信号
     connect(Gplayer, &Player::fallRecoveryChanged,
             m_uiManager, &UIManager::showFallRecovery);
+
+    // 连接玩家空翻加速进度条信号
+    connect(Gplayer, &Player::flipBoostChanged,
+            m_uiManager, &UIManager::showFlipBoost);
 
     // 初始化调试日志器
     DebugLogger::instance()->initialize(this);
@@ -560,6 +563,11 @@ void GameScene::createSceneItems()
     connect(m_avalancheThread, &AvalancheUpdateThread::updateCompleted,
             this, [this]()
             { avalanche->applyThreadResults(); });
+    m_avalancheThread->start();    // 连接玩家空翻成功信号
+    connect(Gplayer, &Player::backflipSuccess, this, &GameScene::onBackflipSuccess);
+
+    // 连接玩家空翻加速进度条信号
+    connect(Gplayer, &Player::flipBoostChanged, m_uiManager, &UIManager::showFlipBoost);
     m_avalancheThread->start();
 
     // 连接玩家空翻成功信号

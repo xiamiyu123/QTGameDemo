@@ -6,7 +6,7 @@
  * YetiNPC: 雪怪NPC
  * 继承自GroundNPC，实现雪怪特有的行为
  * 速度为玩家的80%，优先级ID为2，拥有两种骑乘形态
- * 雪怪为竖直长方体形状
+ * 未加载图片时雪怪为竖直长方体形状
  */
 class YetiNPC : public GroundNPC
 {

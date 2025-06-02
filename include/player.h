@@ -99,7 +99,6 @@ public:    // NPC形态枚举
 
     // 开始空翻加速效果
     void startFlipBoost();
-
     // 检查是否处于空翻加速状态
     bool isFlipBoosting() const;
 
@@ -107,7 +106,10 @@ signals:
     // // 玩家摔倒信号（测试用）
     // void playerFallen(int points, const QString& reason);
     // // 新增空翻成功信号
-    void backflipSuccess(int points, const QString& message);
+    void backFlipSuccess(int points, const QString& message);
+
+    // 摔倒时重置得分倍率的信号
+    void resetAwardMultipliers();
 
 protected:
     // 根据输入计算目标速度
@@ -160,7 +162,7 @@ private:
     QTimer* m_flipBoostProgressTimer; // 空翻加速进度更新计时器
     bool m_isFlipBoosting;     // 当前是否处于空翻加速状态
     static const int FLIP_BOOST_TIME_MS = 2000; // 2秒加速时间
-    static const int FLIP_BOOST_PROGRESS_UPDATE_MS = 50; // 进度更新间隔
+    static const int FLIP_BOOST_PROGRESS_UPDATE_MS = 50; // 进度更新间隔// 当前是否处于空翻后加速状态
 
     // 摔倒恢复计时器
     QTimer m_fallRecoveryTimer;    // 动画系统 - 新增部分

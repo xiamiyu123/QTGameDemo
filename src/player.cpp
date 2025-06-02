@@ -6,6 +6,7 @@
 #include "npcentity.h"
 #include <vector>
 
+#include "gamescene.h"
 #include "terraingenerator.h"
 
 // 定义静态常量
@@ -119,7 +120,7 @@ Player::Player(QGraphicsItem *parent)
     m_flipBoostTimer = new QTimer(this);
     m_flipBoostTimer->setSingleShot(true);
     connect(m_flipBoostTimer, &QTimer::timeout, this, &Player::onFlipBoostTimerTimeout);
-    
+
     // 初始化空翻加速进度更新计时器
     m_flipBoostProgressTimer = new QTimer(this);
     m_flipBoostProgressTimer->setSingleShot(false); // 重复触发
@@ -132,13 +133,13 @@ Player::~Player() {
         delete m_flipBoostTimer;
         m_flipBoostTimer = nullptr;
     }
-    
+
     // 释放空翻加速进度更新计时器
     if (m_flipBoostProgressTimer) {
         delete m_flipBoostProgressTimer;
         m_flipBoostProgressTimer = nullptr;
     }
-    
+
     // 父类析构函数会处理注销和组件删除
 }
 void Player::loadAnimationFrames() {
@@ -317,10 +318,8 @@ void Player::checkLanding(qreal terrainAngle) {
             // 检查成功空翻条件: 旋转超过200度并且没有摔倒
             if (m_flipRotation >= 200.0) {
                 // 发送空翻成功信号
-                emit backflipSuccess(200, "FLIP!");
+                emit backFlipSuccess(200, "空翻360°！");
                 DEBUG_LOG("空翻成功! 奖励 +200 分");
-                // 启动加速效果
-                startFlipBoost();
 
                 // 重置累计旋转角度，避免再次触发
                 m_cumulativeRotation = 0.0;
@@ -452,6 +451,9 @@ void Player::fall() {
 
     // 发出摔倒恢复开始信号
     emit fallRecoveryChanged(true, 0.0);
+
+    // 触发重置倍率信号
+    emit resetAwardMultipliers();
 }
 
 void Player::recoverFromFall() {
@@ -489,6 +491,13 @@ bool Player::canResistFall(qreal angleDeviation) {
             DEBUG_LOG("Player resisted fall by consuming an NPC from main inventory");
             return true;
         }
+    }
+
+    //检查是否处于空翻后的加速状态
+    if (m_isFlipBoosting) {
+        // 如果正在空翻加速中，允许抵抗摔倒
+        DEBUG_LOG("Player resisted fall by being in flip boosting state");
+        return true;
     }
 
     // 未来可扩展为其他抵抗条件
@@ -591,11 +600,12 @@ void Player::startFlipBoost()
     m_isFlipBoosting = true;
 
     // 启动计时器，2秒后关闭加速
+    m_flipBoostTimer->start(1000);
     m_flipBoostTimer->start(FLIP_BOOST_TIME_MS); // 2000毫秒 = 2秒
 
     // 启动进度更新计时器
     m_flipBoostProgressTimer->start(FLIP_BOOST_PROGRESS_UPDATE_MS);
-    
+
     // 发出空翻加速开始信号，初始进度为0
     emit flipBoostChanged(true, 0.0);
 
@@ -605,13 +615,13 @@ void Player::startFlipBoost()
 void Player::onFlipBoostTimerTimeout()
 {
     m_isFlipBoosting = false;
-    
+
     // 停止进度更新计时器
     m_flipBoostProgressTimer->stop();
-    
+
     // 发出空翻加速结束信号
     emit flipBoostChanged(false, 0.0);
-    
+
     DEBUG_LOG("空翻加速效果结束");
 }
 

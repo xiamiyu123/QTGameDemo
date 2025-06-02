@@ -28,7 +28,7 @@ public:
     
     void initialize();
     void showGameOverDialog();
-    void checkPlayerProgressScore();
+    void checkPlayerProgressScore();// 检查玩家进度得分
 
 
 signals:
@@ -47,9 +47,9 @@ private slots:
 
     // 新增处理得分的槽函数
     void onGetScore(int points);
-    void onBackflipSuccess(int points, const QString& message);
+    // 处理玩家成功空翻的槽函数
+    void onBackFlipSuccess(int points, const QString& message);
 
-    // 暂停/继续游戏
       // 暂停/继续游戏
     void togglePause();
 
@@ -77,6 +77,8 @@ private:
     int score;                // 玩家当前得分
     double award_speed;       // 速度奖励倍数
     double award_score;       // 分数奖励倍数
+    // 重置奖励倍率
+    void resetAwardMultipliers();
 
     qreal m_lastScoredPositionX;  // 上次得分时玩家的X位置
     qreal m_scoreDistance;        // 每多少距离得分一次

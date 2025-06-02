@@ -51,7 +51,7 @@ GameScene::GameScene(QObject *parent)
     // 连接玩家坠落恢复进度条信号
     connect(Gplayer, &Player::fallRecoveryChanged,
             m_uiManager, &UIManager::showFallRecovery);
-            
+
     // 连接玩家空翻加速进度条信号
     connect(Gplayer, &Player::flipBoostChanged,
             m_uiManager, &UIManager::showFlipBoost);
@@ -565,9 +565,17 @@ void GameScene::createSceneItems()
             { avalanche->applyThreadResults(); });
     m_avalancheThread->start();    // 连接玩家空翻成功信号
     connect(Gplayer, &Player::backflipSuccess, this, &GameScene::onBackflipSuccess);
-    
+
     // 连接玩家空翻加速进度条信号
     connect(Gplayer, &Player::flipBoostChanged, m_uiManager, &UIManager::showFlipBoost);
+    m_avalancheThread->start();
+
+    // 连接玩家空翻成功信号
+    connect(Gplayer, &Player::backFlipSuccess, this, &GameScene::onBackFlipSuccess);
+
+    // 连接玩家摔倒重置倍率信号
+    connect(Gplayer, &Player::resetAwardMultipliers, this, &GameScene::resetAwardMultipliers);
+
 
     // 连接玩家摔倒信号（测试用）
     // connect(Gplayer, &Player::playerFallen, m_uiManager, &UIManager::showScorePopup);
@@ -597,7 +605,7 @@ void GameScene::checkPlayerProgressScore() {
     }
 }
 
-void GameScene::onBackflipSuccess(int points, const QString& message) {
+void GameScene::onBackFlipSuccess(int points, const QString& message) {
     // 应用分数奖励倍数
     int adjustedPoints = static_cast<int>(points * award_score);
     score += adjustedPoints;
@@ -611,6 +619,9 @@ void GameScene::onBackflipSuccess(int points, const QString& message) {
         m_uiManager->setScore(score);
         m_uiManager->showScorePopup(adjustedPoints, message);
     }
+
+    // 启动加速效果
+    Gplayer->startFlipBoost();
 
     DEBUG_LOG(QString("空翻奖励: %1分 (得分倍数: %2, 速度倍数: %3)")
         .arg(adjustedPoints).arg(award_score).arg(award_speed));
@@ -817,4 +828,15 @@ QPointF GameScene::getNPCSpawnPosition()
     }
 
     return QPointF(spawnX, spawnY);
+}
+
+void GameScene::resetAwardMultipliers()
+{
+    // 重置得分倍率
+    award_score = 1.0;
+
+    DEBUG_LOG(QString("摔倒重置: 得分倍数=%1")
+        .arg(award_score));
+
+
 }

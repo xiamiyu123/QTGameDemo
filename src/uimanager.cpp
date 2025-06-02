@@ -201,11 +201,11 @@ void UIManager::createScoreLabel()
 {
 
     // 引入新字体
-    int id = QFontDatabase::addApplicationFont(":/resource/fonts/Kalmansk-Regular.otf");
+    int id = QFontDatabase::addApplicationFont(":/resource/fonts/1.ttf");
     QString family = QFontDatabase::applicationFontFamilies(id).at(0);
 
     // 创建分数标签
-    QFont scoreFont(family, 52, QFont::Bold);
+    QFont scoreFont(family, 40, QFont::Bold);
     m_scoreLabel = new QLabel("0");
     m_scoreLabel->setFont(scoreFont);
     m_scoreLabel->setStyleSheet("color: yellow; "
@@ -215,7 +215,7 @@ void UIManager::createScoreLabel()
     m_scoreLabel->setAlignment(Qt::AlignRight);
 
     // 添加临时得分提示标签
-    QFont popupFont(family, 30, QFont::Bold);
+    QFont popupFont(family, 20, QFont::Bold);
     m_scorePopupLabel = new QLabel();
     m_scorePopupLabel->setFont(popupFont);
     m_scorePopupLabel->setStyleSheet("color: yellow; "
@@ -325,7 +325,7 @@ void UIManager::updateUI()
     if (m_scoreLabel) {
         m_scoreLabel->setParent(view->viewport());
         QRect vp = view->viewport()->rect();
-        m_scoreLabel->setGeometry(vp.width() - 250, -23, 200, 82);
+        m_scoreLabel->setGeometry(vp.width() - 350, 5, 300, 82);
         m_scoreLabel->show();
     }
 }
@@ -661,7 +661,7 @@ void UIManager::showScorePopup(int points, const QString& reason)
     if (m_scorePopupLabel) {
         m_scorePopupLabel->setParent(view->viewport());
         // 放在分数标签下方居中位置
-        m_scorePopupLabel->setGeometry(vp.width() - 350, 60, 300, 50);
+        m_scorePopupLabel->setGeometry(vp.width() - 400, 65, 350, 50);
     }
 
     // 显示标签

@@ -47,9 +47,8 @@ private slots:
 
     // 新增处理得分的槽函数
     void onGetScore(int points);
-    void onBackflipSuccess(int points, const QString& message);
+    void onBackFlipSuccess(int points, const QString& message);
 
-    // 暂停/继续游戏
       // 暂停/继续游戏
     void togglePause();
 

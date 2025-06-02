@@ -99,7 +99,6 @@ public:    // NPC形态枚举
 
     // 开始空翻加速效果
     void startFlipBoost();
-
     // 检查是否处于空翻加速状态
     bool isFlipBoosting() const;
 
@@ -107,7 +106,7 @@ signals:
     // // 玩家摔倒信号（测试用）
     // void playerFallen(int points, const QString& reason);
     // // 新增空翻成功信号
-    void backflipSuccess(int points, const QString& message);
+    void backFlipSuccess(int points, const QString& message);
 
 protected:
     // 根据输入计算目标速度

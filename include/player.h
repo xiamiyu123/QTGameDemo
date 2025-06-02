@@ -50,9 +50,14 @@ public:
     // 常量
     static const qreal MAX_LANDING_ANGLE_DEVIATION; // 最大允许着陆角度偏差
 
+    void setMoveSpeed(qreal speed);
+    qreal moveSpeed() const;
+
 signals:
     // // 玩家摔倒信号（测试用）
     // void playerFallen(int points, const QString& reason);
+    // // 新增空翻成功信号
+    void backflipSuccess(int points, const QString& message);
 
 protected:
     // 根据输入计算目标速度

@@ -434,8 +434,7 @@ void UIManager::showScorePopup(int points, const QString& reason)
     QString text = QString("%1    +%2").arg(reason).arg(points);
     m_scorePopupLabel->setText(text);
 
-    // 显示标签
-    m_scorePopupLabel->show();
+
 
     QGraphicsView* view = getView();
     if (!view) return;
@@ -448,6 +447,9 @@ void UIManager::showScorePopup(int points, const QString& reason)
         // 放在分数标签下方居中位置
         m_scorePopupLabel->setGeometry(vp.width() - 350, 60, 300, 50);
     }
+
+    // 显示标签
+    m_scorePopupLabel->show();
 
 
     // 启动计时器，2秒后隐藏

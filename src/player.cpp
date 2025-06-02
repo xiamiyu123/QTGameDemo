@@ -219,6 +219,16 @@ void Player::checkLanding(qreal terrainAngle) {
         // 如果偏差过大且无法抵抗，则摔倒
         if (angleDeviation > MAX_LANDING_ANGLE_DEVIATION && !canResistFall(angleDeviation)) {
             fall();
+        } else {
+            // 检查成功空翻条件: 旋转超过200度并且没有摔倒
+            if (m_flipRotation >= 200.0) {
+                // 发送空翻成功信号
+                emit backflipSuccess(200, "FLIP!");
+                DEBUG_LOG("空翻成功! 奖励 +200 分");
+
+                // 重置累计旋转角度，避免再次触发
+                m_cumulativeRotation = 0.0;
+            }
         }
     }
 }
@@ -410,4 +420,13 @@ void Player::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QW
         painter->setPen(greenPen);
         painter->drawLine(r.bottomLeft(), r.bottomRight());
     }
+}
+
+void Player::setMoveSpeed(qreal speed) {
+    m_moveSpeed = speed;
+    DEBUG_LOG(QString("玩家速度设置为: %1").arg(QString::number(m_moveSpeed)));
+}
+
+qreal Player::moveSpeed() const {
+    return m_moveSpeed;
 }

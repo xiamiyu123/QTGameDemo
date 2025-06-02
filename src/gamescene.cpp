@@ -5,6 +5,7 @@
 #include <QtSvg>
 #include "physical.h"
 #include "avalancheupdatethread.h"
+#include <QtConcurrent/QtConcurrent>
 #include "uimanager.h"
 #include "collisionhandler.h"
 #include "npcentity.h"
@@ -561,6 +562,9 @@ void GameScene::createSceneItems()
             { avalanche->applyThreadResults(); });
     m_avalancheThread->start();
 
+    // 连接玩家空翻成功信号
+    connect(Gplayer, &Player::backflipSuccess, this, &GameScene::onBackflipSuccess);
+
     // 连接玩家摔倒信号（测试用）
     // connect(Gplayer, &Player::playerFallen, m_uiManager, &UIManager::showScorePopup);
     // connect(Gplayer, &Player::playerFallen, this, [this](int points, const QString&) {
@@ -586,6 +590,30 @@ void GameScene::checkPlayerProgressScore() {
             emit getscore(points * award_score); // 应用分数奖励倍数
 
         }
+    }
+}
+
+void GameScene::onBackflipSuccess(int points, const QString& message) {
+    // 应用分数奖励倍数
+    int adjustedPoints = static_cast<int>(points * award_score);
+    score += adjustedPoints;
+
+    // 增加奖励倍数（限制最大值以避免游戏过于简单）
+    award_score = qMin(award_score * 1.2, 2.5);  // 增加20%的得分倍率，最大2.5倍
+    award_speed = qMin(award_speed * 1.2, 1.2);  // 增加10%的速度倍率，最大1.2倍
+
+    // 更新UI显示
+    if (m_uiManager) {
+        m_uiManager->setScore(score);
+        m_uiManager->showScorePopup(adjustedPoints, message);
+    }
+
+    DEBUG_LOG(QString("空翻奖励: %1分 (得分倍数: %2, 速度倍数: %3)")
+        .arg(adjustedPoints).arg(award_score).arg(award_speed));
+
+    // 将速度倍数应用到玩家
+    if (Gplayer->isFlipBoosting()) {
+        Gplayer->setMoveSpeed(Gplayer->moveSpeed() * award_speed);  // 基础速度 * 速度倍率
     }
 }
 

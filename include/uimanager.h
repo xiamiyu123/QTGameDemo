@@ -7,8 +7,6 @@
 #include <QGraphicsRectItem>
 #include <QLabel>
 #include <QPushButton>
-#include <QTimer>
-#include <functional>
 
 class UIManager : public QObject
 {
@@ -20,17 +18,12 @@ public:
 
     // 初始化和清理
     void initialize();
-    void cleanup();
-    
-    // UI管理方法
+    void cleanup();    // UI管理方法
     void updateUI();
-    void showPauseOverlay(bool show, int score = 0);
-    void showWarningIndicator(bool show, qreal distance);
+    void showPauseOverlay(bool show, int score = 0);    void showWarningIndicator(bool show, qreal distance);
     void showGameOverDialog(int score, const std::function<void()>& onRetry, const std::function<void()>& onExit);
     void showNPCPickupCooldown(bool show, qreal progress = 0.0);
-    void showFallRecovery(bool show, qreal progress = 0.0);
-    
-    // 设置与获取
+    void showFallRecovery(bool show, qreal progress = 0.0);// 设置与获取
     void setScore(int score);
     QPushButton* getPauseButton() const { return m_pauseButton; }
     QPushButton* getWarningButton() const { return m_warningButton; }
@@ -53,23 +46,17 @@ signals:
 
 private:
     // 场景引用
-    QGraphicsScene* m_scene;
-    
-    // UI元素
+    QGraphicsScene* m_scene;    // UI元素
     QGraphicsTextItem* m_pauseText;
     QPushButton* m_pauseButton;
     QGraphicsRectItem* m_pauseOverlay;
-    QPushButton* m_warningButton;
-    
-    // NPC拾取冷却进度条
+    QPushButton* m_warningButton;    // NPC拾取冷却进度条
     QWidget* m_npcCooldownContainer;
     QWidget* m_npcCooldownProgress;
 
     // 摔倒恢复进度条
     QWidget* m_fallRecoveryContainer;
-    QWidget* m_fallRecoveryProgress;
-    
-    // 得分相关
+    QWidget* m_fallRecoveryProgress;    // 创建UI元素的辅助方法
     QLabel* m_scoreLabel;
     QLabel* m_scorePopupLabel;
     QTimer* m_popupTimer;

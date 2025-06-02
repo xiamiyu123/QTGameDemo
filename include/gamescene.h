@@ -47,6 +47,9 @@ private slots:
 
     // 新增处理得分的槽函数
     void onGetScore(int points);
+    void onBackflipSuccess(int points, const QString& message);
+
+    // 暂停/继续游戏
       // 暂停/继续游戏
     void togglePause();
 
@@ -86,7 +89,7 @@ private:
     QElapsedTimer GElapsedTimer;
 
     UIManager* m_uiManager;
-    CollisionHandler* m_collisionHandler; // 碰撞处理器    
+    CollisionHandler* m_collisionHandler; // 碰撞处理器
     AvalancheUpdateThread* m_avalancheThread;  // 雪崩更新线程
     QList<IPhysicsObject*> m_objectsToDeleteThisFrame; // 存储本帧待删除的物理对象的列表
 

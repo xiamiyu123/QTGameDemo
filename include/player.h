@@ -25,7 +25,7 @@ public:    // NPC形态枚举
     };    // 属性加成配置结构
     struct NPCFormModifiers {
         qreal moveSpeedMultiplier = 1.0;    // 移动速度倍率
-        qreal jumpForceMultiplier = 1.0;    // 跳跃力倍率  
+        qreal jumpForceMultiplier = 1.0;    // 跳跃力倍率
         qreal flipSpeedMultiplier = 1.0;    // 空翻速度倍率
         int inventoryCapacityBonus = 0;     // 库存容量加成
         bool canFlip = true;                // 是否可以空翻
@@ -79,7 +79,7 @@ public:    // NPC形态枚举
     qreal getCurrentMoveSpeed() const;
     qreal getCurrentJumpForce() const;    qreal getCurrentFlipSpeed() const;
     int getCurrentInventoryCapacity() const;
-    
+
     // 雪怪形态管理
     bool isRidingYeti() const;
     NPCForm getYetiForm() const;
@@ -94,9 +94,20 @@ public:    // NPC形态枚举
     // 常量
     static const qreal MAX_LANDING_ANGLE_DEVIATION; // 最大允许着陆角度偏差
 
+    void setMoveSpeed(qreal speed);
+    qreal moveSpeed() const;
+
+    // 开始空翻加速效果
+    void startFlipBoost();
+
+    // 检查是否处于空翻加速状态
+    bool isFlipBoosting() const;
+
 signals:
     // // 玩家摔倒信号（测试用）
     // void playerFallen(int points, const QString& reason);
+    // // 新增空翻成功信号
+    void backflipSuccess(int points, const QString& message);
 
 protected:
     // 根据输入计算目标速度
@@ -120,6 +131,7 @@ signals:
 private slots:
     void onFallRecoveryTimeout(); // 摔倒恢复计时器回调
     void updateAnimation(); // 动画更新槽
+    void onFlipBoostTimerTimeout(); // 空翻加速计时器回调
     void onNPCPickupCooldownTimeout(); // NPC拾取冷却计时器回调
     void updateNPCCooldownProgress(); // 更新NPC拾取冷却进度
     void updateFallRecoveryProgress(); // 更新摔倒恢复进度
@@ -141,12 +153,18 @@ private:
     qreal m_takeoffRotation;   // 离地时的角度
     qreal m_flipRotation;      // 计算出的空翻总角度
     qreal m_cumulativeRotation; // 累计旋转角度
-    qreal m_lastFrameRotation;  // 上一帧的角度    // 摔倒恢复计时器
-    QTimer m_fallRecoveryTimer;
+    qreal m_lastFrameRotation;  // 上一帧的角度
+
+    // 空翻加速相关
+    QTimer* m_flipBoostTimer;  // 空翻加速计时器
+    bool m_isFlipBoosting;     // 当前是否处于空翻加速状态
+
+    // 摔倒恢复计时器
+    QTimer m_fallRecoveryTimer;    // 动画系统 - 新增部分
     QTimer m_fallRecoveryProgressTimer; // 摔倒恢复进度更新定时器// 动画系统 - 新增部分
     QVector<QPixmap> m_animationFrames;  // 存储png1-png38的动画帧
     int m_currentFrame;                  // 当前播放的帧索引
-    QTimer m_animationTimer;            // 动画播放定时器    
+    QTimer m_animationTimer;            // 动画播放定时器
     bool m_animationLoaded;             // 动画是否成功加载的标志
     qreal m_imageScaleFactor;           // 图像缩放因子，用于调整显示大小    // NPC库存系统 - 使用优先队列实现堆（降序排列，高ID优先）
     std::priority_queue<int> m_npcInventory; // 存储NPC ID，自动按ID降序排列
@@ -157,24 +175,24 @@ private:
     bool m_npcPickupCooldownActive;  // 拾取冷却是否激活
     static const int NPC_PICKUP_COOLDOWN_MS = 1000; // 1秒冷却时间
     static const int NPC_COOLDOWN_PROGRESS_UPDATE_MS = 50; // 进度更新间隔（20FPS）
-    
+
     // 地形生成器引用，用于NPC丢弃功能
     TerrainGenerator* m_terrainGenerator;
 
     // NPC形态系统
     NPCForm m_currentForm;
-    
+
     // 基础属性值（原始值）
     qreal m_baseMoveSpeed;
     qreal m_baseJumpForce;
     qreal m_baseFlipSpeed;
     int m_baseInventoryCapacity;
-    
+
     // 当前生效的属性值（包含加成）
-    qreal m_currentMoveSpeed;    qreal m_currentJumpForce; 
+    qreal m_currentMoveSpeed;    qreal m_currentJumpForce;
     qreal m_currentFlipSpeed;
     int m_currentInventoryCapacity;
-    
+
     // 雪怪形态管理
     bool m_isRidingYeti;                // 是否正在骑乘雪怪
     NPCForm m_yetiForm;                 // 当前雪怪形态
@@ -183,7 +201,7 @@ private:
     static const NPCFormModifiers PENGUIN_MODIFIERS;
     static const NPCFormModifiers YETI_FORM1_MODIFIERS;
     static const NPCFormModifiers YETI_FORM2_MODIFIERS;
-    
+
     // NPC形态相关私有方法
     void resetToNormalForm();
     NPCFormModifiers getFormModifiers(NPCForm form) const;

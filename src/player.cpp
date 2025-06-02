@@ -64,7 +64,10 @@ Player::Player(QGraphicsItem *parent)
       m_takeoffRotation(0.0),
       m_flipRotation(0.0),
       m_cumulativeRotation(0.0),
-      m_lastFrameRotation(0.0),      m_imageScaleFactor(1), // 添加图像缩放因子
+      m_lastFrameRotation(0.0),
+      m_imageScaleFactor(1),
+      m_flipBoostTimer(nullptr),
+      m_isFlipBoosting(false),
       m_terrainGenerator(nullptr), // 初始化地形生成器指针
       m_currentForm(NPCForm::Normal), // 初始化为普通形态
       m_baseMoveSpeed(500),
@@ -113,6 +116,11 @@ Player::Player(QGraphicsItem *parent)
     // 设置动画定时器
     connect(&m_animationTimer, &QTimer::timeout, this, &Player::updateAnimation);
     m_animationTimer.start(100); // 每100毫秒更新一帧，约10FPS
+
+    // 初始化空翻加速计时器
+    m_flipBoostTimer = new QTimer(this);
+    m_flipBoostTimer->setSingleShot(true);
+    connect(m_flipBoostTimer, &QTimer::timeout, this, &Player::onFlipBoostTimerTimeout);
 }
 
 Player::~Player() {
@@ -290,6 +298,18 @@ void Player::checkLanding(qreal terrainAngle) {
         // 如果偏差过大且无法抵抗，则摔倒
         if (angleDeviation > MAX_LANDING_ANGLE_DEVIATION && !canResistFall(angleDeviation)) {
             fall();
+        } else {
+            // 检查成功空翻条件: 旋转超过200度并且没有摔倒
+            if (m_flipRotation >= 200.0) {
+                // 发送空翻成功信号
+                emit backflipSuccess(200, "FLIP!");
+                DEBUG_LOG("空翻成功! 奖励 +200 分");
+                // 启动加速效果
+                startFlipBoost();
+
+                // 重置累计旋转角度，避免再次触发
+                m_cumulativeRotation = 0.0;
+            }
         }
     }
 }
@@ -536,6 +556,37 @@ void Player::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QW
         painter->drawLine(r.bottomLeft(), r.bottomRight());
     }
 }
+
+void Player::setMoveSpeed(qreal speed) {
+    m_moveSpeed = speed;
+    DEBUG_LOG(QString("玩家速度设置为: %1").arg(QString::number(m_moveSpeed)));
+}
+
+qreal Player::moveSpeed() const {
+    return m_moveSpeed;
+}
+
+bool Player::isFlipBoosting() const {
+    return m_isFlipBoosting;
+}
+
+void Player::startFlipBoost()
+{
+    // 激活空翻加速状态
+    m_isFlipBoosting = true;
+
+    // 启动计时器，2秒后关闭加速
+    m_flipBoostTimer->start(2000); // 2000毫秒 = 2秒
+
+    DEBUG_LOG("空翻加速激活，持续2秒");
+}
+
+void Player::onFlipBoostTimerTimeout()
+{
+    m_isFlipBoosting = false;
+    DEBUG_LOG("空翻加速效果结束");
+}
+
 
 // === NPC库存系统实现 ===
 

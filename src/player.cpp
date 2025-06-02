@@ -84,6 +84,8 @@ Player::Player(QGraphicsItem *parent)
 {
     setZValue(-2);
 
+    initialMoveSpeed = m_moveSpeed; // 保存初始移动速度
+
     // 设置玩家外观
     setBrush(QBrush(Qt::red));
     setPen(QPen(Qt::black, 2));
@@ -1121,4 +1123,8 @@ void Player::dropCarriedPenguin() {
 
 int Player::getCarriedPenguinCount() const {
     return static_cast<int>(m_penguinCarryInventory.size());
+}
+
+qreal Player::getInitialMoveSpeed() {
+    return initialMoveSpeed;
 }

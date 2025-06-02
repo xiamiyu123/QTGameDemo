@@ -96,6 +96,7 @@ public:    // NPC形态枚举
 
     void setMoveSpeed(qreal speed);
     qreal moveSpeed() const;
+    qreal getInitialMoveSpeed();
 
     // 开始空翻加速效果
     void startFlipBoost();
@@ -148,6 +149,7 @@ private:
     qreal rotateSpeed;
     qreal m_moveSpeed;
     qreal m_jumpForce;
+    qreal initialMoveSpeed;
 
     bool consumeNPCForDamageResistance(); // 消耗NPC进行伤害抵抗
 

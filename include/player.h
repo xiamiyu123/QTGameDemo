@@ -156,7 +156,7 @@ private:
 
     // 空翻加速相关
     QTimer* m_flipBoostTimer;  // 空翻加速计时器
-    bool m_isFlipBoosting;     // 当前是否处于空翻加速状态
+    bool m_isFlipBoosting;     // 当前是否处于空翻后加速状态
 
     // 摔倒恢复计时器
     QTimer m_fallRecoveryTimer;    // 动画系统 - 新增部分

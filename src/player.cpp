@@ -84,6 +84,8 @@ Player::Player(QGraphicsItem *parent)
 {
     setZValue(-2);
 
+    initialMoveSpeed = m_moveSpeed; // 保存初始移动速度
+
     // 设置玩家外观
     setBrush(QBrush(Qt::red));
     setPen(QPen(Qt::black, 2));
@@ -615,6 +617,9 @@ void Player::startFlipBoost()
 void Player::onFlipBoostTimerTimeout()
 {
     m_isFlipBoosting = false;
+
+    // 恢复初速度
+    setMoveSpeed(getInitialMoveSpeed());
 
     // 停止进度更新计时器
     m_flipBoostProgressTimer->stop();
@@ -1169,4 +1174,8 @@ void Player::updateFlipBoostProgress() {
 
     // 发出进度更新信号
     emit flipBoostChanged(true, progress);
+}
+
+qreal Player::getInitialMoveSpeed() {
+    return initialMoveSpeed;
 }

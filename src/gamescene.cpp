@@ -565,6 +565,10 @@ void GameScene::createSceneItems()
     // 连接玩家空翻成功信号
     connect(Gplayer, &Player::backFlipSuccess, this, &GameScene::onBackFlipSuccess);
 
+    // 连接玩家摔倒重置倍率信号
+    connect(Gplayer, &Player::resetAwardMultipliers, this, &GameScene::resetAwardMultipliers);
+
+
     // 连接玩家摔倒信号（测试用）
     // connect(Gplayer, &Player::playerFallen, m_uiManager, &UIManager::showScorePopup);
     // connect(Gplayer, &Player::playerFallen, this, [this](int points, const QString&) {
@@ -816,4 +820,15 @@ QPointF GameScene::getNPCSpawnPosition()
     }
 
     return QPointF(spawnX, spawnY);
+}
+
+void GameScene::resetAwardMultipliers()
+{
+    // 重置得分倍率
+    award_score = 1.0;
+
+    DEBUG_LOG(QString("摔倒重置: 得分倍数=%1")
+        .arg(award_score));
+
+
 }

@@ -49,7 +49,7 @@ public:    // NPC形态枚举
 
     // 检查玩家是否与石头碰撞并判断是否摔倒
     void checkHitRock(RockEntity* rock);    // 新增：NPC拾取和丢弃方法
-    void pickupNPC(NPCEntity* npc);
+    bool pickupNPC(NPCEntity* npc); // 返回是否成功拾取
     void dropNPC();
     void dropNPC(TerrainGenerator* terrainGenerator); // 需要地形生成器来创建NPC
     bool hasNPCInInventory() const;
@@ -85,10 +85,10 @@ public:    // NPC形态枚举
     NPCForm getYetiForm() const;
     void transformYetiForm(); // 雪怪形态1转为形态2
     bool canFlip() const; // 检查当前是否可以空翻
-    
-    // 企鹅携带系统
+      // 企鹅携带系统
     void addPenguinToCarry(int penguinId); // 添加企鹅到携带库存
     bool consumePenguinForDamageResistance(); // 消耗携带的企鹅抵抗伤害
+    void dropCarriedPenguin(); // 丢弃携带的企鹅
     int getCarriedPenguinCount() const; // 获取携带的企鹅数量
 
     // 常量
@@ -151,7 +151,7 @@ private:
     QTimer m_npcPickupCooldownTimer; // NPC拾取冷却计时器
     QTimer m_npcCooldownProgressTimer; // 冷却进度更新计时器
     bool m_npcPickupCooldownActive;  // 拾取冷却是否激活
-    static const int NPC_PICKUP_COOLDOWN_MS = 3000; // 3秒冷却时间
+    static const int NPC_PICKUP_COOLDOWN_MS = 1000; // 1秒冷却时间
     static const int NPC_COOLDOWN_PROGRESS_UPDATE_MS = 50; // 进度更新间隔（20FPS）
     
     // 地形生成器引用，用于NPC丢弃功能

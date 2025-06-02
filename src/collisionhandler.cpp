@@ -549,31 +549,38 @@ void CollisionHandler::handlePlayerNPCCollision(Player* player, QList<IPhysicsOb
             shouldPickup = true;
             collisionMethod = "Qt collision";
         }
-        
-        if (shouldPickup) {
-            // 玩家拾取NPC
-            player->pickupNPC(npc);
+          if (shouldPickup) {
+            // 尝试拾取NPC
+            bool pickupSuccessful = player->pickupNPC(npc);
+            
+            if (pickupSuccessful) {
+                // 只有成功拾取时才删除NPC
+                // 从场景中移除NPC
+                if (npc->scene()) {
+                    npc->scene()->removeItem(npc);
+                }
+                
+                // 从物理系统中注销NPC
+                PhysicsSystem::instance().unregisterObject(npc);
+                
+                // 从地形生成器的NPC列表中移除
+                m_terrainGenerator->m_npcs.removeAt(i);
 
-            // 从场景中移除NPC
-            if (npc->scene()) {
-                npc->scene()->removeItem(npc);
+                // 将NPC添加到本帧的待删除列表
+                if (!objectsToDelete.contains(npc)) {
+                    objectsToDelete.append(npc);
+                }
+                
+                DEBUG_LOG(QString("Player picked up NPC ID: %1 using %2 (distance: %3)")
+                          .arg(npc->class_id())
+                          .arg(collisionMethod)
+                          .arg(distance, 0, 'f', 1));
+            } else {
+                DEBUG_LOG(QString("Player failed to pick up NPC ID: %1 using %2 (distance: %3)")
+                          .arg(npc->class_id())
+                          .arg(collisionMethod)
+                          .arg(distance, 0, 'f', 1));
             }
-            
-            // 从物理系统中注销NPC
-            PhysicsSystem::instance().unregisterObject(npc);
-            
-            // 从地形生成器的NPC列表中移除
-            m_terrainGenerator->m_npcs.removeAt(i);
-
-            // 将NPC添加到本帧的待删除列表
-            if (!objectsToDelete.contains(npc)) {
-                objectsToDelete.append(npc);
-            }
-            
-            DEBUG_LOG(QString("Player picked up NPC ID: %1 using %2 (distance: %3)")
-                      .arg(npc->class_id())
-                      .arg(collisionMethod)
-                      .arg(distance, 0, 'f', 1));
         }
     }
 }

@@ -42,6 +42,9 @@ private:
     // 处理玩家与石头的碰撞
     void handlePlayerRockCollision(Player* player, QList<IPhysicsObject*>& objectsToDelete);
 
+    // 处理玩家与NPC的碰撞
+    void handlePlayerNPCCollision(Player* player, QList<IPhysicsObject*>& objectsToDelete);
+
     // 地形生成器引用
     TerrainGenerator* m_terrainGenerator;
 };

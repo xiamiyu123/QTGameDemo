@@ -1,6 +1,4 @@
 #include "collisionhandler.h"
-#include <QtConcurrent/QtConcurrent>
-#include <QMetaObject>
 #include "debuglogger.h"
 
 CollisionHandler::CollisionHandler(TerrainGenerator* terrainGenerator, QObject* parent)
@@ -18,7 +16,10 @@ void CollisionHandler::updateTerrainGenerator(TerrainGenerator* terrainGenerator
 // 处理物理对象与地形的碰撞
 void CollisionHandler::handlePhysicsObjectCollision(IPhysicsObject* obj, QList<IPhysicsObject*>& objectsToDelete)
 {
-    if (!obj || !m_terrainGenerator) return;
+    if (!obj || !m_terrainGenerator) {
+        DEBUG_LOG("CollisionHandler::handlePhysicsObjectCollision - null pointer detected");
+        return;
+    }
 
     // 获取物体信息
     QRectF objRect = obj->boundingRect();
@@ -39,14 +40,13 @@ void CollisionHandler::handlePhysicsObjectCollision(IPhysicsObject* obj, QList<I
     // 获取物体速度
     QPointF velocity = obj->velocity();
     qreal horizontalSpeed = qAbs(velocity.x());
-    qreal verticalSpeed = velocity.y();
-
-    // 获取实体对象和实际底部位置
+    qreal verticalSpeed = velocity.y();    // 获取实体对象和实际底部位置 - 统一使用局部坐标
     BasePhysicsEntity* entity = dynamic_cast<BasePhysicsEntity*>(obj);
 
     qreal actualObjBottom;
     if (entity) {
-        actualObjBottom = entity->sceneBoundingRect().bottom() - 5;
+        // 使用局部坐标系统，与 objPos 保持一致
+        actualObjBottom = objPos.y() + objRect.height();
     }
     else {
         actualObjBottom = objPos.y() + objRect.height();
@@ -59,8 +59,64 @@ void CollisionHandler::handlePhysicsObjectCollision(IPhysicsObject* obj, QList<I
     Player* player = dynamic_cast<Player*>(obj); // 注意：这里的 player 变量名可能会与函数参数 obj 混淆，但它是局部变量
 
     bool wasOnGround = obj->isOnGround();
+    //如果是npc且高度低于地形
+    if( entity && entity->getEntityType() == IPhysicsObject::EntityType::NPC &&
+        actualObjBottom >= terrainHeight) {
+        // 移除未使用的变量i或给它一个用途
+        // int i = 0; // 删除这一行或注释掉
+        // 如需调试可以替换为：
+        // DEBUG_LOG("NPC碰到地形");
+    }
 
-    // 主要碰撞逻辑 (地面碰撞等)
+    // 判断是否是NPC
+    NPCEntity* npc = dynamic_cast<NPCEntity*>(obj);
+    bool isNPC = (npc != nullptr);
+    
+    // NPC特殊处理 - 单独处理NPC的位置校正，避免多重校正
+    if (isNPC) {
+        // 直接计算NPC应该在的位置（贴地）
+        qreal npcCenterX = objCenterX;
+        qreal correctTerrainHeight = m_terrainGenerator->getTerrainHeight(npcCenterX);
+        qreal expectedY = correctTerrainHeight - objRect.height();
+        
+        // 平滑校正 - 使用插值避免突变
+        qreal currentY = objPos.y();
+        qreal newY = currentY + (expectedY - currentY) * 0.3; // 平滑因子
+        
+        // 更新位置
+        obj->setPosition(QPointF(objPos.x(), newY));
+        
+        // 设置地面状态并重置垂直速度
+        obj->setOnGround(true);
+        if (velocity.y() != 0) {
+            obj->setVelocity(QPointF(velocity.x(), 0));
+        }
+        
+        // 平滑更新坡度受力 - 为NPC使用较小的力避免过快加速
+        if (isNPC) {
+            updateSlopeForce(obj, terrainSlope, horizontalSpeed * 0.8);
+        }
+        
+        // 更新实体旋转 - 使用平滑旋转
+        BasePhysicsEntity* entity = dynamic_cast<BasePhysicsEntity*>(obj);
+        if (entity) {
+            // 计算目标角度
+            qreal targetAngle = qAtan(terrainSlope) * 180.0 / M_PI;
+            
+            // 当前角度 - 使用getRotation()而不是直接访问rotation
+            qreal currentAngle = entity->getRotation(); // 修正：使用getter方法
+            
+            // 平滑旋转（角度插值）
+            qreal newAngle = currentAngle + (targetAngle - currentAngle) * 0.2;
+            
+            entity->setRotation(newAngle);
+        }
+        
+        // NPC已单独处理，不需要再进入后面的普通碰撞处理
+        return;
+    }
+    
+    // 普通对象（非NPC）的碰撞处理逻辑
     if (actualObjBottom >= terrainHeight) {  // 已穿透地面
         // 校正位置
         qreal dy_adjust = terrainHeight - actualObjBottom;
@@ -71,7 +127,8 @@ void CollisionHandler::handlePhysicsObjectCollision(IPhysicsObject* obj, QList<I
             obj->setOnGround(true);
             if (player) { // 如果 obj 是玩家
                 qreal terrainAngle = qRadiansToDegrees(qAtan(terrainSlope));
-                player->checkLanding(terrainAngle);            }
+                player->checkLanding(terrainAngle);
+            }
             obj->setVelocity(QPointF(velocity.x(), 0));
             DEBUG_LOG(QString("落地: 地形高度 = %1 角色底部 = %2").arg(terrainHeight).arg(actualObjBottom));
         }
@@ -80,6 +137,12 @@ void CollisionHandler::handlePhysicsObjectCollision(IPhysicsObject* obj, QList<I
     else if (actualObjBottom + groundTolerance >= terrainHeight) {  // 接近地面
         // 判断是否应该保持着地
         bool shouldStayGrounded = shouldMaintainGrounded(wasOnGround, terrainSlope, verticalSpeed, horizontalSpeed);
+        
+        // NPC始终保持着地状态，不考虑起飞
+        if (isNPC) {
+            shouldStayGrounded = true;
+        }
+        
         if (shouldStayGrounded) {
             // 校正位置 - 平滑吸附到地面
             qreal snapFactor = 1;  // 吸附强度
@@ -97,18 +160,23 @@ void CollisionHandler::handlePhysicsObjectCollision(IPhysicsObject* obj, QList<I
             }
             updateSlopeForce(obj, terrainSlope, horizontalSpeed);
         }
-        else if (wasOnGround && shouldTakeoff(backSlope, terrainSlope, forwardSlope, horizontalSpeed)) {
+        else if (wasOnGround && !isNPC && shouldTakeoff(backSlope, terrainSlope, forwardSlope, horizontalSpeed)) {
+            // NPC不处理飞跃逻辑，只有非NPC对象（如玩家）才考虑起飞
             handleTakeoff(obj, terrainSlope, horizontalSpeed);
-        }  else if (wasOnGround) {
-            obj->setOnGround(false);
-            obj->setSlopeSlideSpeed(0);
-            if (player) { // 如果 obj 是玩家
-                player->notifyTakeoff();
+        }  else if (wasOnGround && !isNPC) {
+            // NPC应始终保持着地状态
+            if (!isNPC) {
+                obj->setOnGround(false);
+                obj->setSlopeSlideSpeed(0);
+                if (player) { // 如果 obj 是玩家
+                    player->notifyTakeoff();
+                }
             }
         }
     }
     else {  // 明显离开地面
-        if (wasOnGround) {
+        if (wasOnGround && !isNPC) {
+            // NPC应始终保持着地状态，只有非NPC对象（如玩家）才允许离地
             obj->setOnGround(false);
             obj->setSlopeSlideSpeed(0);
             if (player) { // 如果 obj 是玩家
@@ -116,18 +184,57 @@ void CollisionHandler::handlePhysicsObjectCollision(IPhysicsObject* obj, QList<I
             }
         }
     }
-
+    
+    // 特别处理NPC - 强制始终保持着地
+    if (isNPC) {
+        obj->setOnGround(true);
+        
+        // 重置所有垂直方向的速度
+        QPointF currentVelocity = obj->velocity();
+        if (currentVelocity.y() != 0) {
+            obj->setVelocity(QPointF(currentVelocity.x(), 0));
+        }
+        
+        // 额外校正NPC位置，确保始终贴地
+        qreal npcCenterX = objPos.x() + objRect.width() / 2;
+        qreal correctTerrainHeight = m_terrainGenerator->getTerrainHeight(npcCenterX);
+        qreal expectedY = correctTerrainHeight - objRect.height();
+        
+        // 如果偏离地面超过阈值，强制校正
+        if (qAbs(objPos.y() - expectedY) > 5.0) {
+            obj->setPosition(QPointF(objPos.x(), expectedY));
+        }
+    }
+    
     // 更新物体姿态 - 考虑摔倒状态
-    if (entity) {
+    if (entity && !isNPC) {
         Player* asPlayer = dynamic_cast<Player*>(entity); // 检查 entity 是否为 Player
         if (!asPlayer || !asPlayer->isFallen()) {
             updateEntityRotation(entity, obj->isOnGround(), terrainSlope);
         }
-    }
-
-    // 玩家与石头碰撞检测 - 仅当当前 obj 是玩家时执行
+    }    // 玩家与石头碰撞检测 - 仅当当前 obj 是玩家时执行
     if (player) {
         handlePlayerRockCollision(player, objectsToDelete);
+        handlePlayerNPCCollision(player, objectsToDelete);  // 新增：NPC碰撞检测
+    }
+
+    // 在调用 obj->setOnGround(true); 和 obj->setPosition(...) 之后
+    if (obj->isOnGround()) {
+        BasePhysicsEntity* entity = dynamic_cast<BasePhysicsEntity*>(obj);
+        if (entity) { // 确保是我们的实体类型
+            qreal currentCenterX = entity->position().x() + entity->boundingRect().width() / 2;
+            qreal authoritativeTerrainHeight = m_terrainGenerator->getTerrainHeight(currentCenterX); // 获取NPC中心正下方的地形高度
+            qreal expectedTopY = authoritativeTerrainHeight - entity->boundingRect().height();
+            
+            // 如果当前Y坐标与期望Y坐标有明显偏差，则强制校正
+            if (qAbs(entity->position().y() - expectedTopY) > 50) { // 0.1 是一个小的容差值
+                entity->setPosition(QPointF(entity->position().x(), expectedTopY));
+                // 可以添加日志记录这次强制校正
+                // DebugLogger::instance().log(QString("CollisionHandler: NPC ID %1 re-corrected to Y %2 based on center terrain %3")
+                //    .arg(entity->getEntityType() == IPhysicsObject::EntityType::NPC ? static_cast<NPCEntity*>(entity)->class_id() : 0) // 假设有class_id
+                //    .arg(expectedTopY).arg(authoritativeTerrainHeight));
+            }
+        }
     }
 }
 
@@ -184,41 +291,7 @@ void CollisionHandler::handlePlayerRockCollision(Player* player, QList<IPhysicsO
             }
             
             break; // 处理完一次碰撞即可
-        }
-    }    // 并行处理石头碰撞检测
-    auto checkRockCollision = [this, player, &objectsToDelete](RockEntity* rock) {
-        // 确保石头和玩家都有效
-        if (!rock || !rock->scene() || !player->scene()) return;
-
-        // 检查石头是否已在本帧中被标记为删除
-        bool rockAlreadyMarkedForDeletion = false;
-        for (IPhysicsObject* deletedObj : objectsToDelete) {
-            if (rock == deletedObj) {
-                rockAlreadyMarkedForDeletion = true;
-                break;
-            }
-        }
-        if (rockAlreadyMarkedForDeletion) return;
-
-        // 确保两个对象都在同一场景
-        if (player->scene() == rock->scene() && player->collidesWithItem(rock)) {
-            // 线程安全地处理碰撞结果
-            QMetaObject::invokeMethod(this, [this, player, rock, &objectsToDelete]() {
-                player->checkHitRock(rock);
-                if (rock->scene()) {
-                    rock->scene()->removeItem(rock);
-                }
-                PhysicsSystem::instance().unregisterObject(rock);
-                m_terrainGenerator->m_rocks.removeOne(rock);
-                if (!objectsToDelete.contains(rock)) {
-                    objectsToDelete.append(rock);
-                }
-            }, Qt::QueuedConnection);
-        }
-    };
-
-    // QtConcurrent 并行处理所有石头
-    QtConcurrent::blockingMap(m_terrainGenerator->m_rocks, checkRockCollision);
+        }    }
 }
 
 // 计算动态地面检测容差
@@ -280,8 +353,12 @@ bool CollisionHandler::shouldTakeoff(qreal backSlope, qreal currentSlope, qreal 
         return true;
     }
 
-    // 急剧下坡
+    // 急剧下坡 - 使用forwardSlope参数避免警告
     if (currentSlope < -0.5 && speed > 200) {
+        // 可以考虑添加forwardSlope的使用，例如：
+        if (forwardSlope < currentSlope) { // 如果前方更陡
+            return true;
+        }
         return true;
     }
 
@@ -348,10 +425,162 @@ void CollisionHandler::updateEntityRotation(BasePhysicsEntity* entity, bool onGr
         return;
     }
 
+    // 检查是否为NPC
+    NPCEntity* npc = dynamic_cast<NPCEntity*>(entity);
+    bool isNPC = (npc != nullptr);
+
     // 只有在地面上才跟随地形旋转
     if (onGround) {
         qreal targetAngle = qAtan(slope) * 180.0 / M_PI;
-        entity->setRotation(targetAngle);
+        
+        if (isNPC) {
+            // NPC使用平滑旋转
+            qreal currentAngle = entity->getRotation(); // 修正：使用getter方法
+            qreal smoothFactor = 0.2; // 平滑因子，值越小移动越平滑
+            qreal newAngle = currentAngle + (targetAngle - currentAngle) * smoothFactor;
+            entity->setRotation(newAngle);
+        } else {
+            // 非NPC对象直接设置角度
+            entity->setRotation(targetAngle);
+        }
     }
     // 空中的旋转逻辑由各实体类自行控制
+}
+
+// 处理玩家与NPC的碰撞
+void CollisionHandler::handlePlayerNPCCollision(Player* player, QList<IPhysicsObject*>& objectsToDelete)
+{
+    // 防御性检查
+    if (!player || !m_terrainGenerator) {
+        return;
+    }
+    
+    // 确保玩家和场景对象都有效
+    if (!player->scene()) {
+        return;    }
+    
+    // 检查玩家是否还有库存空间
+    if (player->getInventorySize() >= 10) { // MAX_INVENTORY_SIZE
+        return; // 库存已满，无法拾取更多NPC
+    }
+    
+    // 检查拾取冷却状态
+    if (!player->canPickupNPC()) {
+        return; // 拾取冷却中，不能拾取NPC
+    }
+    
+    // 获取玩家局部坐标 - 与物理系统保持一致
+    QPointF playerPos = player->position();
+    QRectF playerRect = player->boundingRect();
+    QPointF playerCenter = QPointF(playerPos.x() + playerRect.width()/2, 
+                                   playerPos.y() + playerRect.height()/2);
+      // 遍历所有NPC进行碰撞检测
+    for (int i = m_terrainGenerator->m_npcs.size() - 1; i >= 0; --i) {
+        NPCEntity* npc = m_terrainGenerator->m_npcs.at(i);
+        if (!npc || !npc->scene()) {
+            continue;
+        }
+
+        // 使用局部坐标计算NPC与玩家的距离，与物理系统保持一致
+        QPointF npcPos = npc->position();
+        QRectF npcRect = npc->boundingRect();
+        QPointF npcCenter = QPointF(npcPos.x() + npcRect.width()/2, 
+                                    npcPos.y() + npcRect.height()/2);
+        
+        qreal distance = QLineF(playerCenter, npcCenter).length();        // 如果距离在500以内，输出调试信息（包含坐标系对比）
+        if (distance <= 500.0) {
+            // 获取场景坐标用于对比
+            QRectF npcSceneRect = npc->sceneBoundingRect();
+            QRectF playerSceneRect = player->sceneBoundingRect();
+            QPointF npcSceneCenter = npcSceneRect.center();
+            QPointF playerSceneCenter = playerSceneRect.center();
+            
+            // 计算坐标差异
+            QPointF npcCoordDiff = npcSceneCenter - npcCenter;
+            QPointF playerCoordDiff = playerSceneCenter - playerCenter;
+            // 输出调试信息
+             DEBUG_LOG(QString("NPC Status - ID: %1, Distance: %2")
+                       .arg(npc->class_id())
+                       .arg(distance, 0, 'f', 1));
+            //输出npc是否着地
+            DEBUG_LOG(QString("NPC OnGround: %1").arg(npc->isOnGround() ? "true" : "false"));
+            // 输出NPC的局部坐标
+            DEBUG_LOG(QString("NPC Local Coords - Center: (%1, %2)")
+                      .arg(npcCenter.x(), 0, 'f', 1)
+                      .arg(npcCenter.y(), 0, 'f', 1));
+            //输出该点地面高度
+            DEBUG_LOG(QString("Terrain Height at NPC: %1").arg(m_terrainGenerator->getTerrainHeight(npcCenter.x())));
+            // DEBUG_LOG(QString("  Local Coords - NPC: (%1, %2), Player: (%3, %4)")
+            //           .arg(npcCenter.x(), 0, 'f', 1)
+            //           .arg(npcCenter.y(), 0, 'f', 1)
+            //           .arg(playerCenter.x(), 0, 'f', 1)
+            //           .arg(playerCenter.y(), 0, 'f', 1));
+            // DEBUG_LOG(QString("  Scene Coords - NPC: (%1, %2), Player: (%3, %4)")
+            //           .arg(npcSceneCenter.x(), 0, 'f', 1)
+            //           .arg(npcSceneCenter.y(), 0, 'f', 1)
+            //           .arg(playerSceneCenter.x(), 0, 'f', 1)
+            //           .arg(playerSceneCenter.y(), 0, 'f', 1));
+            // DEBUG_LOG(QString("  Coord Diff - NPC: (%1, %2), Player: (%3, %4)")
+            //           .arg(npcCoordDiff.x(), 0, 'f', 1)
+            //           .arg(npcCoordDiff.y(), 0, 'f', 1)
+            //           .arg(playerCoordDiff.x(), 0, 'f', 1)
+            //           .arg(playerCoordDiff.y(), 0, 'f', 1)
+            //           .arg(playerCoordDiff.y(), 0, 'f', 1));
+            // DEBUG_LOG(QString("  OnGround: NPC=%1, Player=%2")
+            //           .arg(npc->isOnGround() ? "true" : "false")
+            //           .arg(player->isOnGround() ? "true" : "false"));
+        }
+
+        // 检查NPC是否已在本帧中被标记为删除
+        bool npcAlreadyMarkedForDeletion = false;
+        for (IPhysicsObject* deletedObj : objectsToDelete) {
+            if (npc == deletedObj) {
+                npcAlreadyMarkedForDeletion = true;
+                break;
+            }
+        }
+        if (npcAlreadyMarkedForDeletion) {
+            continue;
+        }        // 检测是否应该拾取NPC
+        bool shouldPickup = false;
+        QString collisionMethod = "";
+        
+        if (player->scene() == npc->scene() && player->collidesWithItem(npc)) {
+            shouldPickup = true;
+            collisionMethod = "Qt collision";
+        }
+          if (shouldPickup) {
+            // 尝试拾取NPC
+            bool pickupSuccessful = player->pickupNPC(npc);
+            
+            if (pickupSuccessful) {
+                // 只有成功拾取时才删除NPC
+                // 从场景中移除NPC
+                if (npc->scene()) {
+                    npc->scene()->removeItem(npc);
+                }
+                
+                // 从物理系统中注销NPC
+                PhysicsSystem::instance().unregisterObject(npc);
+                
+                // 从地形生成器的NPC列表中移除
+                m_terrainGenerator->m_npcs.removeAt(i);
+
+                // 将NPC添加到本帧的待删除列表
+                if (!objectsToDelete.contains(npc)) {
+                    objectsToDelete.append(npc);
+                }
+                
+                DEBUG_LOG(QString("Player picked up NPC ID: %1 using %2 (distance: %3)")
+                          .arg(npc->class_id())
+                          .arg(collisionMethod)
+                          .arg(distance, 0, 'f', 1));
+            } else {
+                DEBUG_LOG(QString("Player failed to pick up NPC ID: %1 using %2 (distance: %3)")
+                          .arg(npc->class_id())
+                          .arg(collisionMethod)
+                          .arg(distance, 0, 'f', 1));
+            }
+        }
+    }
 }

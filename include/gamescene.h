@@ -12,7 +12,10 @@
 #include "uimanager.h" 
 #include "collisionhandler.h"
 #include "debuglogger.h"
+#include "npcentity.h"
 #include <QGraphicsSceneWheelEvent>
+#include <vector>
+#include <memory>
 
 class GameScene : public QGraphicsScene
 {
@@ -45,13 +48,24 @@ private slots:
     // 新增处理得分的槽函数
     void onGetScore(int points);
     void onBackflipSuccess(int points, const QString& message);
-    
+
     // 暂停/继续游戏
+      // 暂停/继续游戏
     void togglePause();
+
+    // NPC管理槽函数
+    void spawnNPC();
+    void spawnRandomNPC(const QPointF& position);
 
 private:
     void createSceneItems();  // 创建场景对象
     void resetGameState();    // 重置游戏状态
+    // NPC管理方法
+    void initializeNPCSystem();      // 初始化NPC系统
+    void updateAllNPCs(float deltaTime);  // 更新所有NPC
+    void cleanupNPCs();               // 清理需要销毁的NPC
+    void removeOffscreenNPCs();       // 移除离屏幕太远的NPC
+    QPointF getNPCSpawnPosition();    // 获取NPC生成位置
 
     GameState GState;
     Player *Gplayer;
@@ -76,12 +90,24 @@ private:
 
     UIManager* m_uiManager;
     CollisionHandler* m_collisionHandler; // 碰撞处理器
-
     AvalancheUpdateThread* m_avalancheThread;  // 雪崩更新线程
     QList<IPhysicsObject*> m_objectsToDeleteThisFrame; // 存储本帧待删除的物理对象的列表
+
+    // === NPC管理系统 ===
+    std::vector<std::unique_ptr<NPCEntity>> m_activeNPCs;  // 活跃的NPC列表
+    QTimer* m_npcSpawnTimer;                                // NPC生成定时器
+    qreal m_npcSpawnDistance;                               // NPC生成距离
+    int m_maxNPCCount;                                      // 最大NPC数量
+    qreal m_npcCleanupDistance;                             // NPC清理距离
     void wheelEvent(QGraphicsSceneWheelEvent *event) override {
         // 阻止滚轮事件继续传递到 QGraphicsView
         event->accept();// 滚轮事件被拦截防止不会引起视图缩放
+    }
+
+    void test()
+    {
+        // 用于测试的构造时函数
+        //
     }
 
     void clearGameObjects(); // 清理游戏对象但保留UI元素

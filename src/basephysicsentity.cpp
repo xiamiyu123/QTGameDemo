@@ -43,6 +43,7 @@ QPointF BasePhysicsEntity::position() const
 
 void BasePhysicsEntity::setPosition(const QPointF& pos)
 {
+    // 直接设置局部位置，让Qt自动处理坐标转换
     setPos(pos);
 }
 

@@ -44,14 +44,17 @@ GameScene::GameScene(QObject *parent)
 
     // 创建碰撞处理器
     m_collisionHandler = new CollisionHandler(GTerrainGenerator, this);    // 连接UI事件
-    connect(m_uiManager, &UIManager::pauseToggled, this, &GameScene::togglePause);
-      // 连接玩家NPC拾取冷却进度条信号
+    connect(m_uiManager, &UIManager::pauseToggled, this, &GameScene::togglePause);    // 连接玩家NPC拾取冷却进度条信号
     connect(Gplayer, &Player::npcPickupCooldownChanged,
             m_uiManager, &UIManager::showNPCPickupCooldown);
 
     // 连接玩家坠落恢复进度条信号
     connect(Gplayer, &Player::fallRecoveryChanged,
             m_uiManager, &UIManager::showFallRecovery);
+
+    // 连接玩家空翻加速进度条信号
+    connect(Gplayer, &Player::flipBoostChanged,
+            m_uiManager, &UIManager::showFlipBoost);
 
     // 初始化调试日志器
     DebugLogger::instance()->initialize(this);
@@ -560,6 +563,11 @@ void GameScene::createSceneItems()
     connect(m_avalancheThread, &AvalancheUpdateThread::updateCompleted,
             this, [this]()
             { avalanche->applyThreadResults(); });
+    m_avalancheThread->start();    // 连接玩家空翻成功信号
+    connect(Gplayer, &Player::backFlipSuccess, this, &GameScene::onBackFlipSuccess);
+
+    // 连接玩家空翻加速进度条信号
+    connect(Gplayer, &Player::flipBoostChanged, m_uiManager, &UIManager::showFlipBoost);
     m_avalancheThread->start();
 
     // 连接玩家空翻成功信号
@@ -604,7 +612,7 @@ void GameScene::onBackFlipSuccess(int points, const QString& message) {
 
     // 增加奖励倍数（限制最大值以避免游戏过于简单）
     award_score = qMin(award_score * 1.2, 2.5);  // 增加20%的得分倍率，最大2.5倍
-    award_speed = qMin(award_speed * 1.2, 1.2);  // 增加10%的速度倍率，最大1.2倍
+    award_speed = qMin(award_speed * 1.5, 1.5);  // 增加50%的速度倍率，最大1.5倍
 
     // 更新UI显示
     if (m_uiManager) {
@@ -620,7 +628,7 @@ void GameScene::onBackFlipSuccess(int points, const QString& message) {
 
     // 将速度倍数应用到玩家
     if (Gplayer->isFlipBoosting()) {
-        Gplayer->setMoveSpeed(Gplayer->moveSpeed() * award_speed);  // 基础速度 * 速度倍率
+        Gplayer->setMoveSpeed(Gplayer->getInitialMoveSpeed() * award_speed);  // 基础速度 * 速度倍率
     }
 }
 

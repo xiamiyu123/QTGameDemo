@@ -96,6 +96,7 @@ public:    // NPC形态枚举
 
     void setMoveSpeed(qreal speed);
     qreal moveSpeed() const;
+    qreal getInitialMoveSpeed();
 
     // 开始空翻加速效果
     void startFlipBoost();
@@ -129,6 +130,7 @@ signals:
     void updatePlayerNPC(); // NPC增减操作时发出的信号
     void npcPickupCooldownChanged(bool active, qreal progress); // NPC拾取冷却状态变化信号
     void fallRecoveryChanged(bool active, qreal progress); // 摔倒恢复进度信号
+    void flipBoostChanged(bool active, qreal progress); // 空翻加速进度信号
 
 private slots:
     void onFallRecoveryTimeout(); // 摔倒恢复计时器回调
@@ -137,6 +139,7 @@ private slots:
     void onNPCPickupCooldownTimeout(); // NPC拾取冷却计时器回调
     void updateNPCCooldownProgress(); // 更新NPC拾取冷却进度
     void updateFallRecoveryProgress(); // 更新摔倒恢复进度
+    void updateFlipBoostProgress(); // 更新空翻加速进度
     void onUpdate(); // 更新玩家状态的槽函数
 
 private:
@@ -148,6 +151,7 @@ private:
     qreal rotateSpeed;
     qreal m_moveSpeed;
     qreal m_jumpForce;
+    qreal initialMoveSpeed;
 
     bool consumeNPCForDamageResistance(); // 消耗NPC进行伤害抵抗
 
@@ -155,11 +159,12 @@ private:
     qreal m_takeoffRotation;   // 离地时的角度
     qreal m_flipRotation;      // 计算出的空翻总角度
     qreal m_cumulativeRotation; // 累计旋转角度
-    qreal m_lastFrameRotation;  // 上一帧的角度
-
-    // 空翻加速相关
+    qreal m_lastFrameRotation;  // 上一帧的角度    // 空翻加速相关
     QTimer* m_flipBoostTimer;  // 空翻加速计时器
-    bool m_isFlipBoosting;     // 当前是否处于空翻后加速状态
+    QTimer* m_flipBoostProgressTimer; // 空翻加速进度更新计时器
+    bool m_isFlipBoosting;     // 当前是否处于空翻加速状态
+    static const int FLIP_BOOST_TIME_MS = 2000; // 2秒加速时间
+    static const int FLIP_BOOST_PROGRESS_UPDATE_MS = 50; // 进度更新间隔// 当前是否处于空翻后加速状态
 
     // 摔倒恢复计时器
     QTimer m_fallRecoveryTimer;    // 动画系统 - 新增部分

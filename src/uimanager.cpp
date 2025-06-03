@@ -208,7 +208,7 @@ void UIManager::createScoreLabel()
     QFont scoreFont(family, 40, QFont::Bold);
     m_scoreLabel = new QLabel("0");
     m_scoreLabel->setFont(scoreFont);
-    m_scoreLabel->setStyleSheet("color: yellow; "
+    m_scoreLabel->setStyleSheet("color: white; "
                                 "border: none; "
                                 "background: transparent; "
                                 "padding: 6px 18px;");
@@ -231,6 +231,14 @@ void UIManager::createScoreLabel()
     connect(m_popupTimer, &QTimer::timeout, this, [this]() {
         if (m_scorePopupLabel) {
             m_scorePopupLabel->hide();
+        }
+
+        // 恢复分数标签为白色
+        if (m_scoreLabel) {
+            m_scoreLabel->setStyleSheet("color: white; "
+                                      "border: none; "
+                                      "background: transparent; "
+                                      "padding: 6px 18px;");
         }
     });
 }
@@ -646,16 +654,22 @@ void UIManager::showScorePopup(int points, const QString& reason)
     // 停止现有计时器（如果正在显示）
     m_popupTimer->stop();
 
-    // 设置文本内容
-    QString text = QString("%1    +%2").arg(reason).arg(points);
+    // 设置文本内容 - 使用HTML格式使reason部分更大并设为白色
+    QString text = QString("<span style='color:white; font-size:35px;'>%1</span>       <span style='color:yellow;'>+%2</span>")
+        .arg(reason).arg(points);
     m_scorePopupLabel->setText(text);
 
-
+    // 将主分数标签颜色改为黄色
+    if (m_scoreLabel) {
+        m_scoreLabel->setStyleSheet("color: yellow; "
+                                   "border: none; "
+                                   "background: transparent; "
+                                   "padding: 6px 18px;");
+    }
 
     QGraphicsView* view = getView();
     if (!view) return;
     QRect vp = view->viewport()->rect();
-
 
     // 更新临时得分提示标签位置
     if (m_scorePopupLabel) {
@@ -666,7 +680,6 @@ void UIManager::showScorePopup(int points, const QString& reason)
 
     // 显示标签
     m_scorePopupLabel->show();
-
 
     // 启动计时器，2秒后隐藏
     m_popupTimer->start(2000);
@@ -680,6 +693,11 @@ void UIManager::resetUI()
     // 重置得分标签
     if (m_scoreLabel) {
         m_scoreLabel->setText("0");
+        // 恢复为白色
+        m_scoreLabel->setStyleSheet("color: white; "
+                                   "border: none; "
+                                   "background: transparent; "
+                                   "padding: 6px 18px;");
     }
 
     // 隐藏弹出标签
@@ -695,3 +713,4 @@ void UIManager::resetUI()
     // 更新UI确保位置正确
     updateUI();
 }
+

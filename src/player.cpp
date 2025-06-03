@@ -320,7 +320,7 @@ void Player::checkLanding(qreal terrainAngle) {
             // 检查成功空翻条件: 旋转超过200度并且没有摔倒
             if (m_flipRotation >= 200.0) {
                 // 发送空翻成功信号
-                emit backFlipSuccess(200, "空翻360°！");
+                emit backFlipSuccess(200, "后空翻！");
                 DEBUG_LOG("空翻成功! 奖励 +200 分");
 
                 // 重置累计旋转角度，避免再次触发

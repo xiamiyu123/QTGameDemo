@@ -74,6 +74,8 @@ GameScene::GameScene(QObject *parent)
     m_avalancheThread->start();
 
     // 初始化得分相关
+    maxAward_score = 16.0;
+    maxAward_speed = 1.5;
     m_lastScoredPositionX = 1200;
     m_scoreDistance = 100;  // 每100像素得分一次
 
@@ -312,6 +314,8 @@ void GameScene::update()
         m_uiManager->showWarningIndicator(false, dist);
     }
 
+    m_uiManager->showScoreMultiplier(award_score); //显示当前的得分倍率值
+
     // === NPC系统更新 ===
     updateAllNPCs(deltaTime);
 
@@ -468,6 +472,8 @@ void GameScene::resetGameState()
     score = 0;
     award_speed = 1.0;
     award_score = 1.0;
+    maxAward_score = 16.0;
+    maxAward_speed = 1.5;
 
     // 重置计分位置
     m_lastScoredPositionX = 1200;
@@ -564,7 +570,6 @@ void GameScene::createSceneItems()
             this, [this]()
             { avalanche->applyThreadResults(); });
     m_avalancheThread->start();    // 连接玩家空翻成功信号
-    connect(Gplayer, &Player::backFlipSuccess, this, &GameScene::onBackFlipSuccess);
 
     // 连接玩家空翻加速进度条信号
     connect(Gplayer, &Player::flipBoostChanged, m_uiManager, &UIManager::showFlipBoost);
@@ -599,7 +604,7 @@ void GameScene::checkPlayerProgressScore() {
             m_lastScoredPositionX += scoreUnits * m_scoreDistance;
 
             // 发射得分信号
-            emit getscore(points * award_score); // 应用分数奖励倍数
+            emit getscore(points);
 
         }
     }
@@ -611,8 +616,8 @@ void GameScene::onBackFlipSuccess(int points, const QString& message) {
     score += adjustedPoints;
 
     // 增加奖励倍数（限制最大值以避免游戏过于简单）
-    award_score = qMin(award_score * 1.2, 2.5);  // 增加20%的得分倍率，最大2.5倍
-    award_speed = qMin(award_speed * 1.5, 1.5);  // 增加50%的速度倍率，最大1.5倍
+    award_score = qMin(award_score + 1.0, maxAward_score);
+    award_speed = qMin(award_speed * 1.5, maxAward_speed);
 
     // 更新UI显示
     if (m_uiManager) {

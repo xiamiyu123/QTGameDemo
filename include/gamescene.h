@@ -8,14 +8,17 @@
 #include "avalanche.h"
 #include "avalancheupdatethread.h"
 #include <QList>
-#include "physical.h" 
-#include "uimanager.h" 
+#include "physical.h"
+#include "uimanager.h"
 #include "collisionhandler.h"
 #include "debuglogger.h"
 #include "npcentity.h"
 #include <QGraphicsSceneWheelEvent>
 #include <vector>
 #include <memory>
+
+// 前向声明 UIManager 类
+class UIManager;
 
 class GameScene : public QGraphicsScene
 {
@@ -25,10 +28,11 @@ public:
     enum GameState { Running, Paused, GameOver };
     explicit GameScene(QObject *parent = nullptr);
     ~GameScene();
-    
+
     void initialize();
     void showGameOverDialog();
     void checkPlayerProgressScore();// 检查玩家进度得分
+    double getMaxAward_Score() const { return maxAward_score; }
 
 
 signals:
@@ -63,7 +67,7 @@ private:
     // NPC管理方法
     void initializeNPCSystem();      // 初始化NPC系统
     void updateAllNPCs(float deltaTime);  // 更新所有NPC
-    void cleanupNPCs();               // 清理需要销毁的NPC
+    void cleanupNPCs();               // 清理需要销��的NPC
     void removeOffscreenNPCs();       // 移除离屏幕太远的NPC
     QPointF getNPCSpawnPosition();    // 获取NPC生成位置
 
@@ -76,7 +80,9 @@ private:
     // 新增得分和奖励倍数字段
     int score;                // 玩家当前得分
     double award_speed;       // 速度奖励倍数
+    double maxAward_speed;  // 最大速度奖励倍数
     double award_score;       // 分数奖励倍数
+    double maxAward_score;  // 最大分数奖励倍数
     // 重置奖励倍率
     void resetAwardMultipliers();
 
@@ -114,4 +120,5 @@ private:
 
     void clearGameObjects(); // 清理游戏对象但保留UI元素
 };
+
 

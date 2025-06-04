@@ -4,11 +4,25 @@
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
+    , m_username("Player")
+{
+    setupWindow();
+}
+
+// 添加带用户名的构造函数
+MainWindow::MainWindow(const QString& username, QWidget *parent)
+    : QMainWindow(parent)
+    , m_username(username)
+{
+    setupWindow();
+}
+
+void MainWindow::setupWindow()
 {
     // 窗口基本设置：设置初始尺寸与标题
-    //设置全屏
     setWindowState(Qt::WindowMaximized);
-    setWindowTitle("滑雪大冒险");
+    setWindowTitle(QString("滑雪大冒险 - %1").arg(m_username));
+    
     // 初始化视图 (QGraphicsView)，并配置渲染与背景
     m_view = new QGraphicsView(this);
 
@@ -29,6 +43,7 @@ MainWindow::MainWindow(QWidget *parent)
     m_view->setBackgroundBrush(QBrush(QColor(135, 206, 235))); // 天空蓝背景
     m_view->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff); // 禁用水平滚动条
     m_view->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);   // 禁用垂直滚动条
+    
     m_scene = new GameScene(this);
     m_view->setScene(m_scene);
 

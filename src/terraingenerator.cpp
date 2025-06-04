@@ -268,7 +268,7 @@ void TerrainGenerator::generateChunk(int chunkIndex) {
         // 随机选择生成位置（块内）
         qreal npcX = QRandomGenerator::global()->bounded(CHUNK_WIDTH / 4, CHUNK_WIDTH * 3 / 4);
         qreal globalNpcX = chunkIndex * CHUNK_WIDTH + npcX;
-        
+
         // 检查斜率是否适合生成NPC
         qreal npcSlope = getTerrainSlope(globalNpcX);
         if (qAbs(npcSlope) <= MAX_SLOPE_FOR_ROCK) { // 使用与石头相同的斜率限制
@@ -276,45 +276,45 @@ void TerrainGenerator::generateChunk(int chunkIndex) {
             // 每5个chunk为一个周期，其中4个生成企鹅，1个生成雪怪
             int cyclePosition = chunkIndex % 5;
             bool shouldGenerateYeti = (cyclePosition == 0); // 每5个chunk的第1个生成雪怪
-            
+
             // 根据NPC类型调整Y坐标（雪怪更高，需要更大的偏移）
             qreal npcHeight = shouldGenerateYeti ? 60.0 : 30.0; // 雪怪高度60，企鹅高度30
             qreal npcY = getTerrainHeight(globalNpcX) - npcHeight; // 将NPC底部对齐地面
-            
+
             if (shouldGenerateYeti) {
                 // 创建雪怪NPC
                 auto yeti = NPCFactory::createYetiNPC(QPointF(globalNpcX, npcY));
                 NPCEntity* yetiPtr = yeti.release();
-                
+
                 // 设置NPC初始状态
                 yetiPtr->setOnGround(true);
                 yetiPtr->setActive(false);
-                
+
                 // 添加到场景和存储列表
                 m_scene->addItem(yetiPtr);
                 m_npcs.append(yetiPtr);
-                
+
                 // 注册到物理系统
                 PhysicsSystem::instance().registerObject(yetiPtr);
-                
+
                 DEBUG_LOG(QString("Generated yeti NPC at chunk %1, position (%2, %3)")
                           .arg(chunkIndex).arg(globalNpcX).arg(npcY));
             } else {
                 // 创建企鹅NPC
                 auto penguin = NPCFactory::createPenguinNPC(QPointF(globalNpcX, npcY));
                 NPCEntity* penguinPtr = penguin.release(); // 释放unique_ptr的所有权
-                
+
                 // 设置NPC初始状态
                 penguinPtr->setOnGround(true);
                 penguinPtr->setActive(false); // 初始状态不激活
-                
+
                 // 添加到场景和存储列表
                 m_scene->addItem(penguinPtr);
                 m_npcs.append(penguinPtr);
-                
+
                 // 注册到物理系统
                 PhysicsSystem::instance().registerObject(penguinPtr);
-                
+
                 DEBUG_LOG(QString("Generated penguin NPC at chunk %1, position (%2, %3)")
                           .arg(chunkIndex).arg(globalNpcX).arg(npcY));
             }
@@ -348,9 +348,9 @@ void TerrainGenerator::generateChunkThreadSafe(int chunkIndex)
 
     // 确保与前一个块平滑连接
     qreal startHeight = BASE_HEIGHT;
-    qreal startSlope = 0.0; 
+    qreal startSlope = 0.0;
     qreal SLOPE_FACTOR = BASE_SLOPE_FACTOR;
-    
+
     // 从原始的generateChunk方法复制的地形生成核心代码
     { // 访问 m_chunkPoints 需要加锁
         QMutexLocker locker(&m_mutex);
@@ -389,23 +389,23 @@ void TerrainGenerator::generateChunkThreadSafe(int chunkIndex)
         qreal x = (qreal) i / POINTS * CHUNK_WIDTH;
         qreal globalX = x + chunkIndex * CHUNK_WIDTH;
 
-        qreal noiseValue = noise(globalX * 1); 
+        qreal noiseValue = noise(globalX * 1);
 
-        qreal globalFactor = chunkIndex * BASE_SLOPE_FACTOR; 
-        qreal localFactor = qSqrt((qreal) i / POINTS) * SLOPE_FACTOR; 
+        qreal globalFactor = chunkIndex * BASE_SLOPE_FACTOR;
+        qreal localFactor = qSqrt((qreal) i / POINTS) * SLOPE_FACTOR;
         qreal downwardTrend = globalFactor + localFactor;
 
         qreal baseHeight = BASE_HEIGHT + downwardTrend;
         qreal blendFactor = 1.0;
-        
+
         if (i < TRANSITION_ZONE) {
             qreal t = (qreal) i / TRANSITION_ZONE;
-            qreal smoothT = (1 - qCos(t * M_PI)) * 0.5; 
+            qreal smoothT = (1 - qCos(t * M_PI)) * 0.5;
 
             qreal expectedHeight = startHeight + startSlope * x;
 
             qreal transitionNoise = noise(globalX * 0.02 + 100) * HEIGHT_VARIATION * 0.3;
-            expectedHeight += transitionNoise * smoothT; 
+            expectedHeight += transitionNoise * smoothT;
 
             baseHeight = expectedHeight * (1 - smoothT) + baseHeight * smoothT;
 
@@ -415,7 +415,7 @@ void TerrainGenerator::generateChunkThreadSafe(int chunkIndex)
         qreal height = baseHeight + noiseValue * HEIGHT_VARIATION * blendFactor;
         points.append(QPointF(x, height));
     }
-    
+
     // 创建地形路径
     QPainterPath path;
     if (points.isEmpty()) {
@@ -440,7 +440,7 @@ void TerrainGenerator::generateChunkThreadSafe(int chunkIndex)
     QVector<RockGenerationData> rockDataList;
     int rockCount = QRandomGenerator::global()->bounded(2, 4);
     QVector<qreal> rockXs; // 记录已生成石头的x坐标
-    
+
     for (int r = 0; r < rockCount; ++r) {
         // 随机x坐标（块内）
         qreal x = QRandomGenerator::global()->bounded(0, CHUNK_WIDTH);
@@ -460,7 +460,7 @@ void TerrainGenerator::generateChunkThreadSafe(int chunkIndex)
         while (i < points.size() && points[i].x() < x) {
             i++;
         }
-        
+
         // 如果没找到合适的点或位置无效，则跳过生成这个石头
         if (i == 0 || i >= points.size()) {
             continue;
@@ -470,21 +470,21 @@ void TerrainGenerator::generateChunkThreadSafe(int chunkIndex)
         qreal y1 = points[i - 1].y();
         qreal x2 = points[i].x();
         qreal y2 = points[i].y();
-        
+
         // 避免除零错误
         qreal dx = x2 - x1;
         qreal slope = (qAbs(dx) > 1e-9) ? ((y2 - y1) / dx) : 0.0;
-        
+
         // 检查斜率，如果太陡则不放置石头
         if (qAbs(slope) > MAX_SLOPE_FOR_ROCK) continue;
-        
+
         // 计算高度（线性插值）
         qreal height = y1 + slope * (x - x1);
         qreal y = height - 5; // 石头底部贴地
-        
+
         qreal globalX = chunkIndex * CHUNK_WIDTH + x;
         qreal angle = qAtan(slope) * 180.0 / M_PI;
-        
+
         // 保存石头数据
         RockGenerationData rockData;
         rockData.localX = x;
@@ -498,38 +498,38 @@ void TerrainGenerator::generateChunkThreadSafe(int chunkIndex)
     if (chunkIndex > 0) { // 跳过第一个地形块
         // 随机选择生成位置（块内）
         qreal npcX = QRandomGenerator::global()->bounded(CHUNK_WIDTH / 4, CHUNK_WIDTH * 3 / 4);
-        
+
         // 计算高度和斜率
         int i = 0;
         while (i < points.size() && points[i].x() < npcX) {
             i++;
         }
-        
+
         if (i > 0 && i < points.size()) {
             // 计算斜率
             qreal x1 = points[i - 1].x();
             qreal y1 = points[i - 1].y();
             qreal x2 = points[i].x();
             qreal y2 = points[i].y();
-            
+
             qreal dx = x2 - x1;
             qreal slope = (qAbs(dx) > 1e-9) ? ((y2 - y1) / dx) : 0.0;
-            
+
             // 检查斜率是否适合生成NPC
             if (qAbs(slope) <= MAX_SLOPE_FOR_ROCK) {
                 // 计算高度（线性插值）
                 qreal height = y1 + slope * (npcX - x1);
                 qreal globalNpcX = chunkIndex * CHUNK_WIDTH + npcX;
-                
+
                 // 决定生成企鹅还是雪怪 (4:1比例)
                 // 每5个chunk为一个周期，其中4个生成企鹅，1个生成雪怪
                 int cyclePosition = chunkIndex % 5;
                 bool shouldGenerateYeti = (cyclePosition == 0); // 每5个chunk的第1个生成雪怪
-                
+
                 // 根据NPC类型调整Y坐标（雪怪更高，需要更大的偏移）
                 qreal npcHeight = shouldGenerateYeti ? 60.0 : 30.0; // 雪怪高度60，企鹅高度30
                 qreal npcY = height - npcHeight; // 将NPC底部对齐地面
-                
+
                 // 保存NPC数据
                 NPCGenerationData npcData;
                 npcData.localX = npcX;
@@ -554,28 +554,28 @@ void TerrainGenerator::generateChunkThreadSafe(int chunkIndex)
 void TerrainGenerator::addChunkToScene(int chunkIndex)
 {
     QMutexLocker locker(&m_mutex);
-    
+
     // 检查是否已经添加到场景
     if (m_chunks.contains(chunkIndex)) {
         return;
     }
-    
+
     // 检查是否有生成的路径
     if (!m_generatedPaths.contains(chunkIndex)) {
         return;
     }
-    
+
     QPainterPath path = m_generatedPaths[chunkIndex];
       // 创建地形项（白色填充）
     QGraphicsPathItem *terrainItem = new QGraphicsPathItem(path);
     terrainItem->setBrush(QBrush(QColor(240, 240, 240))); // 雪地颜色
     terrainItem->setPen(QPen(QColor(240, 240, 240), 2)); // 竖直和底部边框设为白色
     terrainItem->setPos(chunkIndex * CHUNK_WIDTH, 0);
-    
+
     // 添加地形项到场景
     m_scene->addItem(terrainItem);
     m_chunks[chunkIndex] = terrainItem;
-    
+
     // 创建顶部曲线路径（黑色边框）
     QGraphicsPathItem *topItem = nullptr;
     if (m_chunkPoints.contains(chunkIndex)) {
@@ -585,7 +585,7 @@ void TerrainGenerator::addChunkToScene(int chunkIndex)
         for (int i = 1; i < points.size(); ++i) {
             topPath.lineTo(points[i]);
         }
-        
+
         topItem = new QGraphicsPathItem(topPath);
         topItem->setPen(QPen(Qt::black, 2)); // 顶部曲线保持黑色
         topItem->setPos(chunkIndex * CHUNK_WIDTH, 0);
@@ -593,7 +593,7 @@ void TerrainGenerator::addChunkToScene(int chunkIndex)
         m_scene->addItem(topItem);
         m_topLineItems[chunkIndex] = topItem;
     }
-    
+
     // 根据预先计算的数据创建石头实体
     if (m_generatedRocks.contains(chunkIndex)) {
         const QVector<RockGenerationData>& rockDataList = m_generatedRocks[chunkIndex];
@@ -628,25 +628,25 @@ void TerrainGenerator::addChunkToScene(int chunkIndex)
                 DEBUG_LOG(QString("Created penguin NPC at chunk %1, position (%2, %3)")
                           .arg(chunkIndex).arg(npcData.globalX).arg(npcData.y));
             }
-            
+
             if (npcPtr) {
                 // 设置NPC初始状态
                 npcPtr->setOnGround(true);
                 npcPtr->setActive(false); // 初始状态不激活，等待进入画面
-                
+
                 // 添加到场景和存储列表
                 m_scene->addItem(npcPtr);
                 m_npcs.append(npcPtr);
-                
+
                 // 注册到物理系统
                 PhysicsSystem::instance().registerObject(npcPtr);
             }
         }
-        
+
         // 处理完后移除NPC数据
         m_generatedNPCs.remove(chunkIndex);
     }
-    
+
     // 移除已处理的路径
     m_generatedPaths.remove(chunkIndex);
 }
@@ -687,14 +687,14 @@ void TerrainGenerator::removeDistantChunks(int currentChunk) {
             delete m_chunks[index];
             m_chunks.remove(index);
         }
-        
+
         // 移除轮廓线
         if (m_topLineItems.contains(index)) {
             m_scene->removeItem(m_topLineItems[index]);
             delete m_topLineItems[index];
             m_topLineItems.remove(index);
         }
-        
+
         // 保留地形点数据，因为可能需要用于连接
     }
 }
@@ -762,7 +762,7 @@ void TerrainGenerator::clearAllResources()
         }
     }
     m_chunks.clear();
-    
+
     // 清理轮廓线
     for (auto it = m_topLineItems.begin(); it != m_topLineItems.end(); ++it) {
         if (it.value()) {
@@ -771,7 +771,7 @@ void TerrainGenerator::clearAllResources()
         }
     }
     m_topLineItems.clear();
-    
+
     // 清理石头
     for (RockEntity* rock : m_rocks) {
         if (rock) {
@@ -781,7 +781,7 @@ void TerrainGenerator::clearAllResources()
         }
     }
     m_rocks.clear();
-    
+
     // 清理其他数据
     m_chunkPoints.clear();
     m_generatedPaths.clear();

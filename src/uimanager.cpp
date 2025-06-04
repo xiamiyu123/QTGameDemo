@@ -1044,14 +1044,19 @@ void UIManager::showLeaderboard(int currentScore, const std::function<void()>& o
     buttonLayout->addWidget(closeBtn);
     buttonLayout->addStretch();
     mainLayout->addLayout(buttonLayout);
-    
-    // 显示排行榜窗口
+      // 显示排行榜窗口
     QGraphicsProxyWidget* leaderboardProxy = m_scene->addWidget(leaderboardWidget);
     leaderboardProxy->setZValue(2003);
-    QSize windowSize(600, 450);
+    
+    // 根据视口大小动态调整排行榜窗口尺寸
+    QRect viewportRect = view->viewport()->rect();
+    int windowWidth = qMin(800, static_cast<int>(viewportRect.width() * 0.9));  // 最大800px，或视口宽度的90%
+    int windowHeight = qMin(600, static_cast<int>(viewportRect.height() * 0.85)); // 最大600px，或视口高度的85%
+    QSize windowSize(windowWidth, windowHeight);
+    
     leaderboardWidget->setFixedSize(windowSize);
     leaderboardProxy->setPos(sceneRect.center().x() - windowSize.width() / 2,
-                            sceneRect.center().y() - windowSize.height() / 2);    // 关闭按钮事件
+                            sceneRect.center().y() - windowSize.height() / 2);// 关闭按钮事件
     QObject::connect(closeBtn, &QPushButton::clicked, [=]() {
         // 移除排行榜窗口
         m_scene->removeItem(leaderboardProxy);

@@ -109,6 +109,9 @@ signals:
     // // 新增空翻成功信号
     void backFlipSuccess(int points, const QString& message);
 
+    // 新增抓取NPC成功信号
+    void npcCaptureSuccess(int points, const QString& message, int npcId);
+
     // 摔倒时重置得分倍率的信号
     void resetAwardMultipliers();
 
@@ -122,7 +125,8 @@ private:
     // 摔倒相关方法
     void fall();  // 进入摔倒状态
     void recoverFromFall(); // 从摔倒中恢复
-    bool canResistFall(qreal angleDeviation); // 是否能抵抗摔倒（可消耗NPC进行抗性）    // 动画相关方法
+    bool canResistFall(qreal angleDeviation); // 是否能抵抗摔倒（可消耗NPC进行抗性）
+    bool canResistRockDamage(); // 是否能抵抗石头伤害（加速状态）// 动画相关方法
     void loadAnimationFrames(); // 加载动画帧
     void loadRidingTextures();  // 加载骑乘状态动画贴图
     int getCurrentAnimationRange() const; // 根据当前状态返回应该显示的帧索引

@@ -20,9 +20,9 @@ public:
     void initialize();
     void cleanup();    // UI管理方法
     void updateUI();
-    void showPauseOverlay(bool show, int score = 0);
-    void showWarningIndicator(bool show, qreal distance);
-    void showGameOverDialog(int score, const std::function<void()>& onRetry, const std::function<void()>& onExit);
+    void showPauseOverlay(bool show, int score = 0);    void showWarningIndicator(bool show, qreal distance);
+    void showGameOverDialog(int score, const std::function<void()>& onRetry, const std::function<void()>& onExit, bool updateLeaderboard = true);
+    void showLeaderboard(); // 新增：显示排行榜
     void showNPCPickupCooldown(bool show, qreal progress = 0.0);
     void showFallRecovery(bool show, qreal progress = 0.0);
     void showFlipBoost(bool show, qreal progress = 0.0);
@@ -85,8 +85,20 @@ private:
     void createFallRecoveryElements();
     void createFlipBoostElements();
     void createScoreMultiplierElements(); // 新增：创建得分倍率条
-    void setupButtonStyle(QPushButton* button, const QString& iconPath, bool transparent = true);
-
-    // 获取主视图
+    void setupButtonStyle(QPushButton* button, const QString& iconPath, bool transparent = true);    // 获取主视图
     QGraphicsView* getView() const;
+      // 获取当前登录用户名
+    QString getCurrentUsername() const;
+    
+    // 排行榜相关方法
+    struct ScoreRecord {
+        QString username;
+        int score;
+        QString timestamp;
+    };
+      void updateGlobalLeaderboard(const QString& username, int score);
+    void updatePersonalLeaderboard(const QString& username, int score);
+    QList<ScoreRecord> getGlobalTop10() const;
+    QList<ScoreRecord> getPersonalTop10(const QString& username) const;
+    void showLeaderboard(int currentScore, const std::function<void()>& onRetry, const std::function<void()>& onExit);
 };

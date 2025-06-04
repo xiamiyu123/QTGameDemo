@@ -15,6 +15,8 @@
 #include <QStyleOptionGraphicsItem>
 #include <QGraphicsProxyWidget>
 #include <QTimer>
+#include <QDateTime>
+#include <algorithm>
 
 UIManager::UIManager(QGraphicsScene* scene, QObject* parent)
     : QObject(parent)
@@ -570,7 +572,7 @@ void UIManager::showFlipBoost(bool show, qreal progress)
     }
 }
 
-void UIManager::showGameOverDialog(int score, const std::function<void()>& onRetry, const std::function<void()>& onExit)
+void UIManager::showGameOverDialog(int score, const std::function<void()>& onRetry, const std::function<void()>& onExit, bool updateLeaderboard)
 {
     QGraphicsView* view = getView();
     if (!view) return;
@@ -587,29 +589,42 @@ void UIManager::showGameOverDialog(int score, const std::function<void()>& onRet
     QLabel* title = new QLabel("GAME OVER");
     title->setAlignment(Qt::AlignCenter);
     title->setStyleSheet("font-size: 40px; font-weight: bold; color: #1976d2; border: none;");
-    layout->addWidget(title);
-
-    QLabel* scoreLabel = new QLabel(QString("本次得分：<b style='color:#1976d2;'>%1</b> 分").arg(QString::number(score)));
+    layout->addWidget(title);    QLabel* scoreLabel = new QLabel(QString("本次得分：<b style='color:#1976d2;'>%1</b> 分").arg(QString::number(score)));
     scoreLabel->setAlignment(Qt::AlignCenter);
     scoreLabel->setStyleSheet("font-size: 26px; color: #1565c0; border: none;");
-    layout->addWidget(scoreLabel);
-
-    QString iniPath = QCoreApplication::applicationDirPath() + "/game_record.ini";
-    QSettings settings(iniPath, QSettings::IniFormat);
-    int bestScore = settings.value("General/bestScore", 0).toInt();
-    if (score >= bestScore) {
-        settings.setValue("General/bestScore", score);
-        bestScore = score;
+    layout->addWidget(scoreLabel);    // 获取当前登录用户名 - 从主窗口标题中提取或从用户数据中获取
+    QString currentUsername = getCurrentUsername();
+    
+    // 只在第一次显示游戏结束对话框时更新排行榜记录
+    if (updateLeaderboard) {
+        updateGlobalLeaderboard(currentUsername, score);
+        updatePersonalLeaderboard(currentUsername, score);
     }
-    QLabel* bestLabel = new QLabel(QString("历史最高：<b style='color:#d32f2f;'>%1</b> 分").arg(QString::number(bestScore)));
-    bestLabel->setAlignment(Qt::AlignCenter);
-    bestLabel->setStyleSheet("font-size: 22px; color: #d32f2f; border: none;");
-    layout->addWidget(bestLabel);
-
-    // 居中显示卡片
+    
+    // 获取最新的排行榜数据用于显示
+    QList<ScoreRecord> globalTop10 = getGlobalTop10();
+    QList<ScoreRecord> personalTop10 = getPersonalTop10(currentUsername);
+    
+    // 显示个人最高分（从个人前十名中取第一名）
+    int personalBestScore = personalTop10.isEmpty() ? 0 : personalTop10.first().score;
+    QLabel* personalBestLabel = new QLabel(QString("个人最高：<b style='color:#d32f2f;'>%1</b> 分").arg(QString::number(personalBestScore)));
+    personalBestLabel->setAlignment(Qt::AlignCenter);
+    personalBestLabel->setStyleSheet("font-size: 22px; color: #d32f2f; border: none;");
+    layout->addWidget(personalBestLabel);
+    
+    // 显示全球最高分（从全球前十名中取第一名）
+    int globalBestScore = globalTop10.isEmpty() ? 0 : globalTop10.first().score;
+    QString globalBestPlayer = globalTop10.isEmpty() ? "" : globalTop10.first().username;
+    QString globalText = globalBestPlayer.isEmpty() ? 
+        QString("全球最高：<b style='color:#ff6f00;'>%1</b> 分").arg(QString::number(globalBestScore)) :
+        QString("全球最高：<b style='color:#ff6f00;'>%1</b> 分 (%2)").arg(QString::number(globalBestScore), globalBestPlayer);
+    QLabel* globalBestLabel = new QLabel(globalText);
+    globalBestLabel->setAlignment(Qt::AlignCenter);
+    globalBestLabel->setStyleSheet("font-size: 18px; color: #ff6f00; border: none;");
+    layout->addWidget(globalBestLabel);// 居中显示卡片
     QGraphicsProxyWidget* proxy = m_scene->addWidget(card);
     proxy->setZValue(2001);
-    QSize cardSize(350, 220);
+    QSize cardSize(350, 280);  // 增加高度以容纳新的标签
     card->setFixedSize(cardSize);
     proxy->setPos(sceneRect.center().x() - cardSize.width() / 2,
                   sceneRect.center().y() - cardSize.height() / 2);
@@ -636,10 +651,32 @@ void UIManager::showGameOverDialog(int score, const std::function<void()>& onRet
     );
     retryBtn->setCursor(Qt::PointingHandCursor);
 
-    QGraphicsProxyWidget* retryProxy = m_scene->addWidget(retryBtn);
-    retryProxy->setZValue(2002);
+    QGraphicsProxyWidget* retryProxy = m_scene->addWidget(retryBtn);    retryProxy->setZValue(2002);
     retryProxy->setPos(sceneRect.right() - btnDiameter - margin,
-                       sceneRect.bottom() - btnDiameter * 2 - margin - 20);
+                       sceneRect.bottom() - btnDiameter * 3 - margin - 40);
+
+    // 排行榜按钮（中）
+    QPushButton* leaderboardBtn = new QPushButton;
+    leaderboardBtn->setText("🏆");
+    leaderboardBtn->setToolTip("查看排行榜");
+    leaderboardBtn->setFixedSize(btnDiameter, btnDiameter);
+    leaderboardBtn->setStyleSheet(
+        "QPushButton {"
+        "border-radius: 35px;"
+        "background: transparent;"
+        "color: white;"
+        "font-size: 28px;"
+        "font-weight: bold;"
+        "border: 3px solid #ff6f00;"
+        "}"
+        "QPushButton:hover { background: #ff6f00; }"
+    );
+    leaderboardBtn->setCursor(Qt::PointingHandCursor);
+
+    QGraphicsProxyWidget* leaderboardProxy = m_scene->addWidget(leaderboardBtn);
+    leaderboardProxy->setZValue(2002);
+    leaderboardProxy->setPos(sceneRect.right() - btnDiameter - margin,
+                            sceneRect.bottom() - btnDiameter * 2 - margin - 20);
 
     // 退出按钮（下）
     QPushButton* exitBtn = new QPushButton;
@@ -662,31 +699,371 @@ void UIManager::showGameOverDialog(int score, const std::function<void()>& onRet
     QGraphicsProxyWidget* exitProxy = m_scene->addWidget(exitBtn);
     exitProxy->setZValue(2002);
     exitProxy->setPos(sceneRect.right() - btnDiameter - margin,
-                      sceneRect.bottom() - btnDiameter - margin);    // 按钮事件
+                      sceneRect.bottom() - btnDiameter - margin);
+      // 排行榜按钮事件
+    QObject::connect(leaderboardBtn, &QPushButton::clicked, [=]() {
+        // 先移除游戏结束对话框
+        m_scene->removeItem(proxy);
+        m_scene->removeItem(retryProxy);
+        m_scene->removeItem(leaderboardProxy);
+        m_scene->removeItem(exitProxy);
+        
+        proxy->deleteLater();
+        retryProxy->deleteLater();
+        leaderboardProxy->deleteLater();
+        exitProxy->deleteLater();
+        
+        // 显示排行榜，传递当前分数和回调函数
+        showLeaderboard(score, onRetry, onExit);
+    });
+    
+    // 按钮事件
     QObject::connect(retryBtn, &QPushButton::clicked, [=]() {
         // 先从场景中移除，但延迟删除避免在事件处理过程中删除对象
         m_scene->removeItem(proxy);
         m_scene->removeItem(retryProxy);
-        m_scene->removeItem(exitProxy);
-
-        // 使用 deleteLater 延迟删除，避免在事件处理过程中删除对象
+        m_scene->removeItem(leaderboardProxy);
+        m_scene->removeItem(exitProxy);        // 使用 deleteLater 延迟删除，避免在事件处理过程中删除对象
         proxy->deleteLater();
         retryProxy->deleteLater();
+        leaderboardProxy->deleteLater();
         exitProxy->deleteLater();
 
         if (onRetry) onRetry();
-    });    QObject::connect(exitBtn, &QPushButton::clicked, [=]() {
+    });
+    QObject::connect(exitBtn, &QPushButton::clicked, [=]() {
         // 先从场景中移除，但延迟删除避免在事件处理过程中删除对象
         m_scene->removeItem(proxy);
         m_scene->removeItem(retryProxy);
+        m_scene->removeItem(leaderboardProxy);
         m_scene->removeItem(exitProxy);
 
         // 使用 deleteLater 延迟删除，避免在事件处理过程中删除对象
         proxy->deleteLater();
         retryProxy->deleteLater();
+        leaderboardProxy->deleteLater();
         exitProxy->deleteLater();
 
         if (onExit) onExit();
+    });
+}
+
+void UIManager::updateGlobalLeaderboard(const QString& username, int score)
+{
+    QString gameRecordPath = QCoreApplication::applicationDirPath() + "/game_record.ini";
+    QSettings gameSettings(gameRecordPath, QSettings::IniFormat);
+    
+    // 获取当前时间戳，精确到小时
+    QString timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm");
+    
+    // 读取现有的全球前十名记录
+    QList<ScoreRecord> globalRecords;
+    for (int i = 1; i <= 10; ++i) {
+        QString scoreKey = QString("GlobalTop10/rank%1_score").arg(i);
+        QString userKey = QString("GlobalTop10/rank%1_user").arg(i);
+        QString timeKey = QString("GlobalTop10/rank%1_time").arg(i);
+        
+        if (gameSettings.contains(scoreKey)) {
+            ScoreRecord record;
+            record.score = gameSettings.value(scoreKey).toInt();
+            record.username = gameSettings.value(userKey).toString();
+            record.timestamp = gameSettings.value(timeKey).toString();
+            globalRecords.append(record);
+        }
+    }
+    
+    // 添加新记录
+    ScoreRecord newRecord;
+    newRecord.username = username;
+    newRecord.score = score;
+    newRecord.timestamp = timestamp;
+    globalRecords.append(newRecord);
+    
+    // 按分数降序排序
+    std::sort(globalRecords.begin(), globalRecords.end(), 
+              [](const ScoreRecord& a, const ScoreRecord& b) {
+                  return a.score > b.score;
+              });
+    
+    // 只保留前十名
+    if (globalRecords.size() > 10) {
+        globalRecords = globalRecords.mid(0, 10);
+    }
+    
+    // 清除旧记录
+    gameSettings.beginGroup("GlobalTop10");
+    gameSettings.remove("");
+    gameSettings.endGroup();
+    
+    // 保存新的前十名记录
+    for (int i = 0; i < globalRecords.size(); ++i) {
+        QString scoreKey = QString("GlobalTop10/rank%1_score").arg(i + 1);
+        QString userKey = QString("GlobalTop10/rank%1_user").arg(i + 1);
+        QString timeKey = QString("GlobalTop10/rank%1_time").arg(i + 1);
+        
+        gameSettings.setValue(scoreKey, globalRecords[i].score);
+        gameSettings.setValue(userKey, globalRecords[i].username);
+        gameSettings.setValue(timeKey, globalRecords[i].timestamp);
+    }
+    
+    gameSettings.sync();
+}
+
+void UIManager::updatePersonalLeaderboard(const QString& username, int score)
+{
+    QString userDataPath = QCoreApplication::applicationDirPath() + "/user_data.ini";
+    QSettings userSettings(userDataPath, QSettings::IniFormat);
+    
+    // 获取当前时间戳，精确到小时
+    QString timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm");
+    
+    // 读取现有的个人前十名记录
+    QList<ScoreRecord> personalRecords;
+    for (int i = 1; i <= 10; ++i) {
+        QString scoreKey = QString("Users/%1/top10/rank%2_score").arg(username).arg(i);
+        QString timeKey = QString("Users/%1/top10/rank%2_time").arg(username).arg(i);
+        
+        if (userSettings.contains(scoreKey)) {
+            ScoreRecord record;
+            record.score = userSettings.value(scoreKey).toInt();
+            record.username = username;
+            record.timestamp = userSettings.value(timeKey).toString();
+            personalRecords.append(record);
+        }
+    }
+    
+    // 添加新记录
+    ScoreRecord newRecord;
+    newRecord.username = username;
+    newRecord.score = score;
+    newRecord.timestamp = timestamp;
+    personalRecords.append(newRecord);
+    
+    // 按分数降序排序
+    std::sort(personalRecords.begin(), personalRecords.end(), 
+              [](const ScoreRecord& a, const ScoreRecord& b) {
+                  return a.score > b.score;
+              });
+    
+    // 只保留前十名
+    if (personalRecords.size() > 10) {
+        personalRecords = personalRecords.mid(0, 10);
+    }
+    
+    // 清除旧记录
+    QString groupName = QString("Users/%1/top10").arg(username);
+    userSettings.beginGroup(groupName);
+    userSettings.remove("");
+    userSettings.endGroup();
+    
+    // 保存新的前十名记录
+    for (int i = 0; i < personalRecords.size(); ++i) {
+        QString scoreKey = QString("Users/%1/top10/rank%2_score").arg(username).arg(i + 1);
+        QString timeKey = QString("Users/%1/top10/rank%2_time").arg(username).arg(i + 1);
+        
+        userSettings.setValue(scoreKey, personalRecords[i].score);
+        userSettings.setValue(timeKey, personalRecords[i].timestamp);
+    }
+    
+    userSettings.sync();
+}
+
+QList<UIManager::ScoreRecord> UIManager::getGlobalTop10() const
+{
+    QString gameRecordPath = QCoreApplication::applicationDirPath() + "/game_record.ini";
+    QSettings gameSettings(gameRecordPath, QSettings::IniFormat);
+    
+    QList<ScoreRecord> records;
+    for (int i = 1; i <= 10; ++i) {
+        QString scoreKey = QString("GlobalTop10/rank%1_score").arg(i);
+        QString userKey = QString("GlobalTop10/rank%1_user").arg(i);
+        QString timeKey = QString("GlobalTop10/rank%1_time").arg(i);
+        
+        if (gameSettings.contains(scoreKey)) {
+            ScoreRecord record;
+            record.score = gameSettings.value(scoreKey).toInt();
+            record.username = gameSettings.value(userKey).toString();
+            record.timestamp = gameSettings.value(timeKey).toString();
+            records.append(record);
+        }
+    }
+    
+    return records;
+}
+
+QList<UIManager::ScoreRecord> UIManager::getPersonalTop10(const QString& username) const
+{
+    QString userDataPath = QCoreApplication::applicationDirPath() + "/user_data.ini";
+    QSettings userSettings(userDataPath, QSettings::IniFormat);
+    
+    QList<ScoreRecord> records;
+    for (int i = 1; i <= 10; ++i) {
+        QString scoreKey = QString("Users/%1/top10/rank%2_score").arg(username).arg(i);
+        QString timeKey = QString("Users/%1/top10/rank%2_time").arg(username).arg(i);
+        
+        if (userSettings.contains(scoreKey)) {
+            ScoreRecord record;
+            record.score = userSettings.value(scoreKey).toInt();
+            record.username = username;
+            record.timestamp = userSettings.value(timeKey).toString();
+            records.append(record);
+        }
+    }
+    
+    return records;
+}
+
+void UIManager::showLeaderboard(int currentScore, const std::function<void()>& onRetry, const std::function<void()>& onExit)
+{
+    QGraphicsView* view = getView();
+    if (!view) return;
+
+    QRectF sceneRect = view->mapToScene(view->viewport()->rect()).boundingRect();
+    QString currentUsername = getCurrentUsername();
+    
+    // 获取排行榜数据
+    QList<ScoreRecord> globalTop10 = getGlobalTop10();
+    QList<ScoreRecord> personalTop10 = getPersonalTop10(currentUsername);
+    
+    // 创建排行榜窗口
+    QWidget* leaderboardWidget = new QWidget;
+    leaderboardWidget->setStyleSheet("background: #f5f5f5; border: 2px solid #1976d2; border-radius: 10px;");
+    
+    QVBoxLayout* mainLayout = new QVBoxLayout(leaderboardWidget);
+    mainLayout->setSpacing(15);
+    mainLayout->setContentsMargins(25, 25, 25, 25);
+    
+    // 标题
+    QLabel* titleLabel = new QLabel("🏆 排行榜 🏆");
+    titleLabel->setAlignment(Qt::AlignCenter);
+    titleLabel->setStyleSheet("font-size: 28px; font-weight: bold; color: #1976d2; border: none; margin-bottom: 10px;");
+    mainLayout->addWidget(titleLabel);
+    
+    // 创建标签页容器
+    QWidget* tabContainer = new QWidget;
+    QHBoxLayout* tabLayout = new QHBoxLayout(tabContainer);
+    tabLayout->setSpacing(20);
+    
+    // 个人前十名
+    QWidget* personalWidget = new QWidget;
+    personalWidget->setStyleSheet("background: white; border: 1px solid #ccc; border-radius: 8px; padding: 10px;");
+    QVBoxLayout* personalLayout = new QVBoxLayout(personalWidget);
+    personalLayout->setSpacing(8);
+    
+    QLabel* personalTitle = new QLabel(QString("个人前十名 (%1)").arg(currentUsername));
+    personalTitle->setAlignment(Qt::AlignCenter);
+    personalTitle->setStyleSheet("font-size: 18px; font-weight: bold; color: #d32f2f; border: none; margin-bottom: 8px;");
+    personalLayout->addWidget(personalTitle);
+    
+    if (personalTop10.isEmpty()) {
+        QLabel* noRecordLabel = new QLabel("暂无记录");
+        noRecordLabel->setAlignment(Qt::AlignCenter);
+        noRecordLabel->setStyleSheet("color: #666; font-size: 14px;");
+        personalLayout->addWidget(noRecordLabel);
+    } else {
+        for (int i = 0; i < personalTop10.size(); ++i) {
+            const auto& record = personalTop10[i];
+            QString rankText = QString("%1. %2 分 - %3")
+                .arg(i + 1, 2, 10, QChar('0'))
+                .arg(record.score)
+                .arg(record.timestamp);
+            
+            QLabel* rankLabel = new QLabel(rankText);
+            rankLabel->setStyleSheet(i == 0 ? 
+                "font-size: 14px; color: #d32f2f; font-weight: bold; padding: 2px;" :
+                "font-size: 12px; color: #333; padding: 2px;");
+            personalLayout->addWidget(rankLabel);
+        }
+    }
+    
+    personalLayout->addStretch();
+    tabLayout->addWidget(personalWidget);
+    
+    // 全球前十名
+    QWidget* globalWidget = new QWidget;
+    globalWidget->setStyleSheet("background: white; border: 1px solid #ccc; border-radius: 8px; padding: 10px;");
+    QVBoxLayout* globalLayout = new QVBoxLayout(globalWidget);
+    globalLayout->setSpacing(8);
+    
+    QLabel* globalTitle = new QLabel("全球前十名");
+    globalTitle->setAlignment(Qt::AlignCenter);
+    globalTitle->setStyleSheet("font-size: 18px; font-weight: bold; color: #ff6f00; border: none; margin-bottom: 8px;");
+    globalLayout->addWidget(globalTitle);
+    
+    if (globalTop10.isEmpty()) {
+        QLabel* noRecordLabel = new QLabel("暂无记录");
+        noRecordLabel->setAlignment(Qt::AlignCenter);
+        noRecordLabel->setStyleSheet("color: #666; font-size: 14px;");
+        globalLayout->addWidget(noRecordLabel);
+    } else {
+        for (int i = 0; i < globalTop10.size(); ++i) {
+            const auto& record = globalTop10[i];
+            QString rankText = QString("%1. %2 分 - %3 (%4)")
+                .arg(i + 1, 2, 10, QChar('0'))
+                .arg(record.score)
+                .arg(record.timestamp)
+                .arg(record.username);
+            
+            QLabel* rankLabel = new QLabel(rankText);
+            QString style = "font-size: 12px; padding: 2px;";
+            if (i == 0) {
+                style = "font-size: 14px; color: #ff6f00; font-weight: bold; padding: 2px;";
+            } else if (record.username == currentUsername) {
+                style = "font-size: 12px; color: #1976d2; font-weight: bold; padding: 2px;";
+            } else {
+                style = "font-size: 12px; color: #333; padding: 2px;";
+            }
+            rankLabel->setStyleSheet(style);
+            globalLayout->addWidget(rankLabel);
+        }
+    }
+    
+    globalLayout->addStretch();
+    tabLayout->addWidget(globalWidget);
+    
+    mainLayout->addWidget(tabContainer);
+    
+    // 关闭按钮
+    QPushButton* closeBtn = new QPushButton("关闭");
+    closeBtn->setFixedSize(80, 35);
+    closeBtn->setStyleSheet(
+        "QPushButton {"
+        "background: #1976d2;"
+        "color: white;"
+        "font-size: 14px;"
+        "font-weight: bold;"
+        "border: none;"
+        "border-radius: 6px;"
+        "}"
+        "QPushButton:hover { background: #1565c0; }"
+    );
+    closeBtn->setCursor(Qt::PointingHandCursor);
+    
+    QHBoxLayout* buttonLayout = new QHBoxLayout;
+    buttonLayout->addStretch();
+    buttonLayout->addWidget(closeBtn);
+    buttonLayout->addStretch();
+    mainLayout->addLayout(buttonLayout);
+      // 显示排行榜窗口
+    QGraphicsProxyWidget* leaderboardProxy = m_scene->addWidget(leaderboardWidget);
+    leaderboardProxy->setZValue(2003);
+    
+    // 根据视口大小动态调整排行榜窗口尺寸
+    QRect viewportRect = view->viewport()->rect();
+    int windowWidth = qMin(800, static_cast<int>(viewportRect.width() * 0.9));  // 最大800px，或视口宽度的90%
+    int windowHeight = qMin(600, static_cast<int>(viewportRect.height() * 0.85)); // 最大600px，或视口高度的85%
+    QSize windowSize(windowWidth, windowHeight);
+    
+    leaderboardWidget->setFixedSize(windowSize);
+    leaderboardProxy->setPos(sceneRect.center().x() - windowSize.width() / 2,
+                            sceneRect.center().y() - windowSize.height() / 2);// 关闭按钮事件
+    QObject::connect(closeBtn, &QPushButton::clicked, [=]() {
+        // 移除排行榜窗口
+        m_scene->removeItem(leaderboardProxy);
+        leaderboardProxy->deleteLater();
+        
+        // 重新显示游戏结束对话框，但不更新排行榜数据
+        showGameOverDialog(currentScore, onRetry, onExit, false);
     });
 }
 
@@ -908,5 +1285,38 @@ void UIManager::showScoreMultiplier(double multiplier) {
 
     // 显示倍率条
     m_scoreMultiplierContainer->show();
+}
+
+QString UIManager::getCurrentUsername() const
+{
+    // 从用户数据文件中获取当前登录的用户名
+    QString userDataPath = QCoreApplication::applicationDirPath() + "/user_data.ini";
+    QSettings userSettings(userDataPath, QSettings::IniFormat);
+    
+    // 尝试从RememberPassword功能中获取当前用户名
+    QString username = userSettings.value("General/Username", "").toString();
+    
+    // 如果没有找到，则尝试从主窗口标题中解析
+    if (username.isEmpty()) {
+        QGraphicsView* view = getView();
+        if (view) {
+            QWidget* topLevelWidget = view->window();
+            if (topLevelWidget) {
+                QString windowTitle = topLevelWidget->windowTitle();
+                // 窗口标题格式为: "滑雪大冒险 - 欢迎 用户名"
+                QStringList parts = windowTitle.split(" - 欢迎 ");
+                if (parts.size() == 2) {
+                    username = parts[1];
+                }
+            }
+        }
+    }
+    
+    // 如果仍然没有找到用户名，使用默认值
+    if (username.isEmpty()) {
+        username = "Guest";
+    }
+    
+    return username;
 }
 

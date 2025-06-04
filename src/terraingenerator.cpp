@@ -313,7 +313,6 @@ void TerrainGenerator::generateChunk(int chunkIndex)
                 // 创建雪怪NPC
                 auto yeti = NPCFactory::createYetiNPC(QPointF(globalNpcX, npcY));
                 NPCEntity *yetiPtr = yeti.release();
-
                 // 设置NPC初始状态
                 yetiPtr->setOnGround(true);
                 yetiPtr->setActive(false);
@@ -335,7 +334,6 @@ void TerrainGenerator::generateChunk(int chunkIndex)
                 // 创建企鹅NPC
                 auto penguin = NPCFactory::createPenguinNPC(QPointF(globalNpcX, npcY));
                 NPCEntity *penguinPtr = penguin.release(); // 释放unique_ptr的所有权
-
                 // 设置NPC初始状态
                 penguinPtr->setOnGround(true);
                 penguinPtr->setActive(false); // 初始状态不激活
@@ -532,7 +530,6 @@ void TerrainGenerator::generateChunkThreadSafe(int chunkIndex)
         // 检查斜率，如果太陡则不放置石头
         if (qAbs(slope) > MAX_SLOPE_FOR_ROCK)
             continue;
-
         // 计算高度（线性插值）
         qreal height = y1 + slope * (x - x1);
         qreal y = height - 5; // 石头底部贴地
@@ -588,7 +585,6 @@ void TerrainGenerator::generateChunkThreadSafe(int chunkIndex)
                 // 根据NPC类型调整Y坐标（雪怪更高，需要更大的偏移）
                 qreal npcHeight = shouldGenerateYeti ? 60.0 : 30.0; // 雪怪高度60，企鹅高度30
                 qreal npcY = height - npcHeight;                    // 将NPC底部对齐地面
-
                 // 保存NPC数据
                 NPCGenerationData npcData;
                 npcData.localX = npcX;
@@ -832,6 +828,7 @@ void TerrainGenerator::addChunkToScene(int chunkIndex)
                 PhysicsSystem::instance().registerObject(npcPtr);
             }
         }
+
         // 处理完后移除NPC数据
         m_generatedNPCs.remove(chunkIndex);
     }
@@ -888,7 +885,6 @@ void TerrainGenerator::addChunkToScene(int chunkIndex)
         // 处理完后移除云朵数据
         m_generatedClouds.remove(chunkIndex);
     }
-
     // 移除已处理的路径
     m_generatedPaths.remove(chunkIndex);
 }
@@ -1065,6 +1061,7 @@ void TerrainGenerator::clearAllResources()
         }
     }
     m_topLineItems.clear();
+
     // 清理石头
     for (RockEntity *rock : m_rocks)
     {
@@ -1099,7 +1096,6 @@ void TerrainGenerator::clearAllResources()
         }
     }
     m_clouds.clear();
-
     // 清理其他数据
     m_chunkPoints.clear();
     m_generatedPaths.clear();

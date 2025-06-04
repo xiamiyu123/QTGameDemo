@@ -128,7 +128,9 @@ private:
     bool canResistFall(qreal angleDeviation); // 是否能抵抗摔倒（可消耗NPC进行抗性）
     bool canResistRockDamage(); // 是否能抵抗石头伤害（加速状态）// 动画相关方法
     void loadAnimationFrames(); // 加载动画帧
+    void loadRidingTextures();  // 加载骑乘状态动画贴图
     int getCurrentAnimationRange() const; // 根据当前状态返回应该显示的帧索引
+    QPixmap getCurrentRidingTexture() const; // 根据当前骑乘状态返回对应贴图
 
 signals:
     void updatePlayerNPC(); // NPC增减操作时发出的信号
@@ -172,12 +174,29 @@ private:
 
     // 摔倒恢复计时器
     QTimer m_fallRecoveryTimer;    // 动画系统 - 新增部分
-    QTimer m_fallRecoveryProgressTimer; // 摔倒恢复进度更新定时器// 动画系统 - 新增部分
-    QVector<QPixmap> m_animationFrames;  // 存储png1-png38的动画帧
+    QTimer m_fallRecoveryProgressTimer; // 摔倒恢复进度更新定时器    // 动画系统 - 新增部分
+    QVector<QPixmap> m_animationFrames;  // 存储png1-png38的动画帧（基础状态）
     int m_currentFrame;                  // 当前播放的帧索引
     QTimer m_animationTimer;            // 动画播放定时器
     bool m_animationLoaded;             // 动画是否成功加载的标志
-    qreal m_imageScaleFactor;           // 图像缩放因子，用于调整显示大小    // NPC库存系统 - 使用优先队列实现堆（降序排列，高ID优先）
+    qreal m_imageScaleFactor;           // 图像缩放因子，用于调整显示大小
+    
+    // NPC骑乘状态动画资源
+    QPixmap m_penguinRidingTexture;     // 骑乘企鹅动画
+    QPixmap m_yetiForm1RidingTexture;   // 雪怪形态1骑乘动画
+    QPixmap m_yetiForm2RidingTexture;   // 雪怪形态2骑乘动画
+    QPixmap m_yetiForm2WithPenguinTexture; // 雪怪形态2+企鹅动画
+    bool m_ridingTexturesLoaded;        // 骑乘贴图是否加载成功
+    
+    // 骑乘动画比例调配
+    struct RidingRenderSettings {
+        qreal scaleFactor;      // 缩放因子倍数
+        qreal horizontalOffset; // 水平偏移
+        qreal verticalOffset;   // 垂直偏移
+    };
+    void getRidingRenderSettings(RidingRenderSettings& settings) const; // 获取当前骑乘状态的渲染设置
+    
+    // NPC库存系统 - 使用优先队列实现堆（降序排列，高ID优先）
     std::priority_queue<int> m_npcInventory; // 存储NPC ID，自动按ID降序排列
     static const int MAX_INVENTORY_SIZE = 1; // 最大库存大小
       // NPC拾取冷却系统

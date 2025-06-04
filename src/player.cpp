@@ -5,7 +5,7 @@
 #include <qpainter.h>
 #include "npcentity.h"
 #include <vector>
-
+#include "yetimnpc.h"
 #include "gamescene.h"
 #include "terraingenerator.h"
 
@@ -76,11 +76,11 @@ Player::Player(QGraphicsItem *parent)
       m_baseFlipSpeed(3),
       m_baseInventoryCapacity(1),
       m_currentMoveSpeed(500),
-      m_currentJumpForce(-300),
-      m_currentFlipSpeed(3),
+      m_currentJumpForce(-300),      m_currentFlipSpeed(3),
       m_currentInventoryCapacity(1),
       m_isRidingYeti(false), // 初始化为未骑乘雪怪
-      m_yetiForm(NPCForm::Normal) // 初始化雪怪形态为普通
+      m_yetiForm(NPCForm::Normal), // 初始化雪怪形态为普通
+      m_ridingTexturesLoaded(false) // 初始化骑乘贴图加载状态
 {
     setZValue(-2);
 
@@ -115,6 +115,7 @@ Player::Player(QGraphicsItem *parent)
     connect(this, &Player::updatePlayerNPC, this, &Player::onUpdate);
 
     loadAnimationFrames();
+    loadRidingTextures(); // 加载骑乘状态动画贴图
 
     // 设置动画定时器
     connect(&m_animationTimer, &QTimer::timeout, this, &Player::updateAnimation);
@@ -457,13 +458,13 @@ void Player::fall() {
         m_isFlipBoosting = false;
         m_flipBoostTimer->stop();
         m_flipBoostProgressTimer->stop();
-        
+
         // 恢复初速度
         setMoveSpeed(getInitialMoveSpeed());
-        
+
         // 发出空翻加速结束信号
         emit flipBoostChanged(false, 0.0);
-        
+
         DEBUG_LOG("摔倒时结束加速效果");
     }
 
@@ -515,7 +516,9 @@ bool Player::canResistFall(qreal angleDeviation) {
             DEBUG_LOG("Player resisted fall by consuming a carried penguin");
             return true;
         }
-    }    // 检查是否有主库存NPC可以用来抵抗摔倒
+    }
+
+    // 检查是否有主库存NPC可以用来抵抗摔倒
     if (hasNPCInInventory()) {
         // 消耗最低优先级的NPC来抵抗摔倒
         if (consumeNPCForDamageResistance()) {
@@ -571,11 +574,65 @@ void Player::playerUpdate(TerrainGenerator* GTerrainGenerator) {
 void Player::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget)
 {
     Q_UNUSED(option)
-    Q_UNUSED(widget)    // 如果动画已加载且有帧数据，绘制当前动画帧
+    Q_UNUSED(widget)
+
+    QRectF r = rect();    // 检查是否有骑乘状态贴图需要渲染
+    QPixmap ridingTexture = getCurrentRidingTexture();
+    if (!ridingTexture.isNull()) {
+        // 使用骑乘状态贴图进行渲染
+        painter->save();
+
+        // 设置高质量渲染选项
+        painter->setRenderHint(QPainter::SmoothPixmapTransform, true);
+        painter->setRenderHint(QPainter::Antialiasing, true);
+
+        // 获取骑乘贴图的原始尺寸
+        QSize originalSize = ridingTexture.size();
+        if (originalSize.isEmpty()) {
+            painter->restore();
+            return;
+        }
+          // 使用统一的骑乘渲染设置系统
+        RidingRenderSettings renderSettings;
+        getRidingRenderSettings(renderSettings);
+
+        qreal ridingScaleFactor = m_imageScaleFactor * renderSettings.scaleFactor;
+        qreal horizontalOffset = renderSettings.horizontalOffset;
+        qreal verticalOffset = renderSettings.verticalOffset;
+
+        // 保持原始纵横比，计算合适的绘制尺寸
+        // 以玩家矩形的宽度为基准，按比例缩放
+        qreal baseWidth = r.width() * ridingScaleFactor;
+        qreal aspectRatio = static_cast<qreal>(originalSize.height()) / originalSize.width();
+        qreal finalWidth = baseWidth;
+        qreal finalHeight = baseWidth * aspectRatio;
+
+        // 如果高度超出合理范围，以高度为基准重新计算
+        qreal maxHeight = r.height() * ridingScaleFactor * 1.5; // 允许高度稍微超出一点
+        if (finalHeight > maxHeight) {
+            finalHeight = maxHeight;
+            finalWidth = finalHeight / aspectRatio;
+        }
+
+        // 计算居中的绘制区域，保持纵横比
+        QRectF targetRect(
+            r.x() + (r.width() - finalWidth) / 2 + horizontalOffset,
+            r.y() + (r.height() - finalHeight) / 2 + verticalOffset,
+            finalWidth,
+            finalHeight
+        );
+
+        // 绘制骑乘状态贴图，保持原始比例
+        painter->drawPixmap(targetRect, ridingTexture, ridingTexture.rect());
+
+        painter->restore();
+        return; // 直接返回，不再绘制常规动画帧
+    }
+
+    // 如果没有骑乘状态，使用常规动画帧渲染
     if (m_animationLoaded && !m_animationFrames.isEmpty() &&
         m_currentFrame >= 0 && m_currentFrame < m_animationFrames.size()) {
 
-        QRectF r = rect();
         const QPixmap& currentPixmap = m_animationFrames[m_currentFrame];
 
         // 保存当前绘图设置
@@ -599,18 +656,12 @@ void Player::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QW
 
         // 恢复绘图设置
         painter->restore();
-        // 已移除
-        // 底部绿色边框作为调试标识
-        // QPen greenPen(Qt::green, 2);
-        // painter->setPen(greenPen);
-        // painter->drawLine(r.bottomLeft(), r.bottomRight());
 
     } else {
         // 如果动画未加载，使用原始的红色方块绘制
         QGraphicsRectItem::paint(painter, option, widget);
 
         // 绘制底部绿色边
-        QRectF r = rect();
         QPen greenPen(Qt::green, 4);
         painter->setPen(greenPen);
         painter->drawLine(r.bottomLeft(), r.bottomRight());
@@ -677,6 +728,8 @@ bool Player::pickupNPC(NPCEntity* npc) {
         DEBUG_LOG("Player::pickupNPC - Pickup on cooldown");
         return false;
     }
+
+    recoverFromFall(); // 摔倒后恢复状态
 
     // 获取NPC的ID
     int npcId = npc->class_id();    // 特殊处理企鹅：如果正在骑乘雪怪，直接添加到携带库存，不占用主库存
@@ -888,7 +941,7 @@ void Player::startNPCPickupCooldown() {
 void Player::onNPCPickupCooldownTimeout() {
     m_npcPickupCooldownActive = false;
 
-    // 停止进度更新定时器
+    // 停止进度更新计时器
     m_npcCooldownProgressTimer.stop();
 
     // 发出冷却结束信号
@@ -940,6 +993,8 @@ bool Player::consumeNPCForDamageResistance() {
     // 复用dropNPC方法来丢弃最低优先级的NPC
     DEBUG_LOG("Player using NPC for damage resistance - dropping NPC");
     dropNPC(m_terrainGenerator);
+    // 触发重置倍率信号
+    emit resetAwardMultipliers();
 
     return true; // 成功消耗了NPC
 }
@@ -1220,9 +1275,118 @@ qreal Player::getInitialMoveSpeed() {
     return initialMoveSpeed;
 }
 
+void Player::loadRidingTextures() {
+    m_ridingTexturesLoaded = false;
 
+    // 加载骑乘企鹅贴图
+    QString penguinPath = ":/resource/images/npcs/penguin/penguinplayer_running/penguinplayer.png";
+    m_penguinRidingTexture = QPixmap(penguinPath);
+    if (m_penguinRidingTexture.isNull()) {
+        DEBUG_LOG(QString("Failed to load penguin riding texture: %1").arg(penguinPath));
+    } else {
+        DEBUG_LOG("Successfully loaded penguin riding texture");
+    }
 
+    // 加载骑乘雪怪形态1贴图
+    QString yetiForm1Path = ":/resource/images/npcs/yeti/yetiplayer_running/yetiplayerrunning1.png";
+    m_yetiForm1RidingTexture = QPixmap(yetiForm1Path);
+    if (m_yetiForm1RidingTexture.isNull()) {
+        DEBUG_LOG(QString("Failed to load yeti form1 riding texture: %1").arg(yetiForm1Path));
+    } else {
+        DEBUG_LOG("Successfully loaded yeti form1 riding texture");
+    }
 
+    // 加载骑乘雪怪形态2贴图
+    QString yetiForm2Path = ":/resource/images/npcs/yeti/yetiplayer_falling/yetiplayerfalling1.png";
+    m_yetiForm2RidingTexture = QPixmap(yetiForm2Path);
+    if (m_yetiForm2RidingTexture.isNull()) {
+        DEBUG_LOG(QString("Failed to load yeti form2 riding texture: %1").arg(yetiForm2Path));
+    } else {
+        DEBUG_LOG("Successfully loaded yeti form2 riding texture");
+    }
 
+    // 加载雪怪形态2+企鹅贴图
+    QString yetiPenguinPath = ":/resource/images/npcs/allrunning/all1.png";
+    m_yetiForm2WithPenguinTexture = QPixmap(yetiPenguinPath);
+    if (m_yetiForm2WithPenguinTexture.isNull()) {
+        DEBUG_LOG(QString("Failed to load yeti form2 with penguin texture: %1").arg(yetiPenguinPath));
+    } else {
+        DEBUG_LOG("Successfully loaded yeti form2 with penguin texture");
+    }
 
+    // 检查是否至少加载了一些贴图
+    m_ridingTexturesLoaded = !m_penguinRidingTexture.isNull() ||
+                            !m_yetiForm1RidingTexture.isNull() ||
+                            !m_yetiForm2RidingTexture.isNull() ||
+                            !m_yetiForm2WithPenguinTexture.isNull();
 
+    if (m_ridingTexturesLoaded) {
+        DEBUG_LOG("Riding textures loading completed successfully");
+    } else {
+        DEBUG_LOG("Failed to load any riding textures");
+    }
+}
+
+QPixmap Player::getCurrentRidingTexture() const {
+    if (!m_ridingTexturesLoaded) {
+        return QPixmap(); // 返回空贴图
+    }
+
+    // 根据当前骑乘状态返回对应的贴图
+    if (m_currentForm == NPCForm::Penguin) {
+        DEBUG_LOG("Using penguin riding texture");
+        return m_penguinRidingTexture;
+    }
+    else if (m_isRidingYeti) {
+        // 检查是否同时携带企鹅（雪怪形态2+企鹅）
+        if (m_yetiForm == NPCForm::YetiForm2 && getCarriedPenguinCount() > 0) {
+            DEBUG_LOG("Using yeti form2 with penguin riding texture");
+            return m_yetiForm2WithPenguinTexture;
+        }
+        // 根据雪怪形态返回对应贴图
+        else if (m_yetiForm == NPCForm::YetiForm1) {
+            DEBUG_LOG("Using yeti form1 riding texture");
+            return m_yetiForm1RidingTexture;
+        }
+        else if (m_yetiForm == NPCForm::YetiForm2) {
+            DEBUG_LOG("Using yeti form2 riding texture");
+            return m_yetiForm2RidingTexture;
+        }
+    }
+
+    // 默认返回空贴图（非骑乘状态）
+    return QPixmap();
+}
+
+void Player::getRidingRenderSettings(RidingRenderSettings& settings) const {
+    // 设置默认值
+    settings.scaleFactor = 1.0;
+    settings.horizontalOffset = 0;
+    settings.verticalOffset = 0;
+
+    if (m_currentForm == NPCForm::Penguin) {
+        // 企鹅骑乘：适中大小，稍微向下偏移
+        settings.scaleFactor = 1.1;
+        settings.verticalOffset = 3;
+        DEBUG_LOG("Penguin riding render settings applied");
+    }    else if (m_isRidingYeti) {
+        if (m_yetiForm == NPCForm::YetiForm2 && getCarriedPenguinCount() > 0) {
+            // 雪怪形态2+企鹅：较大，因为包含两个角色，但不要过度放大
+            settings.scaleFactor = 2.2; // 从2.8降低到2.2
+            settings.verticalOffset = -3; // 稍微向上偏移
+            DEBUG_LOG("Yeti Form2 with penguin render settings applied (optimized scale)");
+        }
+        else if (m_yetiForm == NPCForm::YetiForm1) {
+            // 雪怪形态1：标准2倍大小
+            settings.scaleFactor = 2.0; // 从2.6降低到2.0
+            settings.verticalOffset = 1; // 轻微向下偏移
+            DEBUG_LOG("Yeti Form1 render settings applied (optimized scale)");
+        }
+        else if (m_yetiForm == NPCForm::YetiForm2) {
+            // 雪怪形态2：标准2倍大小
+            settings.scaleFactor = 2.0; // 从2.5降低到2.0
+            settings.verticalOffset = 2; // 向下偏移
+            DEBUG_LOG("Yeti Form2 render settings applied (optimized scale)");
+        }
+    }
+}

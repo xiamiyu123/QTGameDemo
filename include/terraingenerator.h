@@ -73,9 +73,9 @@ public:
     void addChunkToScene(int chunkIndex);
     QVector<RockEntity*> m_rocks; // 存储所有石头 - 移到public部分
     QVector<NPCEntity*> m_npcs; // 存储所有NPC
-    QVector<TreeEntity*> m_trees; // 存储所有树木
+QVector<TreeEntity*> m_trees; // 存储所有树木
     QVector<CloudEntity*> m_clouds; // 存储所有云朵
-    
+
     // 添加清理方法
     void clearAllResources();
     
@@ -97,10 +97,10 @@ private:
     QMap<int, QVector<RockGenerationData>> m_generatedRocks;
       // 后台线程生成的NPC数据
     QMap<int, QVector<NPCGenerationData>> m_generatedNPCs;
-    
+
     // 后台线程生成的树木数据
     QMap<int, QVector<TreeGenerationData>> m_generatedTrees;
-    
+
     // 后台线程生成的云朵数据
     QMap<int, QVector<CloudGenerationData>> m_generatedClouds;
 

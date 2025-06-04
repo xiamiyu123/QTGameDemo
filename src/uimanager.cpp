@@ -730,7 +730,8 @@ void UIManager::showGameOverDialog(int score, const std::function<void()>& onRet
         exitProxy->deleteLater();
 
         if (onRetry) onRetry();
-    });    QObject::connect(exitBtn, &QPushButton::clicked, [=]() {
+    });
+    QObject::connect(exitBtn, &QPushButton::clicked, [=]() {
         // 先从场景中移除，但延迟删除避免在事件处理过程中删除对象
         m_scene->removeItem(proxy);
         m_scene->removeItem(retryProxy);

@@ -53,6 +53,8 @@ private slots:
     void onGetScore(int points);
     // 处理玩家成功空翻的槽函数
     void onBackFlipSuccess(int points, const QString& message);
+    // 处理NPC捕获成功的槽函数
+    void onNPCCaptureSuccess(int points, const QString& message, int npcId);
 
       // 暂停/继续游戏
     void togglePause();
@@ -67,7 +69,7 @@ private:
     // NPC管理方法
     void initializeNPCSystem();      // 初始化NPC系统
     void updateAllNPCs(float deltaTime);  // 更新所有NPC
-    void cleanupNPCs();               // 清理需要销��的NPC
+    void cleanupNPCs();               // 清理需要销毁的NPC
     void removeOffscreenNPCs();       // 移除离屏幕太远的NPC
     QPointF getNPCSpawnPosition();    // 获取NPC生成位置
 
@@ -120,5 +122,4 @@ private:
 
     void clearGameObjects(); // 清理游戏对象但保留UI元素
 };
-
 

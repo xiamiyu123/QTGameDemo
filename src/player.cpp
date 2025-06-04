@@ -80,7 +80,7 @@ Player::Player(QGraphicsItem *parent)
       m_currentFlipSpeed(3),
       m_currentInventoryCapacity(1),
       m_isRidingYeti(false), // 初始化为未骑乘雪怪
-      m_yetiForm(NPCForm::Normal) // 初始化雪怪形态为普��
+      m_yetiForm(NPCForm::Normal) // 初始化雪怪形态为普通
 {
     setZValue(-2);
 
@@ -689,6 +689,10 @@ bool Player::pickupNPC(NPCEntity* npc) {
             // 标记NPC为待删除
             npc->markForDestroy();
 
+            // 触发奖励信号
+            emit npcCaptureSuccess(200, "出租车！", npcId);
+            DEBUG_LOG("Emitted npcCaptureSuccess signal for carried penguin: +150 points");
+
             // 触发玩家NPC状态更新信号
             emit updatePlayerNPC();
             return true;
@@ -729,15 +733,17 @@ bool Player::pickupNPC(NPCEntity* npc) {
     // 添加NPC到库存
     m_npcInventory.push(npcId);
 
-    // 根据拾取的NPC类型应用对应的形态
+    // 根据拾取的NPC类型应用对应的形态和发出奖励信号
     if (npcId == 1) { // PenguinNPC::ID
         applyNPCForm(NPCForm::Penguin);
-        DEBUG_LOG("Player transformed into Penguin form");
+        emit npcCaptureSuccess(200, "企鹅滑雪！", npcId);
+        DEBUG_LOG("Player transformed into Penguin form and emitted npcCaptureSuccess signal: +200 points");
     } else if (npcId == 2) { // YetiNPC::ID
         m_isRidingYeti = true;
         m_yetiForm = NPCForm::YetiForm1; // 初始为形态1
         applyNPCForm(NPCForm::YetiForm1);
-        DEBUG_LOG("Player mounted Yeti in Form1");
+        emit npcCaptureSuccess(200, "走你！", npcId);
+        DEBUG_LOG("Player mounted Yeti in Form1 and emitted npcCaptureSuccess signal: +400 points");
     }
 
     DEBUG_LOG(QString("Player picked up NPC with ID: %1, inventory size: %2")
@@ -1213,3 +1219,10 @@ void Player::updateFlipBoostProgress() {
 qreal Player::getInitialMoveSpeed() {
     return initialMoveSpeed;
 }
+
+
+
+
+
+
+

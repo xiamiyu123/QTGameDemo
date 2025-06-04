@@ -1,5 +1,5 @@
 #include "uimanager.h"
-#include "gamescene.h" // 添加 GameScene 的包含
+#include "gamescene.h"
 #include <QGraphicsView>
 #include <QApplication>
 #include <QScreen>

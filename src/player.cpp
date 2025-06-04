@@ -557,11 +557,11 @@ void Player::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QW
         // 保存当前绘图设置
         painter->save();
 
-        // 设置高质量渋染选项
+        // 设置高质量渲染选项
         painter->setRenderHint(QPainter::SmoothPixmapTransform, true);
         painter->setRenderHint(QPainter::Antialiasing, true);
 
-        // 使用自��义缩放因子计算绘制区域
+        // 使用自定义缩放因子计算绘制区域
         QSizeF size = r.size() * m_imageScaleFactor;
         QRectF targetRect(
             r.x() + (r.width() - size.width()) / 2,

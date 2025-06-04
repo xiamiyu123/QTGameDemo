@@ -11,6 +11,8 @@
 #include "terraingeneratorthread.h"
 #include "rockentity.h"
 #include "npcentity.h"
+#include "treeentity.h"
+#include "cloudentity.h"
 #include <QVector>
 
 // 石头数据结构，存储石头的位置信息
@@ -27,6 +29,24 @@ struct NPCGenerationData {
     qreal globalX;     // 全局X坐标
     qreal y;           // Y坐标
     int npcId;         // NPC类型ID（1=企鹅，2=雪人）
+};
+
+// 树木数据结构，存储树木的位置信息
+struct TreeGenerationData {
+    qreal localX;      // 块内的X坐标
+    qreal globalX;     // 全局X坐标
+    qreal y;           // Y坐标
+    qreal width;       // 树木宽度
+    qreal height;      // 树木高度
+};
+
+// 云朵数据结构，存储云朵的位置信息
+struct CloudGenerationData {
+    qreal localX;      // 块内的X坐标
+    qreal globalX;     // 全局X坐标
+    qreal y;           // Y坐标
+    qreal width;       // 云朵宽度
+    qreal height;      // 云朵高度
 };
 
 class TerrainGenerator : public QObject
@@ -49,12 +69,12 @@ public:
     qreal getTerrainSlope(qreal x) const;
 
     // 线程安全的区块生成方法
-    void generateChunkThreadSafe(int chunkIndex);
-
-    // 在主线程中完成将区块添加到场景的操作
+    void generateChunkThreadSafe(int chunkIndex);    // 在主线程中完成将区块添加到场景的操作
     void addChunkToScene(int chunkIndex);
     QVector<RockEntity*> m_rocks; // 存储所有石头 - 移到public部分
     QVector<NPCEntity*> m_npcs; // 存储所有NPC
+    QVector<TreeEntity*> m_trees; // 存储所有树木
+    QVector<CloudEntity*> m_clouds; // 存储所有云朵
     
     // 添加清理方法
     void clearAllResources();
@@ -75,9 +95,14 @@ private:
     QMap<int, QPainterPath> m_generatedPaths;
       // 后台线程生成的石头数据
     QMap<int, QVector<RockGenerationData>> m_generatedRocks;
-    
-    // 后台线程生成的NPC数据
+      // 后台线程生成的NPC数据
     QMap<int, QVector<NPCGenerationData>> m_generatedNPCs;
+    
+    // 后台线程生成的树木数据
+    QMap<int, QVector<TreeGenerationData>> m_generatedTrees;
+    
+    // 后台线程生成的云朵数据
+    QMap<int, QVector<CloudGenerationData>> m_generatedClouds;
 
     // 生成地形块
     void generateChunk(int chunkIndex);

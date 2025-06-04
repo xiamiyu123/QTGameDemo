@@ -109,6 +109,9 @@ signals:
     // // 新增空翻成功信号
     void backFlipSuccess(int points, const QString& message);
 
+    // 新增抓取NPC成功信号
+    void npcCaptureSuccess(int points, const QString& message, int npcId);
+
     // 摔倒时重置得分倍率的信号
     void resetAwardMultipliers();
 

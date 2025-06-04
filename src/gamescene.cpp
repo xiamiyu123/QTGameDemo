@@ -569,25 +569,35 @@ void GameScene::createSceneItems()
     connect(m_avalancheThread, &AvalancheUpdateThread::updateCompleted,
             this, [this]()
             { avalanche->applyThreadResults(); });
-    m_avalancheThread->start();    // 连接玩家空翻成功信号
 
-    // 连接玩家空翻加速进度条信号
-    connect(Gplayer, &Player::flipBoostChanged, m_uiManager, &UIManager::showFlipBoost);
+    // 确保雪崩线程启动
     m_avalancheThread->start();
 
+    // 连接玩家NPC拾取冷却进度条信号
+    connect(Gplayer, &Player::npcPickupCooldownChanged,
+            m_uiManager, &UIManager::showNPCPickupCooldown);
+
+    // 连接玩家摔倒恢复进度条信号
+    connect(Gplayer, &Player::fallRecoveryChanged,
+            m_uiManager, &UIManager::showFallRecovery);
+
+    // 连接玩家空翻加速进度条信号
+    connect(Gplayer, &Player::flipBoostChanged,
+            m_uiManager, &UIManager::showFlipBoost);
+
     // 连接玩家空翻成功信号
-    connect(Gplayer, &Player::backFlipSuccess, this, &GameScene::onBackFlipSuccess);
+    connect(Gplayer, &Player::backFlipSuccess,
+            this, &GameScene::onBackFlipSuccess);
 
     // 连接玩家摔倒重置倍率信号
-    connect(Gplayer, &Player::resetAwardMultipliers, this, &GameScene::resetAwardMultipliers);
-
+    connect(Gplayer, &Player::resetAwardMultipliers,
+            this, &GameScene::resetAwardMultipliers);
 
     // 连接玩家摔倒信号（测试用）
     // connect(Gplayer, &Player::playerFallen, m_uiManager, &UIManager::showScorePopup);
     // connect(Gplayer, &Player::playerFallen, this, [this](int points, const QString&) {
     //     emit getscore(points);
     // });
-
 }
 
 void GameScene::checkPlayerProgressScore() {
@@ -845,3 +855,4 @@ void GameScene::resetAwardMultipliers()
 
 
 }
+

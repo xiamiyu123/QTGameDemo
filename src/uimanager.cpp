@@ -783,17 +783,28 @@ void UIManager::resetUI()
 
     // 重置得分倍率条
     if (m_scoreMultiplierContainer && m_scoreMultiplierBar && m_scoreMultiplierLabel) {
-        // 重置进度条宽度为初始状态
-        m_scoreMultiplierBar->setFixedWidth(1);
+        // 设置进度条初始状态
+        int padding = 2; // 内边距
+        int barHeight = m_scoreMultiplierContainer->height() - (padding * 2);
+        int minBarWidth = barHeight; // 保证最小是一个圆形
+
+        // 设置初始宽度为最小圆形宽度，而不是1像素
+        m_scoreMultiplierBar->setGeometry(padding, padding, minBarWidth, barHeight);
+
+        // 设置圆角半径
+        int borderRadius = qMin(barHeight / 2, 13);
+
+        // 设置样式，确保有正确的颜色填充
+        m_scoreMultiplierBar->setStyleSheet(
+            QString("background-color: rgba(255, 215, 0, 150); "
+                    "border: none; border-radius: %1px;").arg(borderRadius)
+        );
 
         // 重置标签文字
         m_scoreMultiplierLabel->setText("x1.0");
 
-        // 恢复默认颜色
-        m_scoreMultiplierBar->setStyleSheet(
-            "background-color: rgba(255, 215, 0, 150);"
-            "border: none; border-radius: 14px;"
-        );
+        // 默认状态下隐藏(倍率为1.0时不显示)
+        m_scoreMultiplierContainer->hide();
     }
 
     // 隐藏弹出标签

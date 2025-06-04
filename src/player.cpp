@@ -5,7 +5,7 @@
 #include <qpainter.h>
 #include "npcentity.h"
 #include <vector>
-
+#include "yetimnpc.h"
 #include "gamescene.h"
 #include "terraingenerator.h"
 
@@ -81,7 +81,6 @@ Player::Player(QGraphicsItem *parent)
       m_isRidingYeti(false), // 初始化为未骑乘雪怪
       m_yetiForm(NPCForm::Normal), // 初始化雪怪形态为普通
       m_ridingTexturesLoaded(false) // 初始化骑乘贴图加载状态
-      m_yetiForm(NPCForm::Normal) // 初始化雪怪形态为普通
 {
     setZValue(-2);
 

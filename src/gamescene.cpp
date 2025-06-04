@@ -479,7 +479,7 @@ void GameScene::resetGameState()
     m_lastScoredPositionX = 1200;
 
 
-    // 重置更新计时器和对象列表
+    // 重置雪崩相关变量
     m_avalancheElapsed = 0;
     m_objectsToDeleteThisFrame.clear();
 
@@ -535,7 +535,7 @@ void GameScene::clearGameObjects()
             PhysicsSystem::instance().unregisterObject(obj);
             delete obj;
         }
-    }    // 强制清理所有剩余的图形项目，排除UI元素
+    }    // 强制清理剩余的图形项目，排除UI元素
     QList<QGraphicsItem*> allItems = items();
     for (QGraphicsItem* item : allItems) {
         // 保留UIManager管理的所有UI元素
@@ -573,17 +573,20 @@ void GameScene::createSceneItems()
     // 确保雪崩线程启动
     m_avalancheThread->start();
 
-    // 连接玩家NPC拾取冷却进度条信号
-    connect(Gplayer, &Player::npcPickupCooldownChanged,
-            m_uiManager, &UIManager::showNPCPickupCooldown);
+    // 检查m_uiManager是否有效，然后才连接信号
+    if (m_uiManager) {
+        // 连接玩家NPC拾取冷却进度条信号
+        connect(Gplayer, &Player::npcPickupCooldownChanged,
+                m_uiManager, &UIManager::showNPCPickupCooldown);
 
-    // 连接玩家摔倒恢复进度条信号
-    connect(Gplayer, &Player::fallRecoveryChanged,
-            m_uiManager, &UIManager::showFallRecovery);
+        // 连接玩家摔倒恢复进度条信号
+        connect(Gplayer, &Player::fallRecoveryChanged,
+                m_uiManager, &UIManager::showFallRecovery);
 
-    // 连接玩家空翻加速进度条信号
-    connect(Gplayer, &Player::flipBoostChanged,
-            m_uiManager, &UIManager::showFlipBoost);
+        // 连接玩家空翻加速进度条信号
+        connect(Gplayer, &Player::flipBoostChanged,
+                m_uiManager, &UIManager::showFlipBoost);
+    }
 
     // 连接玩家空翻成功信号
     connect(Gplayer, &Player::backFlipSuccess,
@@ -608,13 +611,13 @@ void GameScene::checkPlayerProgressScore() {
     if (Gplayer) {
         qreal currentX = Gplayer->pos().x();
 
-        // 只有当玩家向右移动时才计分
+        // 只有当玩家向右移动时计分
         if (currentX > m_lastScoredPositionX + m_scoreDistance) {
             // 计算玩家移动了多少个得分距离
             int scoreUnits = static_cast<int>((currentX - m_lastScoredPositionX) / m_scoreDistance);
             int points = scoreUnits * 10;  // 每单位距离得10分
 
-            // 更新最后得分位置
+            // 更新玩家最后得分位置
             m_lastScoredPositionX += scoreUnits * m_scoreDistance;
 
             // 发射得分信号

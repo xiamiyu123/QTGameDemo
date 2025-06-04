@@ -344,6 +344,12 @@ void Player::checkHitRock(RockEntity* rock) {
         return; // 雪怪形态1遇到碰撞时只转换形态，不摔倒
     }
 
+    // 检查是否可以抵抗石头碰撞伤害（如加速状态）
+    if (canResistRockDamage()) {
+        DEBUG_LOG("Player resisted rock damage while in boost state");
+        return; // 成功抵抗石头伤害，不摔倒
+    }
+
     // 其他情况下正常处理摔倒
     fall();
     // 从场景移除石头、从物理系统注销和删除石头对象的操作
@@ -446,6 +452,21 @@ void Player::fall() {
     is_fallen = true;
     DEBUG_LOG(QString("Player has fallen! Flip rotation was: %1").arg(QString::number(m_flipRotation)));
 
+    // 摔倒时立即结束加速效果
+    if (m_isFlipBoosting) {
+        m_isFlipBoosting = false;
+        m_flipBoostTimer->stop();
+        m_flipBoostProgressTimer->stop();
+        
+        // 恢复初速度
+        setMoveSpeed(getInitialMoveSpeed());
+        
+        // 发出空翻加速结束信号
+        emit flipBoostChanged(false, 0.0);
+        
+        DEBUG_LOG("摔倒时结束加速效果");
+    }
+
     // 启动恢复计时器
     m_fallRecoveryTimer.start(3000); // 3秒后恢复
 
@@ -494,9 +515,7 @@ bool Player::canResistFall(qreal angleDeviation) {
             DEBUG_LOG("Player resisted fall by consuming a carried penguin");
             return true;
         }
-    }
-
-    // 检查是否有主库存NPC可以用来抵抗摔倒
+    }    // 检查是否有主库存NPC可以用来抵抗摔倒
     if (hasNPCInInventory()) {
         // 消耗最低优先级的NPC来抵抗摔倒
         if (consumeNPCForDamageResistance()) {
@@ -505,14 +524,19 @@ bool Player::canResistFall(qreal angleDeviation) {
         }
     }
 
-    //检查是否处于空翻后的加速状态
+    // 未来可扩展为其他抵抗条件
+    return false;
+}
+
+bool Player::canResistRockDamage() {
+    // 检查是否处于空翻后的加速状态
     if (m_isFlipBoosting) {
-        // 如果正在空翻加速中，允许抵抗摔倒
-        DEBUG_LOG("Player resisted fall by being in flip boosting state");
+        // 如果正在空翻加速中，允许抵抗石头伤害
+        DEBUG_LOG("Player resisted rock damage by being in flip boosting state");
         return true;
     }
 
-    // 未来可扩展为其他抵抗条件
+    // 未来可扩展为其他抵抗石头伤害的条件
     return false;
 }
 

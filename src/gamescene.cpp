@@ -31,7 +31,7 @@ GameScene::GameScene(QObject *parent)
     // 连接getscore信号到处理函数
     connect(this, &GameScene::getscore, this, &GameScene::onGetScore);
 
-    // 初始化并创建场景关键元素
+    // 初始化并创建场景关键元素（包括Player）
     createSceneItems();
 
     // 设置游戏循环定时器
@@ -43,18 +43,25 @@ GameScene::GameScene(QObject *parent)
     m_uiManager->initialize();
 
     // 创建碰撞处理器
-    m_collisionHandler = new CollisionHandler(GTerrainGenerator, this);    // 连接UI事件
-    connect(m_uiManager, &UIManager::pauseToggled, this, &GameScene::togglePause);    // 连接玩家NPC拾取冷却进度条信号
-    connect(Gplayer, &Player::npcPickupCooldownChanged,
-            m_uiManager, &UIManager::showNPCPickupCooldown);
+    m_collisionHandler = new CollisionHandler(GTerrainGenerator, this);
 
-    // 连接玩家坠落恢复进度条信号
-    connect(Gplayer, &Player::fallRecoveryChanged,
-            m_uiManager, &UIManager::showFallRecovery);
+    // 连接UI事件
+    connect(m_uiManager, &UIManager::pauseToggled, this, &GameScene::togglePause);
 
-    // 连接玩家空翻加速进度条信号
-    connect(Gplayer, &Player::flipBoostChanged,
-            m_uiManager, &UIManager::showFlipBoost);
+    // 在UI管理器创建后建立玩家与UI管理器的连接
+    if (Gplayer && m_uiManager) {
+        // 连接玩家NPC拾取冷却进度条信号
+        connect(Gplayer, &Player::npcPickupCooldownChanged,
+                m_uiManager, &UIManager::showNPCPickupCooldown);
+
+        // 连接玩家摔倒恢复进度条信号
+        connect(Gplayer, &Player::fallRecoveryChanged,
+                m_uiManager, &UIManager::showFallRecovery);
+
+        // 连接玩家空翻加速进度条信号
+        connect(Gplayer, &Player::flipBoostChanged,
+                m_uiManager, &UIManager::showFlipBoost);
+    }
 
     // 初始化调试日志器
     DebugLogger::instance()->initialize(this);
@@ -79,13 +86,6 @@ GameScene::GameScene(QObject *parent)
     m_lastScoredPositionX = 1200;
     m_scoreDistance = 100;  // 每100像素得分一次
 
-    // // 连接玩家摔倒信号（测试用）
-    // connect(Gplayer, &Player::playerFallen, m_uiManager, &UIManager::showScorePopup);
-    //
-    // // 同时连接到加分系统
-    // connect(Gplayer, &Player::playerFallen, this, [this](int points, const QString&) {
-    //     emit getscore(points);
-    // });
     m_avalancheThread->start();    // 运行测试构造代码
     test();
 
@@ -589,6 +589,10 @@ void GameScene::createSceneItems()
     connect(Gplayer, &Player::backFlipSuccess,
             this, &GameScene::onBackFlipSuccess);
 
+    // 连接NPC捕获成功信号
+    connect(Gplayer, &Player::npcCaptureSuccess,
+            this, &GameScene::onNPCCaptureSuccess);
+
     // 连接玩家摔倒重置倍率信号
     connect(Gplayer, &Player::resetAwardMultipliers,
             this, &GameScene::resetAwardMultipliers);
@@ -856,3 +860,40 @@ void GameScene::resetAwardMultipliers()
 
 }
 
+void GameScene::onNPCCaptureSuccess(int points, const QString& message, int npcId) {
+    // 应用分数奖励倍数
+    int adjustedPoints = static_cast<int>(points * award_score);
+    score += adjustedPoints;
+
+    // 根据 NPC 类型给予不同的加成
+    if (npcId == 1) { // 企鹅 ID
+        // 企鹅形态提供中等奖励倍率提升，和一些速度加成
+        award_score += 0.5; // 增加 0.5 的得分倍率
+        award_speed = qMin(award_speed * 1.1, maxAward_speed); // 速度小幅提升
+
+        DEBUG_LOG(QString("企鹅形态奖励: %1分 (得分倍数增加至: %2, 速度倍数: %3)")
+            .arg(adjustedPoints).arg(award_score).arg(award_speed));
+    }
+    else if (npcId == 2) { // 雪怪 ID
+        // 雪怪形态提供更高的奖励倍率提升和显著的速度加成
+        award_score += 1.0; // 增加 1.0 的得分倍率
+        award_speed = qMin(award_speed * 1.2, maxAward_speed); // 速度明显提升
+
+        DEBUG_LOG(QString("雪怪形态奖励: %1分 (得分倍数增加至: %2, 速度倍数: %3)")
+            .arg(adjustedPoints).arg(award_score).arg(award_speed));
+    }
+
+    // 确保倍率不超过最大值
+    award_score = qMin(award_score, maxAward_score);
+
+    // 更新UI显示
+    if (m_uiManager) {
+        m_uiManager->setScore(score);
+        m_uiManager->showScorePopup(adjustedPoints, message);
+    }
+
+    // 如果当前不在空翻加速状态，则应用速度倍数
+    if (Gplayer && !Gplayer->isFlipBoosting()) {
+        Gplayer->setMoveSpeed(Gplayer->getInitialMoveSpeed() * award_speed); // 基础速度 * 速度倍率
+    }
+}

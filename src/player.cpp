@@ -76,11 +76,11 @@ Player::Player(QGraphicsItem *parent)
       m_baseFlipSpeed(3),
       m_baseInventoryCapacity(1),
       m_currentMoveSpeed(500),
-      m_currentJumpForce(-300),
-      m_currentFlipSpeed(3),
+      m_currentJumpForce(-300),      m_currentFlipSpeed(3),
       m_currentInventoryCapacity(1),
       m_isRidingYeti(false), // 初始化为未骑乘雪怪
-      m_yetiForm(NPCForm::Normal) // 初始化雪怪形态为普��
+      m_yetiForm(NPCForm::Normal), // 初始化雪怪形态为普通
+      m_ridingTexturesLoaded(false) // 初始化骑乘贴图加载状态
 {
     setZValue(-2);
 
@@ -115,6 +115,7 @@ Player::Player(QGraphicsItem *parent)
     connect(this, &Player::updatePlayerNPC, this, &Player::onUpdate);
 
     loadAnimationFrames();
+    loadRidingTextures(); // 加载骑乘状态动画贴图
 
     // 设置动画定时器
     connect(&m_animationTimer, &QTimer::timeout, this, &Player::updateAnimation);
@@ -547,11 +548,41 @@ void Player::playerUpdate(TerrainGenerator* GTerrainGenerator) {
 void Player::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget)
 {
     Q_UNUSED(option)
-    Q_UNUSED(widget)    // 如果动画已加载且有帧数据，绘制当前动画帧
+    Q_UNUSED(widget)
+    
+    QRectF r = rect();
+    
+    // 检查是否有骑乘状态贴图需要渲染
+    QPixmap ridingTexture = getCurrentRidingTexture();
+    if (!ridingTexture.isNull()) {
+        // 使用骑乘状态贴图进行渲染
+        painter->save();
+        
+        // 设置高质量渲染选项
+        painter->setRenderHint(QPainter::SmoothPixmapTransform, true);
+        painter->setRenderHint(QPainter::Antialiasing, true);
+        
+        // 计算骑乘贴图的绘制区域（可能需要不同的缩放比例）
+        qreal ridingScaleFactor = m_imageScaleFactor * 1.2; // 骑乘状态稍微大一些
+        QSizeF size = r.size() * ridingScaleFactor;
+        QRectF targetRect(
+            r.x() + (r.width() - size.width()) / 2,
+            r.y() + (r.height() - size.height()) / 2,
+            size.width(),
+            size.height() + 2
+        );
+        
+        // 绘制骑乘状态贴图
+        painter->drawPixmap(targetRect, ridingTexture, ridingTexture.rect());
+        
+        painter->restore();
+        return; // 直接返回，不再绘制常规动画帧
+    }
+    
+    // 如果没有骑乘状态，使用常规动画帧渲染
     if (m_animationLoaded && !m_animationFrames.isEmpty() &&
         m_currentFrame >= 0 && m_currentFrame < m_animationFrames.size()) {
 
-        QRectF r = rect();
         const QPixmap& currentPixmap = m_animationFrames[m_currentFrame];
 
         // 保存当前绘图设置
@@ -575,18 +606,12 @@ void Player::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QW
 
         // 恢复绘图设置
         painter->restore();
-        // 已移除
-        // 底部绿色边框作为调试标识
-        // QPen greenPen(Qt::green, 2);
-        // painter->setPen(greenPen);
-        // painter->drawLine(r.bottomLeft(), r.bottomRight());
 
     } else {
         // 如果动画未加载，使用原始的红色方块绘制
         QGraphicsRectItem::paint(painter, option, widget);
 
         // 绘制底部绿色边
-        QRectF r = rect();
         QPen greenPen(Qt::green, 4);
         painter->setPen(greenPen);
         painter->drawLine(r.bottomLeft(), r.bottomRight());
@@ -858,7 +883,7 @@ void Player::startNPCPickupCooldown() {
 void Player::onNPCPickupCooldownTimeout() {
     m_npcPickupCooldownActive = false;
 
-    // 停止进度更新定时器
+    // 停止进度更新计时器
     m_npcCooldownProgressTimer.stop();
 
     // 发出冷却结束信号
@@ -1188,4 +1213,83 @@ void Player::updateFlipBoostProgress() {
 
 qreal Player::getInitialMoveSpeed() {
     return initialMoveSpeed;
+}
+
+void Player::loadRidingTextures() {
+    m_ridingTexturesLoaded = false;
+    
+    // 加载骑乘企鹅贴图
+    QString penguinPath = ":/resource/images/npcs/penguin/penguinplayer_running/penguinplayer.png";
+    m_penguinRidingTexture = QPixmap(penguinPath);
+    if (m_penguinRidingTexture.isNull()) {
+        DEBUG_LOG(QString("Failed to load penguin riding texture: %1").arg(penguinPath));
+    } else {
+        DEBUG_LOG("Successfully loaded penguin riding texture");
+    }
+    
+    // 加载骑乘雪怪形态1贴图
+    QString yetiForm1Path = ":/resource/images/npcs/yeti/yetiplayer_running/yetiplayerrunning1.png";
+    m_yetiForm1RidingTexture = QPixmap(yetiForm1Path);
+    if (m_yetiForm1RidingTexture.isNull()) {
+        DEBUG_LOG(QString("Failed to load yeti form1 riding texture: %1").arg(yetiForm1Path));
+    } else {
+        DEBUG_LOG("Successfully loaded yeti form1 riding texture");
+    }
+    
+    // 加载骑乘雪怪形态2贴图
+    QString yetiForm2Path = ":/resource/images/npcs/yeti/yetiplayer_falling/yetiplayerfalling1.png";
+    m_yetiForm2RidingTexture = QPixmap(yetiForm2Path);
+    if (m_yetiForm2RidingTexture.isNull()) {
+        DEBUG_LOG(QString("Failed to load yeti form2 riding texture: %1").arg(yetiForm2Path));
+    } else {
+        DEBUG_LOG("Successfully loaded yeti form2 riding texture");
+    }
+    
+    // 加载雪怪形态2+企鹅贴图
+    QString yetiPenguinPath = ":/resource/images/npcs/allrunning/all1.png";
+    m_yetiForm2WithPenguinTexture = QPixmap(yetiPenguinPath);
+    if (m_yetiForm2WithPenguinTexture.isNull()) {
+        DEBUG_LOG(QString("Failed to load yeti form2 with penguin texture: %1").arg(yetiPenguinPath));
+    } else {
+        DEBUG_LOG("Successfully loaded yeti form2 with penguin texture");
+    }
+    
+    // 检查是否至少加载了一些贴图
+    m_ridingTexturesLoaded = !m_penguinRidingTexture.isNull() || 
+                            !m_yetiForm1RidingTexture.isNull() || 
+                            !m_yetiForm2RidingTexture.isNull() || 
+                            !m_yetiForm2WithPenguinTexture.isNull();
+                            
+    if (m_ridingTexturesLoaded) {
+        DEBUG_LOG("Riding textures loading completed successfully");
+    } else {
+        DEBUG_LOG("Failed to load any riding textures");
+    }
+}
+
+QPixmap Player::getCurrentRidingTexture() const {
+    if (!m_ridingTexturesLoaded) {
+        return QPixmap(); // 返回空贴图
+    }
+    
+    // 根据当前骑乘状态返回对应的贴图
+    if (m_currentForm == NPCForm::Penguin) {
+        return m_penguinRidingTexture;
+    }
+    else if (m_isRidingYeti) {
+        // 检查是否同时携带企鹅（雪怪形态2+企鹅）
+        if (m_yetiForm == NPCForm::YetiForm2 && getCarriedPenguinCount() > 0) {
+            return m_yetiForm2WithPenguinTexture;
+        }
+        // 根据雪怪形态返回对应贴图
+        else if (m_yetiForm == NPCForm::YetiForm1) {
+            return m_yetiForm1RidingTexture;
+        }
+        else if (m_yetiForm == NPCForm::YetiForm2) {
+            return m_yetiForm2RidingTexture;
+        }
+    }
+    
+    // 默认返回空贴图（非骑乘状态）
+    return QPixmap();
 }

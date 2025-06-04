@@ -85,8 +85,9 @@ private:
     void createFallRecoveryElements();
     void createFlipBoostElements();
     void createScoreMultiplierElements(); // 新增：创建得分倍率条
-    void setupButtonStyle(QPushButton* button, const QString& iconPath, bool transparent = true);
-
-    // 获取主视图
+    void setupButtonStyle(QPushButton* button, const QString& iconPath, bool transparent = true);    // 获取主视图
     QGraphicsView* getView() const;
+    
+    // 获取当前登录用户名
+    QString getCurrentUsername() const;
 };

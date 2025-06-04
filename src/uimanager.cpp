@@ -587,29 +587,55 @@ void UIManager::showGameOverDialog(int score, const std::function<void()>& onRet
     QLabel* title = new QLabel("GAME OVER");
     title->setAlignment(Qt::AlignCenter);
     title->setStyleSheet("font-size: 40px; font-weight: bold; color: #1976d2; border: none;");
-    layout->addWidget(title);
-
-    QLabel* scoreLabel = new QLabel(QString("本次得分：<b style='color:#1976d2;'>%1</b> 分").arg(QString::number(score)));
+    layout->addWidget(title);    QLabel* scoreLabel = new QLabel(QString("本次得分：<b style='color:#1976d2;'>%1</b> 分").arg(QString::number(score)));
     scoreLabel->setAlignment(Qt::AlignCenter);
     scoreLabel->setStyleSheet("font-size: 26px; color: #1565c0; border: none;");
     layout->addWidget(scoreLabel);
 
-    QString iniPath = QCoreApplication::applicationDirPath() + "/game_record.ini";
-    QSettings settings(iniPath, QSettings::IniFormat);
-    int bestScore = settings.value("General/bestScore", 0).toInt();
-    if (score >= bestScore) {
-        settings.setValue("General/bestScore", score);
-        bestScore = score;
+    // 获取当前登录用户名 - 从主窗口标题中提取或从用户数据中获取
+    QString currentUsername = getCurrentUsername();
+    
+    // 分别处理全局最高分和个人最高分
+    QString gameRecordPath = QCoreApplication::applicationDirPath() + "/game_record.ini";
+    QString userDataPath = QCoreApplication::applicationDirPath() + "/user_data.ini";
+    
+    QSettings gameSettings(gameRecordPath, QSettings::IniFormat);
+    QSettings userSettings(userDataPath, QSettings::IniFormat);
+    
+    // 获取和更新全局最高分
+    int globalBestScore = gameSettings.value("Global/bestScore", 0).toInt();
+    if (score >= globalBestScore) {
+        gameSettings.setValue("Global/bestScore", score);
+        gameSettings.setValue("Global/bestPlayer", currentUsername);
+        globalBestScore = score;
     }
-    QLabel* bestLabel = new QLabel(QString("历史最高：<b style='color:#d32f2f;'>%1</b> 分").arg(QString::number(bestScore)));
-    bestLabel->setAlignment(Qt::AlignCenter);
-    bestLabel->setStyleSheet("font-size: 22px; color: #d32f2f; border: none;");
-    layout->addWidget(bestLabel);
-
-    // 居中显示卡片
+    
+    // 获取和更新个人最高分
+    QString userScoreKey = QString("Users/%1/bestScore").arg(currentUsername);
+    int personalBestScore = userSettings.value(userScoreKey, 0).toInt();
+    if (score >= personalBestScore) {
+        userSettings.setValue(userScoreKey, score);
+        personalBestScore = score;
+    }
+    
+    // 显示个人最高分
+    QLabel* personalBestLabel = new QLabel(QString("个人最高：<b style='color:#d32f2f;'>%1</b> 分").arg(QString::number(personalBestScore)));
+    personalBestLabel->setAlignment(Qt::AlignCenter);
+    personalBestLabel->setStyleSheet("font-size: 22px; color: #d32f2f; border: none;");
+    layout->addWidget(personalBestLabel);
+    
+    // 显示全局最高分
+    QString globalBestPlayer = gameSettings.value("Global/bestPlayer", "").toString();
+    QString globalText = globalBestPlayer.isEmpty() ? 
+        QString("全球最高：<b style='color:#ff6f00;'>%1</b> 分").arg(QString::number(globalBestScore)) :
+        QString("全球最高：<b style='color:#ff6f00;'>%1</b> 分 (%2)").arg(QString::number(globalBestScore), globalBestPlayer);
+    QLabel* globalBestLabel = new QLabel(globalText);
+    globalBestLabel->setAlignment(Qt::AlignCenter);
+    globalBestLabel->setStyleSheet("font-size: 18px; color: #ff6f00; border: none;");
+    layout->addWidget(globalBestLabel);    // 居中显示卡片
     QGraphicsProxyWidget* proxy = m_scene->addWidget(card);
     proxy->setZValue(2001);
-    QSize cardSize(350, 220);
+    QSize cardSize(350, 280);  // 增加高度以容纳新的标签
     card->setFixedSize(cardSize);
     proxy->setPos(sceneRect.center().x() - cardSize.width() / 2,
                   sceneRect.center().y() - cardSize.height() / 2);
@@ -908,5 +934,38 @@ void UIManager::showScoreMultiplier(double multiplier) {
 
     // 显示倍率条
     m_scoreMultiplierContainer->show();
+}
+
+QString UIManager::getCurrentUsername() const
+{
+    // 从用户数据文件中获取当前登录的用户名
+    QString userDataPath = QCoreApplication::applicationDirPath() + "/user_data.ini";
+    QSettings userSettings(userDataPath, QSettings::IniFormat);
+    
+    // 尝试从RememberPassword功能中获取当前用户名
+    QString username = userSettings.value("General/Username", "").toString();
+    
+    // 如果没有找到，则尝试从主窗口标题中解析
+    if (username.isEmpty()) {
+        QGraphicsView* view = getView();
+        if (view) {
+            QWidget* topLevelWidget = view->window();
+            if (topLevelWidget) {
+                QString windowTitle = topLevelWidget->windowTitle();
+                // 窗口标题格式为: "滑雪大冒险 - 欢迎 用户名"
+                QStringList parts = windowTitle.split(" - 欢迎 ");
+                if (parts.size() == 2) {
+                    username = parts[1];
+                }
+            }
+        }
+    }
+    
+    // 如果仍然没有找到用户名，使用默认值
+    if (username.isEmpty()) {
+        username = "Guest";
+    }
+    
+    return username;
 }
 

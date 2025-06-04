@@ -550,9 +550,7 @@ void Player::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QW
     Q_UNUSED(option)
     Q_UNUSED(widget)
     
-    QRectF r = rect();
-    
-    // 检查是否有骑乘状态贴图需要渲染
+    QRectF r = rect();    // 检查是否有骑乘状态贴图需要渲染
     QPixmap ridingTexture = getCurrentRidingTexture();
     if (!ridingTexture.isNull()) {
         // 使用骑乘状态贴图进行渲染
@@ -562,17 +560,43 @@ void Player::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QW
         painter->setRenderHint(QPainter::SmoothPixmapTransform, true);
         painter->setRenderHint(QPainter::Antialiasing, true);
         
-        // 计算骑乘贴图的绘制区域（可能需要不同的缩放比例）
-        qreal ridingScaleFactor = m_imageScaleFactor * 1.2; // 骑乘状态稍微大一些
-        QSizeF size = r.size() * ridingScaleFactor;
+        // 获取骑乘贴图的原始尺寸
+        QSize originalSize = ridingTexture.size();
+        if (originalSize.isEmpty()) {
+            painter->restore();
+            return;
+        }
+          // 使用统一的骑乘渲染设置系统
+        RidingRenderSettings renderSettings;
+        getRidingRenderSettings(renderSettings);
+        
+        qreal ridingScaleFactor = m_imageScaleFactor * renderSettings.scaleFactor;
+        qreal horizontalOffset = renderSettings.horizontalOffset;
+        qreal verticalOffset = renderSettings.verticalOffset;
+        
+        // 保持原始纵横比，计算合适的绘制尺寸
+        // 以玩家矩形的宽度为基准，按比例缩放
+        qreal baseWidth = r.width() * ridingScaleFactor;
+        qreal aspectRatio = static_cast<qreal>(originalSize.height()) / originalSize.width();
+        qreal finalWidth = baseWidth;
+        qreal finalHeight = baseWidth * aspectRatio;
+        
+        // 如果高度超出合理范围，以高度为基准重新计算
+        qreal maxHeight = r.height() * ridingScaleFactor * 1.5; // 允许高度稍微超出一点
+        if (finalHeight > maxHeight) {
+            finalHeight = maxHeight;
+            finalWidth = finalHeight / aspectRatio;
+        }
+        
+        // 计算居中的绘制区域，保持纵横比
         QRectF targetRect(
-            r.x() + (r.width() - size.width()) / 2,
-            r.y() + (r.height() - size.height()) / 2,
-            size.width(),
-            size.height() + 2
+            r.x() + (r.width() - finalWidth) / 2 + horizontalOffset,
+            r.y() + (r.height() - finalHeight) / 2 + verticalOffset,
+            finalWidth,
+            finalHeight
         );
         
-        // 绘制骑乘状态贴图
+        // 绘制骑乘状态贴图，保持原始比例
         painter->drawPixmap(targetRect, ridingTexture, ridingTexture.rect());
         
         painter->restore();
@@ -1274,22 +1298,59 @@ QPixmap Player::getCurrentRidingTexture() const {
     
     // 根据当前骑乘状态返回对应的贴图
     if (m_currentForm == NPCForm::Penguin) {
+        DEBUG_LOG("Using penguin riding texture");
         return m_penguinRidingTexture;
     }
     else if (m_isRidingYeti) {
         // 检查是否同时携带企鹅（雪怪形态2+企鹅）
         if (m_yetiForm == NPCForm::YetiForm2 && getCarriedPenguinCount() > 0) {
+            DEBUG_LOG("Using yeti form2 with penguin riding texture");
             return m_yetiForm2WithPenguinTexture;
         }
         // 根据雪怪形态返回对应贴图
         else if (m_yetiForm == NPCForm::YetiForm1) {
+            DEBUG_LOG("Using yeti form1 riding texture");
             return m_yetiForm1RidingTexture;
         }
         else if (m_yetiForm == NPCForm::YetiForm2) {
+            DEBUG_LOG("Using yeti form2 riding texture");
             return m_yetiForm2RidingTexture;
         }
     }
     
     // 默认返回空贴图（非骑乘状态）
     return QPixmap();
+}
+
+void Player::getRidingRenderSettings(RidingRenderSettings& settings) const {
+    // 设置默认值
+    settings.scaleFactor = 1.0;
+    settings.horizontalOffset = 0;
+    settings.verticalOffset = 0;
+    
+    if (m_currentForm == NPCForm::Penguin) {
+        // 企鹅骑乘：适中大小，稍微向下偏移
+        settings.scaleFactor = 1.1;
+        settings.verticalOffset = 3;
+        DEBUG_LOG("Penguin riding render settings applied");
+    }    else if (m_isRidingYeti) {
+        if (m_yetiForm == NPCForm::YetiForm2 && getCarriedPenguinCount() > 0) {
+            // 雪怪形态2+企鹅：较大，因为包含两个角色，但不要过度放大
+            settings.scaleFactor = 2.2; // 从2.8降低到2.2
+            settings.verticalOffset = -3; // 稍微向上偏移
+            DEBUG_LOG("Yeti Form2 with penguin render settings applied (optimized scale)");
+        }
+        else if (m_yetiForm == NPCForm::YetiForm1) {
+            // 雪怪形态1：标准2倍大小
+            settings.scaleFactor = 2.0; // 从2.6降低到2.0
+            settings.verticalOffset = 1; // 轻微向下偏移
+            DEBUG_LOG("Yeti Form1 render settings applied (optimized scale)");
+        }
+        else if (m_yetiForm == NPCForm::YetiForm2) {
+            // 雪怪形态2：标准2倍大小
+            settings.scaleFactor = 2.0; // 从2.5降低到2.0
+            settings.verticalOffset = 2; // 向下偏移
+            DEBUG_LOG("Yeti Form2 render settings applied (optimized scale)");
+        }
+    }
 }

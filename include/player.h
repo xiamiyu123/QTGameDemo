@@ -182,7 +182,17 @@ private:
     QPixmap m_yetiForm1RidingTexture;   // 雪怪形态1骑乘动画
     QPixmap m_yetiForm2RidingTexture;   // 雪怪形态2骑乘动画
     QPixmap m_yetiForm2WithPenguinTexture; // 雪怪形态2+企鹅动画
-    bool m_ridingTexturesLoaded;        // 骑乘贴图是否加载成功// NPC库存系统 - 使用优先队列实现堆（降序排列，高ID优先）
+    bool m_ridingTexturesLoaded;        // 骑乘贴图是否加载成功
+    
+    // 骑乘动画比例调配
+    struct RidingRenderSettings {
+        qreal scaleFactor;      // 缩放因子倍数
+        qreal horizontalOffset; // 水平偏移
+        qreal verticalOffset;   // 垂直偏移
+    };
+    void getRidingRenderSettings(RidingRenderSettings& settings) const; // 获取当前骑乘状态的渲染设置
+    
+    // NPC库存系统 - 使用优先队列实现堆（降序排列，高ID优先）
     std::priority_queue<int> m_npcInventory; // 存储NPC ID，自动按ID降序排列
     static const int MAX_INVENTORY_SIZE = 1; // 最大库存大小
       // NPC拾取冷却系统

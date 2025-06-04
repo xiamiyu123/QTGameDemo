@@ -1,5 +1,7 @@
 #pragma once
 
+#include <QTimer>
+
 #include "groundnpc.h"
 
 /**
@@ -13,6 +15,7 @@ class PenguinNPC : public GroundNPC
 
 public:
     explicit PenguinNPC(QGraphicsItem *parent = nullptr);
+    void updateAnimation();
     ~PenguinNPC() override = default;
 
     static constexpr int ID = 1;
@@ -33,4 +36,11 @@ private:
     static constexpr qreal PENGUIN_SPEED = 250.0; // 玩家速度的一半
     static constexpr qreal PENGUIN_WIDTH = 30.0;
     static constexpr qreal PENGUIN_HEIGHT = 30.0;
+    // 贴图相关
+    QVector<QPixmap> m_animationFrames;  // 动画帧
+    int m_currentFrame;                  // 当前帧
+    QTimer m_animationTimer;            // 动画定时器
+    bool m_textureLoaded;               // 贴图是否加载成功
+
+    void loadAnimationFrames();         // 加载动画帧
 };

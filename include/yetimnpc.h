@@ -1,5 +1,7 @@
 #pragma once
 
+#include <QTimer>
+
 #include "groundnpc.h"
 
 /**
@@ -35,4 +37,12 @@ private:
     static constexpr qreal YETI_SPEED = 400.0; // 玩家速度的80% (玩家500*0.8)
     static constexpr qreal YETI_WIDTH = 40.0;  // 竖直长方体：较窄的宽度
     static constexpr qreal YETI_HEIGHT = 60.0; // 竖直长方体：较高的高度
+    // 贴图相关
+    QVector<QPixmap> m_animationFrames;  // 动画帧
+    int m_currentFrame;                  // 当前帧
+    QTimer m_animationTimer;            // 动画定时器
+    bool m_textureLoaded;               // 贴图是否加载成功
+
+    void loadAnimationFrames();         // 加载动画帧
+    void updateAnimation();
 };

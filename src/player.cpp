@@ -80,7 +80,7 @@ Player::Player(QGraphicsItem *parent)
       m_currentFlipSpeed(3),
       m_currentInventoryCapacity(1),
       m_isRidingYeti(false), // 初始化为未骑乘雪怪
-      m_yetiForm(NPCForm::Normal) // 初始化雪怪形态为普通
+      m_yetiForm(NPCForm::Normal) // 初始化雪怪形态为普��
 {
     setZValue(-2);
 
@@ -317,15 +317,19 @@ void Player::checkLanding(qreal terrainAngle) {
         if (angleDeviation > MAX_LANDING_ANGLE_DEVIATION && !canResistFall(angleDeviation)) {
             fall();
         } else {
-            // 检查成功空翻条件: 旋转超过200度并且没有摔倒
-            if (m_flipRotation >= 200.0) {
-                // 发送空翻成功信号
+            // 检查空翻条件
+            if (m_flipRotation >= 600.0) {
+                // 多圈空翻成功！给予更高奖励
+                emit backFlipSuccess(500, "超级空翻！");
+                DEBUG_LOG("多圈空翻成功! 奖励 +500 分");
+            } else if (m_flipRotation >= 200.0) {
+                // 普通空翻成功
                 emit backFlipSuccess(200, "后空翻！");
                 DEBUG_LOG("空翻成功! 奖励 +200 分");
-
-                // 重置累计旋转角度，避免再次触发
-                m_cumulativeRotation = 0.0;
             }
+
+            // 重置累计旋转角度，避免再次触发
+            m_cumulativeRotation = 0.0;
         }
     }
 }
@@ -462,6 +466,12 @@ void Player::recoverFromFall() {
     if (!is_fallen) return;
 
     is_fallen = false;
+
+    // 重置累计旋转角度，避免摔倒后站起来时仍然保留旋转角度
+    m_cumulativeRotation = 0.0;
+    m_flipRotation = 0.0;
+    m_lastFrameRotation = rotation;
+
     DEBUG_LOG("Player recovered from fall.");
 }
 

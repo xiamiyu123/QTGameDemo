@@ -909,3 +909,4 @@ void UIManager::showScoreMultiplier(double multiplier) {
     // 显示倍率条
     m_scoreMultiplierContainer->show();
 }
+

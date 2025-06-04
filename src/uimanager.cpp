@@ -1303,10 +1303,17 @@ QString UIManager::getCurrentUsername() const
             QWidget* topLevelWidget = view->window();
             if (topLevelWidget) {
                 QString windowTitle = topLevelWidget->windowTitle();
-                // 窗口标题格式为: "滑雪大冒险 - 欢迎 用户名"
-                QStringList parts = windowTitle.split(" - 欢迎 ");
-                if (parts.size() == 2) {
-                    username = parts[1];
+                // 窗口标题格式可能为: "滑雪大冒险 - 欢迎 用户名" 或 "滑雪大冒险 - 用户名"
+                if (windowTitle.contains(" - 欢迎 ")) {
+                    QStringList parts = windowTitle.split(" - 欢迎 ");
+                    if (parts.size() == 2) {
+                        username = parts[1];
+                    }
+                } else if (windowTitle.contains(" - ")) {
+                    QStringList parts = windowTitle.split(" - ");
+                    if (parts.size() == 2) {
+                        username = parts[1];
+                    }
                 }
             }
         }

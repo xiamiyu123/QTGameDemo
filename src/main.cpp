@@ -1,5 +1,6 @@
 #include "mainwindow.h"
 #include "login.h"
+#include "mainmenu.h"
 #include <QApplication>
 #include <QMessageBox>
 
@@ -22,15 +23,9 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
-    // 登录成功，显示主窗口
-    MainWindow w;
-    //设置窗口图标
-    w.setWindowIcon(QIcon(":/resource/images/icons/gui_title.png"));
-
-    // 可以根据需要在主窗口中显示欢迎消息
-    w.setWindowTitle(QString("滑雪大冒险 - 欢迎 %1").arg(loginWindow.getUsername()));
-
-    w.show();
+    // 登录成功，显示主菜单界面
+    MainMenu mainMenu(loginWindow.getUsername());
+    mainMenu.show();
 
     return app.exec();
 }

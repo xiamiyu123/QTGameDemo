@@ -55,7 +55,7 @@ public:
     void addChunkToScene(int chunkIndex);
     QVector<RockEntity*> m_rocks; // 存储所有石头 - 移到public部分
     QVector<NPCEntity*> m_npcs; // 存储所有NPC
-    
+
     // 添加清理方法
     void clearAllResources();
     

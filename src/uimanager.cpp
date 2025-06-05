@@ -680,8 +680,8 @@ void UIManager::showGameOverDialog(int score, const std::function<void()>& onRet
 
     // 退出按钮（下）
     QPushButton* exitBtn = new QPushButton;
-    exitBtn->setText("⏻");
-    exitBtn->setToolTip("退出游戏");
+    exitBtn->setText("⌂");
+    exitBtn->setToolTip("返回主界面");
     exitBtn->setFixedSize(btnDiameter, btnDiameter);
     exitBtn->setStyleSheet(
         "QPushButton {"

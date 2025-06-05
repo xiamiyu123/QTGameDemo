@@ -204,10 +204,10 @@ void MainMenu::setupStyles()
         /* 主窗口背景 */
         QMainWindow {
             background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                stop:0 #87CEEB, stop:0.3 #B0E0E6, 
+                stop:0 #87CEEB, stop:0.3 #B0E0E6,
                 stop:0.7 #FFFFFF, stop:1 #F0F8FF);
         }
-        
+
         /* 标题样式 */
         #titleLabel {
             font-family: "%1";
@@ -216,7 +216,7 @@ void MainMenu::setupStyles()
             color: #2C3E50;
             margin: 20px 0;
         }
-        
+
         #subtitleLabel {
             font-family: "%1";
             font-size: 18px;
@@ -224,14 +224,14 @@ void MainMenu::setupStyles()
             font-style: italic;
             margin-bottom: 10px;
         }
-        
+
         #welcomeLabel {
             font-family: "%1";
             font-size: 16px;
             color: #7F8C8D;
             margin-bottom: 20px;
         }
-        
+
         /* 头部区域 */
         #headerFrame {
             background: rgba(255, 255, 255, 80);
@@ -240,17 +240,17 @@ void MainMenu::setupStyles()
             margin-bottom: 30px;
             padding: 20px;
         }
-        
+
         /* 菜单框架 */
         #menuFrame {
             background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                stop:0 rgba(255, 255, 255, 200), 
+                stop:0 rgba(255, 255, 255, 200),
                 stop:1 rgba(240, 248, 255, 180));
             border-radius: 25px;
             border: 3px solid rgba(70, 130, 180, 100);
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 150);
+
         }
-        
+
         /* 菜单按钮基础样式 */
         QPushButton {
             font-family: "%1";
@@ -265,53 +265,53 @@ void MainMenu::setupStyles()
             background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                 stop:0 #3498DB, stop:1 #2980B9);
         }
-        
+
         /* 开始游戏按钮 */
         #startGameButton {
             background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                 stop:0 #E74C3C, stop:1 #C0392B);
             font-size: 20px;
         }
-        
+
         #startGameButton:hover {
             background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                 stop:0 #EC7063, stop:1 #E74C3C);
-            transform: scale(1.05);
+
         }
-        
+
         /* 排行榜按钮 */
         #leaderboardButton {
             background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                 stop:0 #F39C12, stop:1 #E67E22);
         }
-        
+
         #leaderboardButton:hover {
             background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                 stop:0 #F7DC6F, stop:1 #F39C12);
         }
-        
+
         /* 游戏说明按钮 */
         #instructionsButton {
             background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                 stop:0 #27AE60, stop:1 #229954);
         }
-        
+
         #instructionsButton:hover {
             background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                 stop:0 #58D68D, stop:1 #27AE60);
         }
-        
+
         /* 退出游戏按钮 */
         #exitButton {
             background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                 stop:0 #95A5A6, stop:1 #7F8C8D);
         }
-        
+
         #exitButton:hover {
             background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                 stop:0 #BDC3C7, stop:1 #95A5A6);
         }
-        
+
         /* 按钮按下效果 */
         QPushButton:pressed {
             background: qlineargradient(x1:0, y1:0, x2:0, y2:1,

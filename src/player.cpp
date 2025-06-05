@@ -80,6 +80,7 @@ Player::Player(QGraphicsItem *parent)
       m_currentInventoryCapacity(1),
       m_isRidingYeti(false), // 初始化为未骑乘雪怪
       m_yetiForm(NPCForm::Normal), // 初始化雪怪形态为普通
+      m_yetiForm1CurrentFrame(0), // 初始化雪怪形态1动画帧
       m_ridingTexturesLoaded(false) // 初始化骑乘贴图加载状态
 {
     setZValue(-2);
@@ -198,10 +199,16 @@ void Player::updateAnimation() {
         // 确保帧索引在有效范围内
         if (actualFrame >= 0 && actualFrame < m_animationFrames.size()) {
             m_currentFrame = actualFrame;
-            // 触发重绘
-            update();
         }
     }
+    
+    // 更新雪怪形态1的骑乘动画帧
+    if (m_isRidingYeti && m_yetiForm == NPCForm::YetiForm1 && !m_yetiForm1RidingFrames.isEmpty()) {
+        m_yetiForm1CurrentFrame = (m_yetiForm1CurrentFrame + 1) % m_yetiForm1RidingFrames.size();
+    }
+    
+    // 触发重绘
+    update();
 }
 
 void Player::keyPressEvent(QKeyEvent *event) {
@@ -1285,15 +1292,23 @@ void Player::loadRidingTextures() {
         DEBUG_LOG(QString("Failed to load penguin riding texture: %1").arg(penguinPath));
     } else {
         DEBUG_LOG("Successfully loaded penguin riding texture");
+    }    // 加载骑乘雪怪形态1动画帧（8张）
+    m_yetiForm1RidingFrames.clear();
+    QString yetiForm1BasePath = ":/resource/images/npcs/yeti/yetiplayer_running/";
+    for (int i = 1; i <= 8; ++i) {
+        QString yetiForm1Path = yetiForm1BasePath + QString("yetiplayerrunning%1.png").arg(i);
+        QPixmap yetiFrame = QPixmap(yetiForm1Path);
+        if (!yetiFrame.isNull()) {
+            m_yetiForm1RidingFrames.append(yetiFrame);
+            DEBUG_LOG(QString("Successfully loaded yeti form1 riding frame %1").arg(i));
+        } else {
+            DEBUG_LOG(QString("Failed to load yeti form1 riding frame %1: %2").arg(i).arg(yetiForm1Path));
+        }
     }
-
-    // 加载骑乘雪怪形态1贴图
-    QString yetiForm1Path = ":/resource/images/npcs/yeti/yetiplayer_running/yetiplayerrunning1.png";
-    m_yetiForm1RidingTexture = QPixmap(yetiForm1Path);
-    if (m_yetiForm1RidingTexture.isNull()) {
-        DEBUG_LOG(QString("Failed to load yeti form1 riding texture: %1").arg(yetiForm1Path));
+    if (m_yetiForm1RidingFrames.size() == 8) {
+        DEBUG_LOG("Successfully loaded all 8 yeti form1 riding animation frames");
     } else {
-        DEBUG_LOG("Successfully loaded yeti form1 riding texture");
+        DEBUG_LOG(QString("Only loaded %1 out of 8 yeti form1 riding frames").arg(m_yetiForm1RidingFrames.size()));
     }
 
     // 加载骑乘雪怪形态2贴图
@@ -1312,11 +1327,9 @@ void Player::loadRidingTextures() {
         DEBUG_LOG(QString("Failed to load yeti form2 with penguin texture: %1").arg(yetiPenguinPath));
     } else {
         DEBUG_LOG("Successfully loaded yeti form2 with penguin texture");
-    }
-
-    // 检查是否至少加载了一些贴图
+    }    // 检查是否至少加载了一些贴图
     m_ridingTexturesLoaded = !m_penguinRidingTexture.isNull() ||
-                            !m_yetiForm1RidingTexture.isNull() ||
+                            !m_yetiForm1RidingFrames.isEmpty() ||
                             !m_yetiForm2RidingTexture.isNull() ||
                             !m_yetiForm2WithPenguinTexture.isNull();
 
@@ -1342,11 +1355,16 @@ QPixmap Player::getCurrentRidingTexture() const {
         if (m_yetiForm == NPCForm::YetiForm2 && getCarriedPenguinCount() > 0) {
             DEBUG_LOG("Using yeti form2 with penguin riding texture");
             return m_yetiForm2WithPenguinTexture;
-        }
-        // 根据雪怪形态返回对应贴图
+        }        // 根据雪怪形态返回对应贴图
         else if (m_yetiForm == NPCForm::YetiForm1) {
-            DEBUG_LOG("Using yeti form1 riding texture");
-            return m_yetiForm1RidingTexture;
+            // 返回当前动画帧
+            if (!m_yetiForm1RidingFrames.isEmpty()) {
+                int frameIndex = m_yetiForm1CurrentFrame % m_yetiForm1RidingFrames.size();
+                DEBUG_LOG(QString("Using yeti form1 riding texture frame %1").arg(frameIndex + 1));
+                return m_yetiForm1RidingFrames[frameIndex];
+            }
+            DEBUG_LOG("Yeti form1 riding frames not loaded, returning empty texture");
+            return QPixmap();
         }
         else if (m_yetiForm == NPCForm::YetiForm2) {
             DEBUG_LOG("Using yeti form2 riding texture");

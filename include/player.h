@@ -180,10 +180,10 @@ private:
     QTimer m_animationTimer;            // 动画播放定时器
     bool m_animationLoaded;             // 动画是否成功加载的标志
     qreal m_imageScaleFactor;           // 图像缩放因子，用于调整显示大小
-    
-    // NPC骑乘状态动画资源
+      // NPC骑乘状态动画资源
     QPixmap m_penguinRidingTexture;     // 骑乘企鹅动画
-    QPixmap m_yetiForm1RidingTexture;   // 雪怪形态1骑乘动画
+    QVector<QPixmap> m_yetiForm1RidingFrames; // 雪怪形态1骑乘动画帧（8张）
+    int m_yetiForm1CurrentFrame;        // 雪怪形态1当前动画帧
     QPixmap m_yetiForm2RidingTexture;   // 雪怪形态2骑乘动画
     QPixmap m_yetiForm2WithPenguinTexture; // 雪怪形态2+企鹅动画
     bool m_ridingTexturesLoaded;        // 骑乘贴图是否加载成功

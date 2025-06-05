@@ -21,8 +21,8 @@ YetiNPC::YetiNPC(QGraphicsItem *parent)
     
     // 设置动画定时器
     connect(&m_animationTimer, &QTimer::timeout, this, &YetiNPC::updateAnimation);
-    m_animationTimer.start(120); // 每120ms切换一帧，比企鹅稍快
-    
+    m_animationTimer.start(50);// 每50毫秒更新一帧，约20FPS
+
     DEBUG_LOG("YetiNPC created");
 }
 
@@ -119,3 +119,4 @@ QRectF YetiNPC::boundingRect() const
 {
     return QRectF(-10, 0, YETI_WIDTH + 20, YETI_HEIGHT);
 }
+

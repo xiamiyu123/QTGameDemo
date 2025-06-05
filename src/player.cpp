@@ -729,6 +729,8 @@ bool Player::pickupNPC(NPCEntity* npc) {
         return false;
     }
 
+    recoverFromFall(); // 摔倒后恢复状态
+
     // 获取NPC的ID
     int npcId = npc->class_id();    // 特殊处理企鹅：如果正在骑乘雪怪，直接添加到携带库存，不占用主库存
     if (npcId == 1 && m_isRidingYeti) { // PenguinNPC::ID
@@ -991,6 +993,8 @@ bool Player::consumeNPCForDamageResistance() {
     // 复用dropNPC方法来丢弃最低优先级的NPC
     DEBUG_LOG("Player using NPC for damage resistance - dropping NPC");
     dropNPC(m_terrainGenerator);
+    // 触发重置倍率信号
+    emit resetAwardMultipliers();
 
     return true; // 成功消耗了NPC
 }

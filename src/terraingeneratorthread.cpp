@@ -65,10 +65,10 @@ void TerrainGeneratorThread::run()
                 continue; // 如果队列为空（被唤醒但没有任务），继续循环
             }
         } // 锁在这里释放
-        
+
         // 生成区块 - 不需要锁，因为我们不访问共享数据
         m_terrainGenerator->generateChunkThreadSafe(nextChunk);
-        
+
         // 发送信号通知区块生成完成
         emit chunkGenerated(nextChunk);
     }

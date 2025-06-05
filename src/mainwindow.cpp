@@ -1,6 +1,8 @@
 #include "mainwindow.h"
 #include <QKeyEvent>
 #include <QOpenGLWidget>
+#include <QCloseEvent>
+#include <QApplication>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -55,8 +57,18 @@ void MainWindow::setupWindow()
     // 初始化游戏场景及其定时器
     m_scene->initialize();
 
-    // 将键盘焦点切换到视图，以接收用户输入
-    m_view->setFocus();
+    // 将键盘焦点切换到视图，以接收用户输入    m_view->setFocus();
+}
+
+void MainWindow::closeEvent(QCloseEvent* event)
+{
+    // 直接接受关闭事件，正常退出应用程序
+    event->accept();
+    
+    // 如果需要，可以在这里添加清理代码
+    // 例如保存游戏状态等
+    
+    QApplication::quit();
 }
 
 MainWindow::~MainWindow()

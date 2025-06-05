@@ -451,9 +451,20 @@ void GameScene::showGameOverDialog()
             initialize();
 
             // 重新连接UI信号
-        connect(m_uiManager, &UIManager::pauseToggled, this, &GameScene::togglePause);            }, [this]()
+        connect(m_uiManager, &UIManager::pauseToggled, this, &GameScene::togglePause);        }, [this]()
                                     {
-            // 退出逻辑 - 返回主界面
+            // 退出逻辑 - 通过自动登录重启游戏返回主界面
+            // 获取当前用户名
+            QString currentUsername = m_uiManager->getCurrentUsername();
+            
+            // 设置自动登录凭据到user_data.ini
+            QString userDataPath = QCoreApplication::applicationDirPath() + "/user_data.ini";
+            QSettings userSettings(userDataPath, QSettings::IniFormat);
+            userSettings.setValue("General/Username", currentUsername);
+            userSettings.setValue("General/RememberPassword", true);
+            userSettings.setValue("General/AutoLogin", true);
+            userSettings.sync();
+            
             // 先停止游戏相关的定时器和线程
             GTimer.stop();
             if (m_avalancheThread) {
@@ -463,8 +474,14 @@ void GameScene::showGameOverDialog()
                 m_avalancheThread = nullptr;
             }
             
-            // 发射返回主菜单信号
-            emit returnToMainMenu();});
+            // 获取当前应用程序路径
+            QString programPath = QCoreApplication::applicationFilePath();
+            
+            // 使用QProcess重启应用程序
+            QProcess::startDetached(programPath);
+            
+            // 退出当前应用程序
+            QCoreApplication::quit();});
 }
 
 // 重置游戏状态

@@ -38,10 +38,11 @@ public:
     QGraphicsTextItem* getPauseText() const { return m_pauseText; }
     
     // 判断物体是否为UI管理器管理的对象
-    bool isUIManagerObject(QGraphicsItem* item) const;
-
-    // 重置UI状态，用于游戏重新开始
+    bool isUIManagerObject(QGraphicsItem* item) const;    // 重置UI状态，用于游戏重新开始
     void resetUI();
+
+    // 获取当前登录用户名
+    QString getCurrentUsername() const;
 
 public slots:
     // 显示得分弹出提示（槽函数）
@@ -87,8 +88,6 @@ private:
     void createScoreMultiplierElements(); // 新增：创建得分倍率条
     void setupButtonStyle(QPushButton* button, const QString& iconPath, bool transparent = true);    // 获取主视图
     QGraphicsView* getView() const;
-      // 获取当前登录用户名
-    QString getCurrentUsername() const;
     
     // 排行榜相关方法
     struct ScoreRecord {

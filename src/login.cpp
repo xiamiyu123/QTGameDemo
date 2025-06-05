@@ -251,6 +251,9 @@ void LoginWindow::loadSavedCredentials()
 
 void LoginWindow::saveCredentials()
 {
+    // 总是保存当前登录的用户名到General部分，供游戏使用
+    m_settings->setValue("General/Username", m_currentUsername);
+    
     if (m_rememberPasswordCheckBox->isChecked()) {
         m_settings->setValue("RememberPassword", true);
         m_settings->setValue("Username", m_usernameEdit->text());

@@ -12,6 +12,9 @@
 
 #include <QDialog>
 #include "rockentity.h"
+#include <QProcess>
+#include <QDateTime>
+#include <QSettings>
 
 GameScene::GameScene(QObject *parent)
     : QGraphicsScene(parent),
@@ -448,10 +451,10 @@ void GameScene::showGameOverDialog()
             initialize();
 
             // 重新连接UI信号
-        connect(m_uiManager, &UIManager::pauseToggled, this, &GameScene::togglePause);
-            }, [this]()
+        connect(m_uiManager, &UIManager::pauseToggled, this, &GameScene::togglePause);            }, [this]()
                                     {
-            // 退出逻辑
+            // 退出逻辑 - 返回主界面
+            // 先停止游戏相关的定时器和线程
             GTimer.stop();
             if (m_avalancheThread) {
                 m_avalancheThread->stop();
@@ -459,7 +462,9 @@ void GameScene::showGameOverDialog()
                 delete m_avalancheThread;
                 m_avalancheThread = nullptr;
             }
-            qApp->quit(); });
+            
+            // 发射返回主菜单信号
+            emit returnToMainMenu();});
 }
 
 // 重置游戏状态

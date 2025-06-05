@@ -43,9 +43,11 @@ void MainWindow::setupWindow()
     m_view->setBackgroundBrush(QBrush(QColor(135, 206, 235))); // 天空蓝背景
     m_view->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff); // 禁用水平滚动条
     m_view->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);   // 禁用垂直滚动条
-    
-    m_scene = new GameScene(this);
+      m_scene = new GameScene(this);
     m_view->setScene(m_scene);
+
+    // 连接GameScene的返回主菜单信号
+    connect(m_scene, &GameScene::returnToMainMenu, this, &MainWindow::requestReturnToMainMenu);
 
     // 将图形视图设置为主窗口的中心部件
     setCentralWidget(m_view);

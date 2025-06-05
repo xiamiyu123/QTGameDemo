@@ -217,6 +217,7 @@ void Player::keyPressEvent(QKeyEvent *event) {
 
     switch (event->key()) {        case Qt::Key_Left:
             keyLeft = true;
+            //keyLeft = false; //真的不能刹停吗
             DEBUG_LOG("Left key pressed");
             break;        case Qt::Key_Right:
             keyRight = true;
@@ -253,7 +254,11 @@ void Player::keyReleaseEvent(QKeyEvent *event) {
             keyLeft = false;
             DEBUG_LOG("Left key released");
             break;        case Qt::Key_Right:
-            keyRight = false;
+            #ifdef NDEBUG
+                        keyRight = true; // Release mode
+            #else
+                        keyRight = false; // Debug mode
+            #endif
             DEBUG_LOG("Right key released");
             break;
         case Qt::Key_Space:

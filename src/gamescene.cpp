@@ -73,8 +73,8 @@ GameScene::GameScene(QObject *parent)
     avalanche = new Avalanche(GTerrainGenerator);
     addItem(avalanche);
     avalanche->setSpeed(0.3 * Gplayer->moveSpeed());      // 设置初速度
-    avalanche->setAcceleration(0.01 * Gplayer->moveSpeed()); // 设置加速度
-    avalanche->setMaxSpeed(1.3 * Gplayer->moveSpeed());   // 设置最大速度
+    avalanche->setAcceleration(0.03 * Gplayer->moveSpeed()); // 设置加速度
+    avalanche->setMaxSpeed(1.4 * Gplayer->moveSpeed());   // 设置最大速度
 
     // 创建并启动雪崩更新线程
     m_avalancheThread = new AvalancheUpdateThread(avalanche, this);

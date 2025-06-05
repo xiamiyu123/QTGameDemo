@@ -676,11 +676,9 @@ void UIManager::showGameOverDialog(int score, const std::function<void()>& onRet
     QGraphicsProxyWidget* leaderboardProxy = m_scene->addWidget(leaderboardBtn);
     leaderboardProxy->setZValue(2002);
     leaderboardProxy->setPos(sceneRect.right() - btnDiameter - margin,
-                            sceneRect.bottom() - btnDiameter * 2 - margin - 20);
-
-    // 退出按钮（下）
+                            sceneRect.bottom() - btnDiameter * 2 - margin - 20);    // 退出按钮（下）
     QPushButton* exitBtn = new QPushButton;
-    exitBtn->setText("⌂");
+    exitBtn->setText("🏠");
     exitBtn->setToolTip("返回主界面");
     exitBtn->setFixedSize(btnDiameter, btnDiameter);
     exitBtn->setStyleSheet(

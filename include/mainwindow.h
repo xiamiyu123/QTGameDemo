@@ -12,6 +12,10 @@ public:
     MainWindow(const QString& username, QWidget *parent = nullptr);
     ~MainWindow();
 
+signals:
+    // 请求返回主菜单的信号
+    void requestReturnToMainMenu();
+
 private:
     QGraphicsView *m_view;
     GameScene *m_scene;

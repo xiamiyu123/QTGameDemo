@@ -357,6 +357,18 @@ void MainMenu::onStartGameClicked()
             m_gameWindow = nullptr;
             show();
         });
+        
+        // 当游戏请求返回主菜单时，关闭游戏窗口并显示主菜单
+        connect(m_gameWindow, &MainWindow::requestReturnToMainMenu, this, [this]() {
+            if (m_gameWindow) {
+                m_gameWindow->close();
+                m_gameWindow->deleteLater();
+                m_gameWindow = nullptr;
+            }
+            show();
+            raise();
+            activateWindow();
+        });
     }
     
     m_gameWindow->show();
@@ -726,10 +738,10 @@ void InstructionsDialog::setupUI()
     QString instructions = R"(
     <h2 style="color: #2C3E50;">🎮 游戏操作</h2>
     <ul>
-        <li><b>A键 / 左箭头</b>：向左移动</li>
-        <li><b>D键 / 右箭头</b>：向右移动</li>
-        <li><b>空格键</b>：跳跃 / 空翻</li>
-        <li><b>S键</b>：拾取/丢弃NPC</li>
+        <li><b>左箭头</b>：向左移动</li>
+        <li><b>右箭头</b>：向右移动</li>
+        <li><b>空格键/上箭头</b>：跳跃 / 空翻</li>
+        <li><b>X键</b>：丢弃NPC</li>
     </ul>
     
     <h2 style="color: #2C3E50;">🎯 游戏目标</h2>
@@ -738,10 +750,10 @@ void InstructionsDialog::setupUI()
     <h2 style="color: #2C3E50;">🏔️ 游戏机制</h2>
     <ul>
         <li><b>雪崩追击</b>：雪崩会持续追击玩家，不要被追上！</li>
-        <li><b>NPC伙伴</b>：拾取企鹅和雪怪可以获得能力加成</li>
+        <li><b>NPC伙伴</b>：拾取企鹅和雪怪可以获得移动能力加成！</li>
         <li><b>空翻得分</b>：完成360度空翻可以获得额外分数</li>
         <li><b>地形挑战</b>：利用地形起伏进行跳跃和空翻</li>
-        <li><b>石头障碍</b>：小心避开石头，撞击会摔倒</li>
+        <li><b>石头障碍</b>：小心避开石头，撞击会摔倒或拾失去NPC！</li>
     </ul>
     
     <h2 style="color: #2C3E50;">🐧 NPC系统</h2>
@@ -755,16 +767,15 @@ void InstructionsDialog::setupUI()
     <h2 style="color: #2C3E50;">⚡ 特殊技巧</h2>
     <ul>
         <li><b>空翻加速</b>：完成空翻后获得短时间速度提升</li>
-        <li><b>伤害抵抗</b>：在加速状态下可以抵抗石头伤害</li>
-        <li><b>企鹅护盾</b>：携带的企鹅可以抵抗一次摔倒</li>
+        <li><b>伤害抵抗</b>：在加速状态下可以抵抗石头伤害(空翻失败仍会摔倒！)</li>
+        <li><b>企鹅护盾</b>：二阶段携带的企鹅可以抵抗一次摔倒</li>
         <li><b>得分倍率</b>：连续高难度动作可以提升得分倍率</li>
     </ul>
     
     <h2 style="color: #E74C3C;">⚠️ 注意事项</h2>
     <ul>
         <li>摔倒会重置所有得分倍率</li>
-        <li>雪怪形态切换需要触发特定条件</li>
-        <li>NPC拾取有冷却时间</li>
+        <li>失去NPC后NPC拾取有冷却时间</li>
         <li>合理利用地形是获得高分的关键</li>
     </ul>
     

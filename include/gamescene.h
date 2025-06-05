@@ -38,6 +38,9 @@ public:
 signals:
     // 新增获得分数的信号
     void getscore(int points);
+    
+    // 新增返回主菜单的信号
+    void returnToMainMenu();
 
 protected:
     void keyPressEvent(QKeyEvent *event) override;

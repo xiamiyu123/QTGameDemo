@@ -10,6 +10,7 @@
 #include "npcentity.h"
 #include "treeentity.h"
 #include "cloudentity.h"
+#include <algorithm>
 
 const qreal MIN_ROCK_DISTANCE = 100;  // 最小石头间距
 const qreal MAX_SLOPE_FOR_ROCK = 0.4; // 允许生成石头的最大斜率（绝对值）
@@ -77,22 +78,27 @@ qreal TerrainGenerator::getTerrainHeight(qreal x) const
 
     const QVector<QPointF> &points = m_chunkPoints[chunkIndex];
 
-    // 找到x坐标最接近的两个点
-    int i = 0;
-    while (i < points.size() && points[i].x() < localX)
-    {
-        i++;
-    }
+    // 使用二分查找找到x坐标最接近的两个点，避免线性扫描
+    const auto lower = std::lower_bound(
+        points.cbegin(),
+        points.cend(),
+        localX,
+        [](const QPointF &point, qreal value)
+        {
+            return point.x() < value;
+        });
 
-    if (i == 0)
+    if (lower == points.cbegin())
     {
         return points[0].y();
     }
 
-    if (i >= points.size())
+    if (lower == points.cend())
     {
         return points.last().y();
     }
+
+    const int i = static_cast<int>(lower - points.cbegin());
 
     // 线性插值
     qreal x1 = points[i - 1].x();
@@ -121,6 +127,7 @@ void TerrainGenerator::generateChunk(int chunkIndex)
 
     // 创建地形点
     QVector<QPointF> points;
+    points.reserve(POINTS);
 
     // 确保与前一个块平滑连接
     qreal startHeight = BASE_HEIGHT;
@@ -378,6 +385,7 @@ void TerrainGenerator::generateChunkThreadSafe(int chunkIndex)
 
     // 创建地形点
     QVector<QPointF> points;
+    points.reserve(POINTS);
 
     // 确保与前一个块平滑连接
     qreal startHeight = BASE_HEIGHT;
@@ -992,12 +1000,17 @@ qreal TerrainGenerator::getTerrainSlope(qreal x) const
 
     const QVector<QPointF> &points = m_chunkPoints[chunkIndex];
 
-    // 找到x坐标最接近的两个点
-    int i = 0;
-    while (i < points.size() && points[i].x() < localX)
-    {
-        i++;
-    }
+    // 使用二分查找定位区间，避免每次都线性扫描全部点
+    const auto lower = std::lower_bound(
+        points.cbegin(),
+        points.cend(),
+        localX,
+        [](const QPointF &point, qreal value)
+        {
+            return point.x() < value;
+        });
+
+    const int i = static_cast<int>(lower - points.cbegin());
     if (i <= 0 || i >= points.size())
     {
         return 0;

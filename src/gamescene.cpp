@@ -15,6 +15,7 @@
 #include <QProcess>
 #include <QDateTime>
 #include <QSettings>
+#include <QSet>
 
 GameScene::GameScene(QObject *parent)
     : QGraphicsScene(parent),
@@ -89,7 +90,6 @@ GameScene::GameScene(QObject *parent)
     m_lastScoredPositionX = 1200;
     m_scoreDistance = 100;  // 每100像素得分一次
 
-    m_avalancheThread->start();    // 运行测试构造代码
     test();
 
     // 初始化NPC系统
@@ -209,7 +209,10 @@ void GameScene::update()
     }
 
     // 在处理碰撞前清除本帧待删除对象列表
-    m_objectsToDeleteThisFrame.clear(); // 处理所有物理对象的碰撞
+    m_objectsToDeleteThisFrame.clear();
+    QSet<IPhysicsObject *> pendingDeletionSet;
+
+    // 处理所有物理对象的碰撞
     for (IPhysicsObject *obj : physicsObjects)
     {
         if (!obj)
@@ -219,22 +222,22 @@ void GameScene::update()
 
         // 检查对象是否已在本帧中被标记为删除
         // 如果是，则跳过对此对象的处理
-        bool alreadyMarkedForDeletion = false;
-        for (IPhysicsObject *deletedObj : m_objectsToDeleteThisFrame)
-        {
-            if (obj == deletedObj)
-            {
-                alreadyMarkedForDeletion = true;
-                break;
-            }
-        }
-        if (alreadyMarkedForDeletion)
+        if (pendingDeletionSet.contains(obj))
         {
             continue;
         }
 
         // 使用碰撞处理器处理物理对象碰撞
         m_collisionHandler->handlePhysicsObjectCollision(obj, m_objectsToDeleteThisFrame);
+
+        // 将本次新增的删除对象同步到集合，避免后续重复线性扫描
+        for (IPhysicsObject *deletedObj : m_objectsToDeleteThisFrame)
+        {
+            if (deletedObj)
+            {
+                pendingDeletionSet.insert(deletedObj);
+            }
+        }
     }
 
     // 更新地形生成（基于玩家位置）
